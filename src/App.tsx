@@ -23,9 +23,20 @@ function App() {
   const [isLoading, setIsLoading] = useState(true)
   const [tokenError, setTokenError] = useState<string>('')
 
+  // Load PRs from storage
+  const loadPullRequests = async () => {
+    const data = await browser.storage.local.get(['pullRequests'])
+    console.log('Loaded pull requests from storage:', data.pullRequests)
+    if (data.pullRequests) {
+      setPullRequests(data.pullRequests)
+      setFilteredPRs(data.pullRequests)
+    }
+  }
+
   useEffect(() => {
     // Load token and PRs from storage
     browser.storage.local.get(['githubToken', 'pullRequests']).then((data) => {
+      console.log('Initial storage load, token exists:', !!data.githubToken)
       if (data.githubToken) {
         setToken(data.githubToken)
       }
@@ -35,6 +46,25 @@ function App() {
       }
       setIsLoading(false)
     })
+
+    // Set up storage change listener to update PRs when they change
+    const storageListener = (changes: any) => {
+      console.log('Storage changed:', changes)
+      if (changes.pullRequests) {
+        setPullRequests(changes.pullRequests.newValue || [])
+        setFilteredPRs(changes.pullRequests.newValue || [])
+      }
+      if (changes.githubToken) {
+        console.log('Token changed:', !!changes.githubToken.newValue)
+        setToken(changes.githubToken.newValue)
+      }
+    }
+
+    browser.storage.onChanged.addListener(storageListener)
+
+    return () => {
+      browser.storage.onChanged.removeListener(storageListener)
+    }
   }, [])
 
   const validateToken = async (token: string) => {
@@ -74,10 +104,31 @@ function App() {
     
     const isValid = await validateToken(token);
     if (isValid) {
-      await browser.storage.local.set({ githubToken: token })
-      browser.runtime.sendMessage({ type: 'CHECK_PRS' })
+      console.log('Token valid, saving to storage:', token.substring(0, 5) + '...')
+      try {
+        await browser.storage.local.set({ githubToken: token })
+        console.log('Token saved to storage')
+        
+        // Verify token was saved
+        const check = await browser.storage.local.get('githubToken')
+        console.log('Token verification:', !!check.githubToken)
+        
+        await browser.runtime.sendMessage({ type: 'CHECK_PRS' })
+        console.log('Sent CHECK_PRS message')
+        
+        // Wait a moment then manually load PRs to ensure we get the latest data
+        setTimeout(async () => {
+          await loadPullRequests()
+          setIsLoading(false)
+        }, 2000) // 2 second delay to allow background process to fetch PRs
+      } catch (error) {
+        console.error('Error saving token:', error)
+        setTokenError('Error saving token')
+        setIsLoading(false)
+      }
+    } else {
+      setIsLoading(false)
     }
-    setIsLoading(false)
   }
 
   const handleFilterChange = (filters: FilterState) => {
@@ -141,6 +192,23 @@ function App() {
   return (
     <div className="container">
       <h2>Pull Requests</h2>
+      <div className="actions">
+        <button onClick={async () => {
+          setIsLoading(true)
+          // Check if token exists before refreshing
+          const data = await browser.storage.local.get('githubToken')
+          console.log('Refresh clicked, token exists:', !!data.githubToken)
+          if (!data.githubToken && token) {
+            console.log('Token missing from storage but exists in state, re-saving')
+            await browser.storage.local.set({ githubToken: token })
+          }
+          await browser.runtime.sendMessage({ type: 'CHECK_PRS' })
+          setTimeout(async () => {
+            await loadPullRequests()
+            setIsLoading(false)
+          }, 2000)
+        }}>Refresh</button>
+      </div>
       <FilterBar onFilterChange={handleFilterChange} onSortChange={handleSortChange} />
       {filteredPRs.length === 0 ? (
         <p>No pull requests assigned to you.</p>
