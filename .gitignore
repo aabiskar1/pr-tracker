@@ -11,7 +11,7 @@ node_modules
 dist
 dist-ssr
 *.local
-dist-chorme
+dist-chrome
 dist-firefox
 
 # Editor directories and files
