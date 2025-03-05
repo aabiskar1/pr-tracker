@@ -213,12 +213,16 @@ async function checkPullRequests() {
 
     if (newPrs.length > 0) {
       console.log(`Sending notification for ${newPrs.length} new PRs`);
-      browser.notifications.create({
-        type: 'basic',
-        iconUrl: 'icon.svg',
-        title: 'New Pull Requests',
-        message: `You have ${newPrs.length} new pull request${newPrs.length > 1 ? 's' : ''}!`
-      });
+      try {
+        await browser.notifications.create({
+          type: 'basic',
+          iconUrl: 'icon.svg',
+          title: 'New Pull Requests',
+          message: `You have ${newPrs.length} new pull request${newPrs.length > 1 ? 's' : ''}!`
+        });
+      } catch (error) {
+        console.error('Error creating notification:', error);
+      }
     }
 
     await browser.storage.local.set({ oldPullRequests: uniquePRs });
