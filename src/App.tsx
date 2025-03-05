@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { browser } from 'webextension-polyfill-ts'
 import { FilterBar, FilterState, SortOption } from './components/FilterBar'
 import './App.css'
+import { FaExclamationCircle, FaMoon, FaSun } from 'react-icons/fa'
 
 interface PullRequest {
   id: number
@@ -13,7 +14,7 @@ interface PullRequest {
   state: string
   draft: boolean
   created_at: string
-  requested_reviewers: { login: string }[]
+  requested_reviewers: { login: string, avatar_url: string }[]
 }
 
 function App() {
@@ -22,6 +23,7 @@ function App() {
   const [filteredPRs, setFilteredPRs] = useState<PullRequest[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [tokenError, setTokenError] = useState<string>('')
+  const [darkMode, setDarkMode] = useState<boolean>(false)
 
   // Load PRs from storage
   const loadPullRequests = async () => {
@@ -156,6 +158,20 @@ function App() {
     setFilteredPRs(sorted)
   }
 
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const searchTerm = e.target.value.toLowerCase()
+    const filtered = pullRequests.filter(pr =>
+      pr.title.toLowerCase().includes(searchTerm) ||
+      pr.repository.name.toLowerCase().includes(searchTerm)
+    )
+    setFilteredPRs(filtered)
+  }
+
+  const toggleDarkMode = () => {
+    setDarkMode(!darkMode)
+    document.documentElement.setAttribute('data-theme', darkMode ? 'light' : 'dark')
+  }
+
   if (isLoading) {
     return <div className="container">Loading...</div>
   }
@@ -172,15 +188,17 @@ function App() {
             onChange={(e) => setToken(e.target.value)}
             placeholder="ghp_..."
             className="token-input"
+            aria-label="GitHub personal access token"
           />
-          <button type="submit">Save Token</button>
+          <button type="submit" aria-label="Save Token">Save Token</button>
         </form>
-        {tokenError && <p className="error-text">{tokenError}</p>}
+        {tokenError && <p className="error-text" role="alert">{tokenError}</p>}
         <p className="help-text">
           <a
             href="https://github.com/settings/tokens/new?scopes=repo&description=PR%20Tracker"
             target="_blank"
             rel="noopener noreferrer"
+            aria-label="Generate a new token with repo access"
           >
             Generate a new token with repo access
           </a>
@@ -190,7 +208,7 @@ function App() {
   }
 
   return (
-    <div className="container">
+    <div className={`container ${darkMode ? 'dark' : 'light'}`}>
       <h2>Pull Requests</h2>
       <div className="actions">
         <button onClick={async () => {
@@ -207,24 +225,44 @@ function App() {
             await loadPullRequests()
             setIsLoading(false)
           }, 2000)
-        }}>Refresh</button>
+        }} aria-label="Refresh Pull Requests">Refresh</button>
+        <button onClick={toggleDarkMode} title="Toggle Dark Mode" aria-label="Toggle Dark Mode">
+          {darkMode ? <FaSun /> : <FaMoon />}
+        </button>
       </div>
       <FilterBar onFilterChange={handleFilterChange} onSortChange={handleSortChange} />
+      <input
+        type="text"
+        placeholder="Search PRs"
+        className="search-input"
+        onChange={handleSearch}
+        aria-label="Search Pull Requests"
+      />
       {filteredPRs.length === 0 ? (
         <p>No pull requests assigned to you.</p>
       ) : (
         <ul className="pr-list">
           {filteredPRs.map((pr) => (
-            <li key={pr.id} className="pr-item">
+            <li key={pr.id} className={`pr-item ${pr.state === 'urgent' ? 'urgent' : ''}`}>
               <a href={pr.html_url} target="_blank" rel="noopener noreferrer">
                 <span className="repo-name">{pr.repository.name}</span>
                 <span className="pr-title">{pr.title}</span>
                 {pr.draft && <span className="pr-draft">Draft</span>}
                 {pr.requested_reviewers.length > 0 && (
                   <span className="pr-reviewers">
+                    {pr.requested_reviewers.map(reviewer => (
+                      <img
+                        key={reviewer.login}
+                        src={reviewer.avatar_url}
+                        alt={reviewer.login}
+                        className="reviewer-avatar"
+                        aria-label={`Reviewer: ${reviewer.login}`}
+                      />
+                    ))}
                     {pr.requested_reviewers.length} reviewer{pr.requested_reviewers.length !== 1 ? 's' : ''} requested
                   </span>
                 )}
+                {pr.state === 'urgent' && <FaExclamationCircle className="urgent-icon" aria-label="Urgent Pull Request" />}
               </a>
             </li>
           ))}
