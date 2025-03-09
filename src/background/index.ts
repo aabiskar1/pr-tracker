@@ -1,7 +1,7 @@
 // Background script for PR Tracker
-import { browser } from 'webextension-polyfill-ts';
+import browser from 'webextension-polyfill';
 
-interface PullRequest {
+type PullRequest = {
   id: number;
   title: string;
   html_url: string;
@@ -12,7 +12,7 @@ interface PullRequest {
   draft: boolean;
   created_at: string;
   requested_reviewers: { login: string }[];
-}
+};
 
 const ALARM_NAME = 'check-prs';
 const CHECK_INTERVAL = 5;
@@ -48,14 +48,32 @@ browser.alarms.onAlarm.addListener(async (alarm) => {
   }
 });
 
-// Handle messages from popup
-browser.runtime.onMessage.addListener(async (message) => {
+// Handle messages from popup with proper typing for WebExtension API
+browser.runtime.onMessage.addListener(function(
+  message: unknown,
+  _sender: browser.Runtime.MessageSender,
+  sendResponse: (response?: boolean) => void
+): true {
   console.log('Received message in background:', message);
-  if (message.type === 'CHECK_PRS') {
+  
+  // Type guard to check if message is the expected format
+  if (message && typeof message === 'object' && 'type' in message && 
+      (message as {type: string}).type === 'CHECK_PRS') {
     console.log('Checking PRs from message');
-    await checkPullRequests();
-    return true; // Important: return true for async listeners
+    // Use a Promise chain to handle the async operation
+    checkPullRequests().then(() => {
+      sendResponse(true);
+    }).catch(error => {
+      console.error('Error checking PRs:', error);
+      sendResponse(false);
+    });
+  } else {
+    // Always send a response even if we don't recognize the message
+    sendResponse(false);
   }
+  
+  // Always return true to indicate we'll handle the response asynchronously
+  return true;
 });
 
 async function setBadgeText(text: string) {
@@ -77,7 +95,7 @@ async function checkPullRequests() {
     }
 
     console.log('Token found, fetching PRs');
-    cachedToken = data.githubToken;
+    cachedToken = data.githubToken as string;
 
     // Get user info
     const userResponse = await fetch('https://api.github.com/user', {
@@ -86,7 +104,6 @@ async function checkPullRequests() {
         'Accept': 'application/vnd.github.v3+json'
       }
     });
-
     if (!userResponse.ok) {
       console.error(`User info fetch failed with status: ${userResponse.status}`);
       throw new Error(`Failed to get user info: ${userResponse.status}`);
@@ -133,14 +150,14 @@ async function checkPullRequests() {
     console.log(`Found ${authoredData.items.length} authored PRs and ${reviewData.items.length} review requested PRs`);
 
     // Get full PR details
-    const getPRDetails = async (item: any) => {
+    const getPRDetails = async (item: Record<string, unknown>) => {
       try {
-        if (!item.pull_request || !item.pull_request.url) {
+        if (!item.pull_request || typeof item.pull_request !== 'object' || !('url' in item.pull_request)) {
           console.error('Item missing pull_request URL:', item);
           return null;
         }
         
-        const prUrl = item.pull_request.url;
+        const prUrl = item.pull_request.url as string;
         console.log(`Fetching details for PR: ${prUrl}`);
         
         const response = await fetch(prUrl, {

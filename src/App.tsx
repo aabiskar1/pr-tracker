@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
-import { browser } from 'webextension-polyfill-ts'
+import browser from 'webextension-polyfill'
 import { FilterBar, FilterState, SortOption } from './components/FilterBar'
 import './App.css'
 import { FaExclamationCircle, FaMoon, FaSun } from 'react-icons/fa'
 
-interface PullRequest {
+type PullRequest = {
   id: number
   title: string
   html_url: string
@@ -30,8 +30,8 @@ function App() {
     const data = await browser.storage.local.get(['pullRequests'])
     console.log('Loaded pull requests from storage:', data.pullRequests)
     if (data.pullRequests) {
-      setPullRequests(data.pullRequests)
-      setFilteredPRs(data.pullRequests)
+      setPullRequests(data.pullRequests as PullRequest[])
+      setFilteredPRs(data.pullRequests as PullRequest[])
     }
   }
 
@@ -40,25 +40,25 @@ function App() {
     browser.storage.local.get(['githubToken', 'pullRequests']).then((data) => {
       console.log('Initial storage load, token exists:', !!data.githubToken)
       if (data.githubToken) {
-        setToken(data.githubToken)
+        setToken(data.githubToken as string)
       }
       if (data.pullRequests) {
-        setPullRequests(data.pullRequests)
-        setFilteredPRs(data.pullRequests)
+        setPullRequests(data.pullRequests as PullRequest[])
+        setFilteredPRs(data.pullRequests as PullRequest[])
       }
       setIsLoading(false)
     })
 
     // Set up storage change listener to update PRs when they change
-    const storageListener = (changes: any) => {
+    const storageListener = (changes: Record<string, browser.Storage.StorageChange>) => {
       console.log('Storage changed:', changes)
       if (changes.pullRequests) {
-        setPullRequests(changes.pullRequests.newValue || [])
-        setFilteredPRs(changes.pullRequests.newValue || [])
+        setPullRequests(changes.pullRequests.newValue as PullRequest[] || [])
+        setFilteredPRs(changes.pullRequests.newValue as PullRequest[] || [])
       }
       if (changes.githubToken) {
         console.log('Token changed:', !!changes.githubToken.newValue)
-        setToken(changes.githubToken.newValue)
+        setToken(changes.githubToken.newValue as string || '')
       }
     }
 
