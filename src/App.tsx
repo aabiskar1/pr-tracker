@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import browser from 'webextension-polyfill'
 import { FilterBar, FilterState, SortOption } from './components/FilterBar'
+import { PullRequestList } from './components/PullRequestList'
 import './App.css'
-import { FaExclamationCircle, FaMoon, FaSun, FaGithub } from 'react-icons/fa'
+import { FaMoon, FaSun, FaGithub } from 'react-icons/fa'
 
 type PullRequest = {
   id: number
@@ -15,6 +16,8 @@ type PullRequest = {
   draft: boolean
   created_at: string
   requested_reviewers: { login: string, avatar_url: string }[]
+  review_status?: 'approved' | 'changes-requested' | 'pending'
+  ci_status?: 'passing' | 'failing' | 'pending'
 }
 
 function App() {
@@ -30,9 +33,30 @@ function App() {
     const data = await browser.storage.local.get(['pullRequests'])
     console.log('Loaded pull requests from storage:', data.pullRequests)
     if (data.pullRequests) {
-      setPullRequests(data.pullRequests as PullRequest[])
-      setFilteredPRs(data.pullRequests as PullRequest[])
+      // Enhance PR data with mock review and CI status (replace with real data later)
+      const enhancedPRs = (data.pullRequests as PullRequest[]).map(pr => ({
+        ...pr,
+        review_status: getReviewStatus(pr),
+        ci_status: getCIStatus(pr)
+      }))
+      setPullRequests(enhancedPRs)
+      setFilteredPRs(enhancedPRs)
     }
+  }
+
+  // Helper function to determine review status (mock data for now)
+  const getReviewStatus = (pr: PullRequest) => {
+    if (pr.requested_reviewers.length === 0) return 'approved' as const
+    return 'pending' as const
+  }
+
+  // Helper function to determine CI status (mock data for now)
+  const getCIStatus = (pr: PullRequest) => {
+    // For demo purposes, use PR age to determine status
+    const days = (Date.now() - new Date(pr.created_at).getTime()) / (1000 * 60 * 60 * 24)
+    if (days < 1) return 'passing' as const
+    if (days < 3) return 'pending' as const
+    return 'failing' as const
   }
 
   useEffect(() => {
@@ -145,6 +169,16 @@ function App() {
     const filtered = pullRequests.filter(pr => {
       if (pr.draft && !filters.showDrafts) return false
       if (!pr.draft && !filters.showReady) return false
+      if (filters.ageFilter !== 'all') {
+        const days = (Date.now() - new Date(pr.created_at).getTime()) / (1000 * 60 * 60 * 24)
+        if (filters.ageFilter === 'today' && days > 1) return false
+        if (filters.ageFilter === 'week' && days > 7) return false
+        if (filters.ageFilter === 'older' && days <= 7) return false
+      }
+      if (filters.reviewStatus.length > 0 && pr.review_status && 
+          !filters.reviewStatus.includes(pr.review_status)) return false
+      if (filters.ciStatus.length > 0 && pr.ci_status && 
+          !filters.ciStatus.includes(pr.ci_status)) return false
       return true
     })
     setFilteredPRs(filtered)
@@ -159,6 +193,11 @@ function App() {
           return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
         case 'urgent':
           return b.requested_reviewers.length - a.requested_reviewers.length
+        case 'most-stale':
+          const aReviewed = a.review_status === 'approved'
+          const bReviewed = b.review_status === 'approved'
+          if (aReviewed !== bReviewed) return aReviewed ? 1 : -1
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
         default:
           return 0
       }
@@ -300,65 +339,7 @@ function App() {
           <p className="text-gray-500 dark:text-gray-400">No pull requests found</p>
         </div>
       ) : (
-        <ul className="space-y-3">
-          {filteredPRs.map((pr) => (
-            <li 
-              key={pr.id} 
-              className={`rounded-lg border dark:border-gray-700 hover:shadow-md transition-shadow ${pr.draft ? 'bg-gray-50 dark:bg-gray-900/30' : 'bg-white dark:bg-gray-700'}`}
-            >
-              <a 
-                href={pr.html_url}
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="block p-4"
-              >
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <span className="inline-block px-2 py-1 text-xs font-medium rounded bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 mb-2">
-                      {pr.repository.name}
-                    </span>
-                    
-                    <h3 className="font-medium text-gray-800 dark:text-white mb-1">
-                      {pr.title}
-                      {pr.draft && (
-                        <span className="ml-2 px-2 py-0.5 text-xs rounded bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300">
-                          Draft
-                        </span>
-                      )}
-                    </h3>
-                    
-                    <div className="text-sm text-gray-500 dark:text-gray-400">
-                      Created {new Date(pr.created_at).toLocaleDateString()}
-                    </div>
-                  </div>
-                  
-                  {pr.state === 'urgent' && (
-                    <FaExclamationCircle className="text-danger" aria-label="Urgent Pull Request" />
-                  )}
-                </div>
-                
-                {pr.requested_reviewers.length > 0 && (
-                  <div className="mt-3 flex items-center">
-                    <div className="flex -space-x-1 mr-2">
-                      {pr.requested_reviewers.map(reviewer => (
-                        <img
-                          key={reviewer.login}
-                          src={reviewer.avatar_url}
-                          alt={reviewer.login}
-                          className="w-6 h-6 rounded-full border border-white dark:border-gray-800"
-                          aria-label={`Reviewer: ${reviewer.login}`}
-                        />
-                      ))}
-                    </div>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                      {pr.requested_reviewers.length} reviewer{pr.requested_reviewers.length !== 1 ? 's' : ''} requested
-                    </span>
-                  </div>
-                )}
-              </a>
-            </li>
-          ))}
-        </ul>
+        <PullRequestList pullRequests={filteredPRs} />
       )}
     </div>
   )
