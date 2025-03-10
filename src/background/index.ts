@@ -1,6 +1,28 @@
 // Background script for PR Tracker
 import browser from 'webextension-polyfill';
 
+// Add interface for GitHub API responses
+interface GitHubIssueSearchItem {
+  pull_request?: {
+    url: string;
+  };
+}
+
+interface GitHubReview {
+  state: string;
+  user: {
+    id: number;
+  };
+}
+
+interface GitHubCheckRun {
+  conclusion: string;
+}
+
+interface GitHubChecksResponse {
+  check_runs: GitHubCheckRun[];
+}
+
 type PullRequest = {
   id: number;
   title: string;
@@ -11,7 +33,9 @@ type PullRequest = {
   state: string;
   draft: boolean;
   created_at: string;
-  requested_reviewers: { login: string }[];
+  requested_reviewers: { login: string; avatar_url: string }[];
+  review_status?: 'approved' | 'changes-requested' | 'pending';
+  ci_status?: 'passing' | 'failing' | 'pending';
 };
 
 const ALARM_NAME = 'check-prs';
@@ -150,31 +174,33 @@ async function checkPullRequests() {
     console.log(`Found ${authoredData.items.length} authored PRs and ${reviewData.items.length} review requested PRs`);
 
     // Get full PR details
-    const getPRDetails = async (item: Record<string, unknown>) => {
+    const getPRDetails = async (item: GitHubIssueSearchItem, token: string) => {
       try {
         if (!item.pull_request || typeof item.pull_request !== 'object' || !('url' in item.pull_request)) {
           console.error('Item missing pull_request URL:', item);
           return null;
         }
-        
+
         const prUrl = item.pull_request.url as string;
         console.log(`Fetching details for PR: ${prUrl}`);
         
-        const response = await fetch(prUrl, {
-          headers: {
-            'Authorization': `token ${cachedToken}`,
-            'Accept': 'application/vnd.github.v3+json'
-          }
-        });
+        const [prData, reviewStatus, ciStatus] = await Promise.all([
+          fetch(prUrl, {
+            headers: {
+              'Authorization': `token ${token}`,
+              'Accept': 'application/vnd.github.v3+json'
+            }
+          }).then(r => r.json()),
+          getReviewStatus(prUrl, token),
+          getCIStatus(prUrl, token)
+        ]);
 
-        if (!response.ok) {
-          console.error(`Failed to fetch PR details: ${response.status} for ${prUrl}`);
-          return null;
-        }
-
-        const prData = await response.json();
         console.log(`Successfully fetched details for PR: ${prData.title}`);
-        return prData;
+        return {
+          ...prData,
+          review_status: reviewStatus,
+          ci_status: ciStatus
+        };
       } catch (error) {
         console.error('Error fetching PR details:', error);
         return null;
@@ -182,8 +208,18 @@ async function checkPullRequests() {
     };
 
     console.log('Fetching detailed PR information...');
-    const authoredPRs = (await Promise.all(authoredData.items.map(getPRDetails))).filter(Boolean);
-    const reviewPRs = (await Promise.all(reviewData.items.map(getPRDetails))).filter(Boolean);
+    if (!cachedToken) {
+      throw new Error('Token not available');
+    }
+
+    // We know cachedToken is not null here due to the check above
+    const token = cachedToken;
+    const authoredPRs = (await Promise.all(authoredData.items.map((item: GitHubIssueSearchItem) => 
+      getPRDetails(item, token)
+    ))).filter(Boolean);
+    const reviewPRs = (await Promise.all(reviewData.items.map((item: GitHubIssueSearchItem) => 
+      getPRDetails(item, token)
+    ))).filter(Boolean);
     console.log(`Successfully fetched details for ${authoredPRs.length} authored PRs and ${reviewPRs.length} review PRs`);
 
     // Combine and deduplicate PRs
@@ -209,7 +245,9 @@ async function checkPullRequests() {
           state: pr.state || 'open',
           draft: pr.draft || false,
           created_at: pr.created_at || new Date().toISOString(),
-          requested_reviewers: pr.requested_reviewers || []
+          requested_reviewers: pr.requested_reviewers || [],
+          review_status: pr.review_status,
+          ci_status: pr.ci_status
         }];
       } catch (err) {
         console.error('Error processing PR:', err, pr);
@@ -250,5 +288,102 @@ async function checkPullRequests() {
       await browser.storage.local.remove('githubToken');
       cachedToken = null;
     }
+  }
+}
+
+async function getReviewStatus(prUrl: string, token: string): Promise<'approved' | 'changes-requested' | 'pending'> {
+  try {
+    const response = await fetch(`${prUrl}/reviews`, {
+      headers: {
+        'Authorization': `token ${token}`,
+        'Accept': 'application/vnd.github.v3+json'
+      }
+    });
+
+    if (!response.ok) {
+      console.error(`Failed to fetch review status: ${response.status}`);
+      return 'pending';
+    }
+
+    const reviews = await response.json();
+    
+    // Get the latest review from each reviewer
+    const latestReviews = new Map();
+    reviews.forEach((review: GitHubReview) => {
+      if (review.state && review.user) {
+        latestReviews.set(review.user.id, review.state);
+      }
+    });
+
+    const reviewStates = Array.from(latestReviews.values());
+    
+    if (reviewStates.includes('CHANGES_REQUESTED')) {
+      return 'changes-requested';
+    }
+    if (reviewStates.length > 0 && reviewStates.every(state => state === 'APPROVED')) {
+      return 'approved';
+    }
+    return 'pending';
+  } catch (error) {
+    console.error('Error fetching review status:', error);
+    return 'pending';
+  }
+}
+
+async function getCIStatus(prUrl: string, token: string): Promise<'passing' | 'failing' | 'pending'> {
+  try {
+    // The commits endpoint includes the combined status and check runs
+    const response = await fetch(`${prUrl}/commits`, {
+      headers: {
+        'Authorization': `token ${token}`,
+        'Accept': 'application/vnd.github.v3+json'
+      }
+    });
+
+    if (!response.ok) {
+      console.error(`Failed to fetch CI status: ${response.status}`);
+      return 'pending';
+    }
+
+    const commits = await response.json();
+    if (commits.length === 0) {
+      return 'pending';
+    }
+
+    const lastCommit = commits[commits.length - 1];
+    const statusUrl = lastCommit.url + '/status';
+    const checksUrl = lastCommit.url + '/check-runs';
+
+    const [statusResponse, checksResponse] = await Promise.all([
+      fetch(statusUrl, {
+        headers: {
+          'Authorization': `token ${token}`,
+          'Accept': 'application/vnd.github.v3+json'
+        }
+      }),
+      fetch(checksUrl, {
+        headers: {
+          'Authorization': `token ${token}`,
+          'Accept': 'application/vnd.github.v3+json'
+        }
+      })
+    ]);
+
+    const status = await statusResponse.json();
+    const checks = (await checksResponse.json()) as GitHubChecksResponse;
+
+    // Check if any status checks are failing
+    if (status.state === 'failure' || checks.check_runs.some((run: GitHubCheckRun) => run.conclusion === 'failure')) {
+      return 'failing';
+    }
+    // Check if all status checks are successful
+    if (status.state === 'success' && checks.check_runs.every((run: GitHubCheckRun) => run.conclusion === 'success')) {
+      return 'passing';
+    }
+    // Otherwise, some checks are still pending
+    return 'pending';
+  } catch (error) {
+    console.error('Error fetching CI status:', error);
+    return 'pending';
   }
 }

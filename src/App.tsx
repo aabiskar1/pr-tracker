@@ -33,30 +33,9 @@ function App() {
     const data = await browser.storage.local.get(['pullRequests'])
     console.log('Loaded pull requests from storage:', data.pullRequests)
     if (data.pullRequests) {
-      // Enhance PR data with mock review and CI status (replace with real data later)
-      const enhancedPRs = (data.pullRequests as PullRequest[]).map(pr => ({
-        ...pr,
-        review_status: getReviewStatus(pr),
-        ci_status: getCIStatus(pr)
-      }))
-      setPullRequests(enhancedPRs)
-      setFilteredPRs(enhancedPRs)
+      setPullRequests(data.pullRequests as PullRequest[])
+      setFilteredPRs(data.pullRequests as PullRequest[])
     }
-  }
-
-  // Helper function to determine review status (mock data for now)
-  const getReviewStatus = (pr: PullRequest) => {
-    if (pr.requested_reviewers.length === 0) return 'approved' as const
-    return 'pending' as const
-  }
-
-  // Helper function to determine CI status (mock data for now)
-  const getCIStatus = (pr: PullRequest) => {
-    // For demo purposes, use PR age to determine status
-    const days = (Date.now() - new Date(pr.created_at).getTime()) / (1000 * 60 * 60 * 24)
-    if (days < 1) return 'passing' as const
-    if (days < 3) return 'pending' as const
-    return 'failing' as const
   }
 
   useEffect(() => {
