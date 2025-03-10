@@ -1,54 +1,92 @@
-# React + TypeScript + Vite
+# PR Tracker - GitHub Pull Request Management Extension
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A browser extension to help you efficiently track and manage your GitHub pull requests. The extension provides status updates, filtering capabilities, and visual indicators for PR age, review status, and CI/build status.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **PR Status Tracking**:
+  - Visual indicators for PR age and staleness
+  - Review status (approved, changes requested, pending)
+  - CI/build status indicators
+  - Draft PR indicators
 
-## Expanding the ESLint configuration
+- **Advanced Filtering**:
+  - Filter by PR age (today, this week, older)
+  - Filter by review status
+  - Filter by CI status
+  - Filter draft vs. ready PRs
+  - Full text search across PR titles and repositories
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- **Smart Sorting Options**:
+  - Sort by newest/oldest
+  - Sort by urgency (based on reviewer count)
+  - Sort by staleness (prioritizing unreviewed PRs)
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+- **Visual Features**:
+  - Dark/Light mode support
+  - Reviewer avatars and counts
+  - Status badges with intuitive colors
+  - Timestamp indicators
+
+## Installation
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/pr-tracker.git
+   cd pr-tracker
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Build the extension:
+   - For Chrome:
+     ```bash
+     npm run build:chrome
+     ```
+   - For Firefox:
+     ```bash
+     npm run build:firefox
+     ```
+
+4. Load the extension:
+   - Chrome:
+     1. Open `chrome://extensions/`
+     2. Enable "Developer mode"
+     3. Click "Load unpacked"
+     4. Select the `dist-chrome` directory
+
+   - Firefox:
+     1. Open `about:debugging`
+     2. Click "This Firefox"
+     3. Click "Load Temporary Add-on"
+     4. Select any file from the `dist-firefox` directory
+
+## Usage
+
+1. After installation, click the extension icon in your browser toolbar
+2. Generate a GitHub personal access token with `repo` scope
+3. Enter your token in the extension's authentication screen
+4. Start tracking your PRs!
+
+## Development
+
+The extension is built with:
+- React + TypeScript
+- Vite for building
+- TailwindCSS for styling
+- GitHub API v3
+
+To start development:
+
+```bash
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
+For production builds:
+```bash
+npm run build:chrome   # For Chrome
+npm run build:firefox  # For Firefox
 ```
