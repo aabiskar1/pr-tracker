@@ -1,30 +1,18 @@
 @import "tailwindcss";
 :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  color-scheme: light dark;
+  color-scheme: dark;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
-
-[data-theme="dark"] {
+  
   --text-color: rgba(255, 255, 255, 0.87);
   --bg-color: #242424;
   --card-bg: #1a1a1a;
   --hover-color: #535bf2;
   --link-color: #646cff;
 }
-
-[data-theme="light"] {
-  --text-color: #213547;
-  --bg-color: #ffffff;
-  --card-bg: #f6f8fa;
-  --hover-color: #747bff;
-  --link-color: #0D47A1;
-}
-
-
 
 /* Responsive Design */
 @media (max-width: 768px) {

@@ -3,7 +3,7 @@ import browser from 'webextension-polyfill'
 import { FilterBar, FilterState, SortOption } from './components/FilterBar'
 import { PullRequestList } from './components/PullRequestList'
 import './App.css'
-import { FaMoon, FaSun, FaGithub } from 'react-icons/fa'
+import { FaGithub } from 'react-icons/fa'
 
 type PullRequest = {
   id: number
@@ -26,7 +26,6 @@ function App() {
   const [filteredPRs, setFilteredPRs] = useState<PullRequest[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [tokenError, setTokenError] = useState<string>('')
-  const [darkMode, setDarkMode] = useState<boolean>(false)
 
   // Load PRs from storage
   const loadPullRequests = async () => {
@@ -67,13 +66,8 @@ function App() {
 
     browser.storage.onChanged.addListener(storageListener)
 
-    // Set initial dark/light mode based on user preference
-    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      setDarkMode(true)
-      document.documentElement.setAttribute('data-theme', 'dark')
-    } else {
-      document.documentElement.setAttribute('data-theme', 'light')
-    }
+    // Apply dark mode by default
+    document.documentElement.setAttribute('data-theme', 'dark')
 
     return () => {
       browser.storage.onChanged.removeListener(storageListener)
@@ -193,11 +187,6 @@ function App() {
     setFilteredPRs(filtered)
   }
 
-  const toggleDarkMode = () => {
-    setDarkMode(!darkMode)
-    document.documentElement.setAttribute('data-theme', darkMode ? 'light' : 'dark')
-  }
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px] p-4">
@@ -251,15 +240,6 @@ function App() {
             Generate a new token with repo access
           </a>
         </div>
-        
-        <button 
-          onClick={toggleDarkMode}
-          className="absolute top-2 right-2 p-2 rounded-full bg-gray-200 dark:bg-gray-700 transition-colors"
-          title="Toggle Dark Mode"
-          aria-label="Toggle Dark Mode"
-        >
-          {darkMode ? <FaSun className="text-yellow-500" /> : <FaMoon className="text-gray-700" />}
-        </button>
       </div>
     )
   }
@@ -289,14 +269,6 @@ function App() {
             aria-label="Refresh Pull Requests"
           >
             Refresh
-          </button>
-          <button 
-            onClick={toggleDarkMode} 
-            className="p-2 rounded-full bg-gray-200 dark:bg-gray-700 transition-colors"
-            title="Toggle Dark Mode" 
-            aria-label="Toggle Dark Mode"
-          >
-            {darkMode ? <FaSun className="text-yellow-500" /> : <FaMoon className="text-gray-700" />}
           </button>
         </div>
       </div>
