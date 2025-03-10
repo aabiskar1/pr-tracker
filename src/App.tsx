@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import browser from 'webextension-polyfill'
 import { FilterBar, FilterState, SortOption } from './components/FilterBar'
 import './App.css'
-import { FaExclamationCircle, FaMoon, FaSun } from 'react-icons/fa'
+import { FaExclamationCircle, FaMoon, FaSun, FaGithub } from 'react-icons/fa'
 
 type PullRequest = {
   id: number
@@ -63,6 +63,14 @@ function App() {
     }
 
     browser.storage.onChanged.addListener(storageListener)
+
+    // Set initial dark/light mode based on user preference
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      setDarkMode(true)
+      document.documentElement.setAttribute('data-theme', 'dark')
+    } else {
+      document.documentElement.setAttribute('data-theme', 'light')
+    }
 
     return () => {
       browser.storage.onChanged.removeListener(storageListener)
@@ -173,96 +181,180 @@ function App() {
   }
 
   if (isLoading) {
-    return <div className="container">Loading...</div>
+    return (
+      <div className="flex items-center justify-center min-h-[400px] p-4">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="w-12 h-12 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
+          <p className="text-gray-600 dark:text-gray-300">Loading your pull requests...</p>
+        </div>
+      </div>
+    )
   }
 
   if (!token) {
     return (
-      <div className="container">
-        <h2>GitHub Authentication</h2>
-        <p>Please enter your GitHub personal access token:</p>
-        <form onSubmit={handleTokenSubmit}>
+      <div className="w-full max-w-md mx-auto p-6 bg-white dark:bg-gray-800 rounded-xl shadow-md">
+        <div className="flex items-center justify-center mb-6">
+          <FaGithub className="text-4xl text-gray-700 dark:text-gray-300 mr-2" />
+          <h2 className="text-2xl font-bold text-gray-800 dark:text-white">GitHub Authentication</h2>
+        </div>
+        
+        <p className="text-gray-600 dark:text-gray-300 mb-4">Please enter your GitHub personal access token:</p>
+        
+        <form onSubmit={handleTokenSubmit} className="space-y-4">
           <input
             type="password"
             value={token}
             onChange={(e) => setToken(e.target.value)}
             placeholder="ghp_..."
-            className="token-input"
+            className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
             aria-label="GitHub personal access token"
           />
-          <button type="submit" aria-label="Save Token">Save Token</button>
+          <button 
+            type="submit" 
+            className="w-full bg-primary text-white py-2 px-4 rounded-md hover:bg-primary/90 transition-colors"
+            aria-label="Save Token"
+          >
+            Save Token
+          </button>
         </form>
-        {tokenError && <p className="error-text" role="alert">{tokenError}</p>}
-        <p className="help-text">
+        
+        {tokenError && <p className="mt-4 text-danger font-medium" role="alert">{tokenError}</p>}
+        
+        <div className="mt-6 text-center">
           <a
             href="https://github.com/settings/tokens/new?scopes=repo&description=PR%20Tracker"
             target="_blank"
             rel="noopener noreferrer"
+            className="inline-flex items-center text-primary hover:underline"
             aria-label="Generate a new token with repo access"
           >
+            <FaGithub className="mr-1" />
             Generate a new token with repo access
           </a>
-        </p>
+        </div>
+        
+        <button 
+          onClick={toggleDarkMode}
+          className="absolute top-2 right-2 p-2 rounded-full bg-gray-200 dark:bg-gray-700 transition-colors"
+          title="Toggle Dark Mode"
+          aria-label="Toggle Dark Mode"
+        >
+          {darkMode ? <FaSun className="text-yellow-500" /> : <FaMoon className="text-gray-700" />}
+        </button>
       </div>
     )
   }
 
   return (
-    <div className={`container ${darkMode ? 'dark' : 'light'}`}>
-      <h2>Pull Requests</h2>
-      <div className="actions">
-        <button onClick={async () => {
-          setIsLoading(true)
-          // Check if token exists before refreshing
-          const data = await browser.storage.local.get('githubToken')
-          console.log('Refresh clicked, token exists:', !!data.githubToken)
-          if (!data.githubToken && token) {
-            console.log('Token missing from storage but exists in state, re-saving')
-            await browser.storage.local.set({ githubToken: token })
-          }
-          await browser.runtime.sendMessage({ type: 'CHECK_PRS' })
-          setTimeout(async () => {
-            await loadPullRequests()
-            setIsLoading(false)
-          }, 2000)
-        }} aria-label="Refresh Pull Requests">Refresh</button>
-        <button onClick={toggleDarkMode} title="Toggle Dark Mode" aria-label="Toggle Dark Mode">
-          {darkMode ? <FaSun /> : <FaMoon />}
-        </button>
+    <div className="w-full max-w-3xl mx-auto p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Pull Requests</h2>
+        <div className="flex space-x-2">
+          <button 
+            onClick={async () => {
+              setIsLoading(true)
+              // Check if token exists before refreshing
+              const data = await browser.storage.local.get('githubToken')
+              console.log('Refresh clicked, token exists:', !!data.githubToken)
+              if (!data.githubToken && token) {
+                console.log('Token missing from storage but exists in state, re-saving')
+                await browser.storage.local.set({ githubToken: token })
+              }
+              await browser.runtime.sendMessage({ type: 'CHECK_PRS' })
+              setTimeout(async () => {
+                await loadPullRequests()
+                setIsLoading(false)
+              }, 2000)
+            }}
+            className="bg-primary text-white px-3 py-1 rounded-md hover:bg-primary/90 transition-colors"
+            aria-label="Refresh Pull Requests"
+          >
+            Refresh
+          </button>
+          <button 
+            onClick={toggleDarkMode} 
+            className="p-2 rounded-full bg-gray-200 dark:bg-gray-700 transition-colors"
+            title="Toggle Dark Mode" 
+            aria-label="Toggle Dark Mode"
+          >
+            {darkMode ? <FaSun className="text-yellow-500" /> : <FaMoon className="text-gray-700" />}
+          </button>
+        </div>
       </div>
-      <FilterBar onFilterChange={handleFilterChange} onSortChange={handleSortChange} />
+
+      <div className="mb-4">
+        <FilterBar onFilterChange={handleFilterChange} onSortChange={handleSortChange} />
+      </div>
+      
       <input
         type="text"
         placeholder="Search PRs"
-        className="search-input"
+        className="w-full px-4 py-2 mb-4 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
         onChange={handleSearch}
         aria-label="Search Pull Requests"
       />
+
       {filteredPRs.length === 0 ? (
-        <p>No pull requests assigned to you.</p>
+        <div className="text-center py-8">
+          <p className="text-gray-500 dark:text-gray-400">No pull requests found</p>
+        </div>
       ) : (
-        <ul className="pr-list">
+        <ul className="space-y-3">
           {filteredPRs.map((pr) => (
-            <li key={pr.id} className={`pr-item ${pr.state === 'urgent' ? 'urgent' : ''}`}>
-              <a href={pr.html_url} target="_blank" rel="noopener noreferrer">
-                <span className="repo-name">{pr.repository.name}</span>
-                <span className="pr-title">{pr.title}</span>
-                {pr.draft && <span className="pr-draft">Draft</span>}
+            <li 
+              key={pr.id} 
+              className={`rounded-lg border dark:border-gray-700 hover:shadow-md transition-shadow ${pr.draft ? 'bg-gray-50 dark:bg-gray-900/30' : 'bg-white dark:bg-gray-700'}`}
+            >
+              <a 
+                href={pr.html_url}
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="block p-4"
+              >
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <span className="inline-block px-2 py-1 text-xs font-medium rounded bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 mb-2">
+                      {pr.repository.name}
+                    </span>
+                    
+                    <h3 className="font-medium text-gray-800 dark:text-white mb-1">
+                      {pr.title}
+                      {pr.draft && (
+                        <span className="ml-2 px-2 py-0.5 text-xs rounded bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300">
+                          Draft
+                        </span>
+                      )}
+                    </h3>
+                    
+                    <div className="text-sm text-gray-500 dark:text-gray-400">
+                      Created {new Date(pr.created_at).toLocaleDateString()}
+                    </div>
+                  </div>
+                  
+                  {pr.state === 'urgent' && (
+                    <FaExclamationCircle className="text-danger" aria-label="Urgent Pull Request" />
+                  )}
+                </div>
+                
                 {pr.requested_reviewers.length > 0 && (
-                  <span className="pr-reviewers">
-                    {pr.requested_reviewers.map(reviewer => (
-                      <img
-                        key={reviewer.login}
-                        src={reviewer.avatar_url}
-                        alt={reviewer.login}
-                        className="reviewer-avatar"
-                        aria-label={`Reviewer: ${reviewer.login}`}
-                      />
-                    ))}
-                    {pr.requested_reviewers.length} reviewer{pr.requested_reviewers.length !== 1 ? 's' : ''} requested
-                  </span>
+                  <div className="mt-3 flex items-center">
+                    <div className="flex -space-x-1 mr-2">
+                      {pr.requested_reviewers.map(reviewer => (
+                        <img
+                          key={reviewer.login}
+                          src={reviewer.avatar_url}
+                          alt={reviewer.login}
+                          className="w-6 h-6 rounded-full border border-white dark:border-gray-800"
+                          aria-label={`Reviewer: ${reviewer.login}`}
+                        />
+                      ))}
+                    </div>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      {pr.requested_reviewers.length} reviewer{pr.requested_reviewers.length !== 1 ? 's' : ''} requested
+                    </span>
+                  </div>
                 )}
-                {pr.state === 'urgent' && <FaExclamationCircle className="urgent-icon" aria-label="Urgent Pull Request" />}
               </a>
             </li>
           ))}

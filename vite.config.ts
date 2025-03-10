@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 import webExtension from '@samrum/vite-plugin-web-extension'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import tailwindcss from '@tailwindcss/vite'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -11,6 +12,7 @@ const isFirefox = process.env.BROWSER === 'firefox'
 export default defineConfig({
   plugins: [
     react(),
+    tailwindcss(),
     webExtension({
       manifest: {
         manifest_version: isFirefox ? 2 : 3,
