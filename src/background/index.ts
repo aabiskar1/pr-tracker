@@ -17,7 +17,8 @@ type GitHubReview = {
 }
 
 type GitHubCheckRun = {
-  conclusion: string;
+  conclusion: string | null;
+  status: string;
 }
 
 type GitHubChecksResponse = {
@@ -424,21 +425,20 @@ async function getCIStatus(prUrl: string, token: string): Promise<'passing' | 'f
         'Accept': 'application/vnd.github.v3+json'
       }
     });
-
     if (!response.ok) {
       console.error(`Failed to fetch CI status: ${response.status}`);
       return 'pending';
     }
-
+    
     const commits = await response.json();
     if (commits.length === 0) {
       return 'pending';
     }
-
+    
     const lastCommit = commits[commits.length - 1];
     const statusUrl = lastCommit.url + '/status';
     const checksUrl = lastCommit.url + '/check-runs';
-
+    
     const [statusResponse, checksResponse] = await Promise.all([
       fetch(statusUrl, {
         headers: {
@@ -453,19 +453,53 @@ async function getCIStatus(prUrl: string, token: string): Promise<'passing' | 'f
         }
       })
     ]);
-
+    
     const status = await statusResponse.json();
     const checks = (await checksResponse.json()) as GitHubChecksResponse;
-
-    // Check if any status checks are failing
-    if (status.state === 'failure' || checks.check_runs.some((run: GitHubCheckRun) => run.conclusion === 'failure')) {
+    
+    // For debugging
+    console.log('GitHub API response - Status state:', status.state);
+    console.log('GitHub API response - Check runs:', JSON.stringify(checks.check_runs.map(run => ({
+      status: run.status,
+      conclusion: run.conclusion
+    }))));
+    
+    // No checks? Return pending
+    if (checks.check_runs.length === 0) {
+      console.log('No check runs found, setting as pending');
+      return 'pending';
+    }
+    
+    // Define failing and passing conclusion states
+    const failingConclusions = ['failure', 'cancelled', 'timed_out', 'action_required'];
+    
+    // Check if any checks are explicitly failing
+    const hasFailingChecks = checks.check_runs.some(run => 
+      run.conclusion && failingConclusions.includes(run.conclusion.toLowerCase()));
+    
+    if (status.state === 'failure' || hasFailingChecks) {
+      console.log('Found failing checks, setting as failing');
       return 'failing';
     }
-    // Check if all status checks are successful
-    if (status.state === 'success' && checks.check_runs.every((run: GitHubCheckRun) => run.conclusion === 'success')) {
+    
+    // Check for passing status
+    // More permissive check: if status is success OR
+    // all checks are completed AND none are failing
+    if (status.state === 'success' || 
+        (checks.check_runs.every(run => run.status === 'completed') && 
+         !hasFailingChecks)) {
+      console.log('All checks passing, setting as passing');
       return 'passing';
     }
-    // Otherwise, some checks are still pending
+    
+    // If any check is in progress, consider the whole thing pending
+    if (checks.check_runs.some(run => run.status === 'in_progress' || run.status === 'queued')) {
+      console.log('Some checks still in progress, setting as pending');
+      return 'pending';
+    }
+    
+    // Default case - if we get here, consider it pending
+    console.log('Default case reached, setting as pending');
     return 'pending';
   } catch (error) {
     console.error('Error fetching CI status:', error);
