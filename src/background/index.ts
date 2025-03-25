@@ -352,21 +352,27 @@ async function checkPullRequests() {
     // Handle notifications
     const oldPrs = ((await browser.storage.local.get('oldPullRequests')).oldPullRequests || []) as PullRequest[];
     const newPrs = uniquePRs.filter(pr => !oldPrs.find(old => old.id === pr.id));
-
     if (newPrs.length > 0) {
       console.log(`Sending notification for ${newPrs.length} new PRs`);
       try {
-        await browser.notifications.create({
+        // Create a notification with a unique ID
+        const notificationId = `new-prs-${Date.now()}`;
+        
+        // Chrome requires a full path to the icon and it must be a PNG file
+        // Firefox is more flexible with SVG files and relative paths
+        // Use a 48x48 or 128x128 icon for best results in Chrome
+        await browser.notifications.create(notificationId, {
           type: 'basic',
-          iconUrl: 'icon.svg',
+          iconUrl: '/icon.png', // This works in both Chrome and Firefox
           title: 'New Pull Requests',
           message: `You have ${newPrs.length} new pull request${newPrs.length > 1 ? 's' : ''}!`
         });
+        
+        console.log('Notification sent successfully with icon: /icon.png');
       } catch (error) {
         console.error('Error creating notification:', error);
       }
     }
-
     await browser.storage.local.set({ oldPullRequests: uniquePRs });
 
   } catch (error) {
