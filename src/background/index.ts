@@ -2,25 +2,25 @@
 import browser from 'webextension-polyfill';
 import { decryptToken, removeToken, hasStoredToken, hasEncryptionSetup } from '../services/secureStorage';
 
-// Add interface for GitHub API responses
-interface GitHubIssueSearchItem {
+// Add types for GitHub API responses
+type GitHubIssueSearchItem = {
   pull_request?: {
     url: string;
   };
 }
 
-interface GitHubReview {
+type GitHubReview = {
   state: string;
   user: {
     id: number;
   };
 }
 
-interface GitHubCheckRun {
+type GitHubCheckRun = {
   conclusion: string;
 }
 
-interface GitHubChecksResponse {
+type GitHubChecksResponse = {
   check_runs: GitHubCheckRun[];
 }
 

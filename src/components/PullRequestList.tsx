@@ -18,7 +18,7 @@ type PullRequest = {
   ci_status?: CIStatus;
 };
 
-interface PullRequestListProps {
+type PullRequestListProps = {
   pullRequests: PullRequest[];
 }
 

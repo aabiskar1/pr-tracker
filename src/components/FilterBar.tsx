@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { FaCheck, FaSort, FaFilter, FaClock, FaCodeBranch, FaUserCheck } from 'react-icons/fa';
 
-interface FilterBarProps {
+type FilterBarProps = {
   onFilterChange: (filters: FilterState) => void;
   onSortChange: (sort: SortOption) => void;
 }
 
-export interface FilterState {
+export type FilterState = {
   showDrafts: boolean;
   showReady: boolean;
   ageFilter: PRAgeFilter;
