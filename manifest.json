@@ -6,7 +6,8 @@
   "permissions": [
     "storage",
     "notifications",
-    "alarms"
+    "alarms",
+    "management"
   ],
   "host_permissions": [
     "https://api.github.com/*"

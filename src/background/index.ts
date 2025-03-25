@@ -1,5 +1,6 @@
 // Background script for PR Tracker
 import browser from 'webextension-polyfill';
+import { decryptToken, removeToken, hasStoredToken, hasEncryptionSetup } from '../services/secureStorage';
 
 // Add interface for GitHub API responses
 interface GitHubIssueSearchItem {
@@ -40,9 +41,11 @@ type PullRequest = {
 
 const ALARM_NAME = 'check-prs';
 const CHECK_INTERVAL = 5;
-
-// Store the GitHub token for Firefox compatibility
-let cachedToken: string | null = null;
+const PASSWORD_EXPIRY_ALARM = 'password-expiry';
+// Session storage for the password (never stored persistently)
+let sessionPassword: string | null = null;
+// Flag to track if password should be remembered
+let rememberPassword: boolean = false;
 
 // Initialize the extension
 browser.runtime.onInstalled.addListener(async () => {
@@ -60,8 +63,8 @@ browser.runtime.onInstalled.addListener(async () => {
     await browser.browserAction.setBadgeBackgroundColor({ color: '#0D47A1' });
   }
   
-  // Initial check
-  await checkPullRequests();
+  // We don't do an initial check here anymore because we need the password first
+  // The popup will handle this after the user logs in
 });
 
 // Handle alarm
@@ -69,6 +72,13 @@ browser.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name === ALARM_NAME) {
     console.log('Checking PRs on alarm');
     await checkPullRequests();
+  } else if (alarm.name === PASSWORD_EXPIRY_ALARM) {
+    console.log('Password expiry alarm triggered');
+    // Clear the session password when expiry alarm triggers
+    sessionPassword = null;
+    rememberPassword = false;
+    // Clear the alarm
+    await browser.alarms.clear(PASSWORD_EXPIRY_ALARM);
   }
 });
 
@@ -76,14 +86,25 @@ browser.alarms.onAlarm.addListener(async (alarm) => {
 browser.runtime.onMessage.addListener(function(
   message: unknown,
   _sender: browser.Runtime.MessageSender,
-  sendResponse: (response?: boolean) => void
+  sendResponse: (response?: boolean | object) => void
 ): true {
-  console.log('Received message in background:', message);
+  console.log('Received message in background:', typeof message);
   
-  // Type guard to check if message is the expected format
-  if (message && typeof message === 'object' && 'type' in message && 
-      (message as {type: string}).type === 'CHECK_PRS') {
+  if (!message || typeof message !== 'object') {
+    sendResponse(false);
+    return true;
+  }
+  
+  const typedMessage = message as Record<string, unknown>;
+  
+  // Handle the CHECK_PRS message
+  if (typedMessage.type === 'CHECK_PRS') {
     console.log('Checking PRs from message');
+    // Use the provided password if available
+    if (typedMessage.password && typeof typedMessage.password === 'string') {
+      sessionPassword = typedMessage.password;
+    }
+    
     // Use a Promise chain to handle the async operation
     checkPullRequests().then(() => {
       sendResponse(true);
@@ -91,7 +112,70 @@ browser.runtime.onMessage.addListener(function(
       console.error('Error checking PRs:', error);
       sendResponse(false);
     });
-  } else {
+  } 
+  // Handle password setup
+  else if (typedMessage.type === 'SET_PASSWORD') {
+    if (typedMessage.password && typeof typedMessage.password === 'string') {
+      // Store the password in memory only (not persistent)
+      sessionPassword = typedMessage.password;
+      
+      // Handle remember option
+      if (typedMessage.remember === true) {
+        rememberPassword = true;
+        
+        // Set up expiration alarm for 24 hours from now
+        const expiryTime = Date.now() + (24 * 60 * 60 * 1000); // 24 hours in milliseconds
+        browser.alarms.create(PASSWORD_EXPIRY_ALARM, {
+          when: expiryTime
+        });
+        
+        console.log('Password will be remembered for 24 hours');
+      } else {
+        rememberPassword = false;
+        // Clear any existing expiry alarm
+        browser.alarms.clear(PASSWORD_EXPIRY_ALARM);
+      }
+      
+      sendResponse(true);
+    } else {
+      sendResponse(false);
+    }
+  } 
+  // Handle checking if password is remembered
+  else if (typedMessage.type === 'GET_REMEMBERED_PASSWORD') {
+    if (sessionPassword && rememberPassword) {
+      sendResponse({
+        hasRememberedPassword: true,
+        password: sessionPassword
+      });
+    } else {
+      sendResponse({
+        hasRememberedPassword: false
+      });
+    }
+  }
+  // Handle password validation
+  else if (typedMessage.type === 'VALIDATE_SETUP') {
+    // This will check if encryption has been set up
+    hasEncryptionSetup().then(isSetup => {
+      sendResponse({isSetup});
+    });
+  }
+  // Handle checking token existence
+  else if (typedMessage.type === 'HAS_TOKEN') {
+    hasStoredToken().then(hasToken => {
+      sendResponse({hasToken});
+    });
+  }
+  // Handle clearing password from memory
+  else if (typedMessage.type === 'CLEAR_SESSION') {
+    sessionPassword = null;
+    rememberPassword = false;
+    // Clear any expiry alarm
+    browser.alarms.clear(PASSWORD_EXPIRY_ALARM);
+    sendResponse(true);
+  }
+  else {
     // Always send a response even if we don't recognize the message
     sendResponse(false);
   }
@@ -112,24 +196,33 @@ async function setBadgeText(text: string) {
 async function checkPullRequests() {
   console.log('Starting PR check');
   try {
-    const data = await browser.storage.local.get('githubToken');
-    if (!data.githubToken) {
-      console.log('No GitHub token found');
+    // If we don't have the password in memory, we can't decrypt the token
+    if (!sessionPassword) {
+      console.log('No session password available, cannot decrypt token');
       return;
     }
 
-    console.log('Token found, fetching PRs');
-    cachedToken = data.githubToken as string;
+    // Get the securely stored token
+    const token = await decryptToken(sessionPassword);
+    if (!token) {
+      console.log('Failed to decrypt GitHub token');
+      return;
+    }
+
+    console.log('Token decrypted successfully, fetching PRs');
 
     // Get user info
     const userResponse = await fetch('https://api.github.com/user', {
       headers: {
-        'Authorization': `token ${cachedToken}`,
+        'Authorization': `token ${token}`,
         'Accept': 'application/vnd.github.v3+json'
       }
     });
     if (!userResponse.ok) {
       console.error(`User info fetch failed with status: ${userResponse.status}`);
+      if (userResponse.status === 401) {
+        await removeToken();
+      }
       throw new Error(`Failed to get user info: ${userResponse.status}`);
     }
 
@@ -147,13 +240,13 @@ async function checkPullRequests() {
     const [authoredResponse, reviewResponse] = await Promise.all([
       fetch(`https://api.github.com/search/issues?q=${encodeURIComponent(searchQuery)}&per_page=100`, {
         headers: {
-          'Authorization': `token ${cachedToken}`,
+          'Authorization': `token ${token}`,
           'Accept': 'application/vnd.github.v3+json'
         }
       }),
       fetch(`https://api.github.com/search/issues?q=${encodeURIComponent(assignedQuery)}&per_page=100`, {
         headers: {
-          'Authorization': `token ${cachedToken}`,
+          'Authorization': `token ${token}`,
           'Accept': 'application/vnd.github.v3+json'
         }
       })
@@ -162,8 +255,7 @@ async function checkPullRequests() {
     if (!authoredResponse.ok || !reviewResponse.ok) {
       console.error(`PR search failed. Authored status: ${authoredResponse.status}, Review status: ${reviewResponse.status}`);
       if (authoredResponse.status === 401 || reviewResponse.status === 401) {
-        await browser.storage.local.remove('githubToken');
-        cachedToken = null;
+        await removeToken();
       }
       throw new Error(`Failed to fetch PRs: ${authoredResponse.status}, ${reviewResponse.status}`);
     }
@@ -208,12 +300,6 @@ async function checkPullRequests() {
     };
 
     console.log('Fetching detailed PR information...');
-    if (!cachedToken) {
-      throw new Error('Token not available');
-    }
-
-    // We know cachedToken is not null here due to the check above
-    const token = cachedToken;
     const authoredPRs = (await Promise.all(authoredData.items.map((item: GitHubIssueSearchItem) => 
       getPRDetails(item, token)
     ))).filter(Boolean);
@@ -285,8 +371,7 @@ async function checkPullRequests() {
   } catch (error) {
     console.error('Error checking pull requests:', error);
     if (error instanceof Error && error.message.includes('401')) {
-      await browser.storage.local.remove('githubToken');
-      cachedToken = null;
+      await removeToken();
     }
   }
 }
