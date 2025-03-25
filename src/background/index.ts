@@ -457,16 +457,8 @@ async function getCIStatus(prUrl: string, token: string): Promise<'passing' | 'f
     const status = await statusResponse.json();
     const checks = (await checksResponse.json()) as GitHubChecksResponse;
     
-    // For debugging
-    console.log('GitHub API response - Status state:', status.state);
-    console.log('GitHub API response - Check runs:', JSON.stringify(checks.check_runs.map(run => ({
-      status: run.status,
-      conclusion: run.conclusion
-    }))));
-    
     // No checks? Return pending
     if (checks.check_runs.length === 0) {
-      console.log('No check runs found, setting as pending');
       return 'pending';
     }
     
@@ -478,7 +470,6 @@ async function getCIStatus(prUrl: string, token: string): Promise<'passing' | 'f
       run.conclusion && failingConclusions.includes(run.conclusion.toLowerCase()));
     
     if (status.state === 'failure' || hasFailingChecks) {
-      console.log('Found failing checks, setting as failing');
       return 'failing';
     }
     
@@ -488,18 +479,15 @@ async function getCIStatus(prUrl: string, token: string): Promise<'passing' | 'f
     if (status.state === 'success' || 
         (checks.check_runs.every(run => run.status === 'completed') && 
          !hasFailingChecks)) {
-      console.log('All checks passing, setting as passing');
       return 'passing';
     }
     
     // If any check is in progress, consider the whole thing pending
     if (checks.check_runs.some(run => run.status === 'in_progress' || run.status === 'queued')) {
-      console.log('Some checks still in progress, setting as pending');
       return 'pending';
     }
     
     // Default case - if we get here, consider it pending
-    console.log('Default case reached, setting as pending');
     return 'pending';
   } catch (error) {
     console.error('Error fetching CI status:', error);
