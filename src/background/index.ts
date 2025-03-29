@@ -1,6 +1,6 @@
 // Background script for PR Tracker
 import browser from 'webextension-polyfill';
-import { decryptToken, removeToken, hasStoredToken, hasEncryptionSetup } from '../services/secureStorage';
+import { decryptToken, removeToken } from '../services/secureStorage';
 
 // Add types for GitHub API responses
 type GitHubIssueSearchItem = {
@@ -43,10 +43,11 @@ type PullRequest = {
 const ALARM_NAME = 'check-prs';
 const CHECK_INTERVAL = 5;
 const PASSWORD_EXPIRY_ALARM = 'password-expiry';
-// Session storage for the password (never stored persistently)
+// Store the password in the background context (memory only, not persistent storage)
 let sessionPassword: string | null = null;
-// Flag to track if password should be remembered
 let rememberPassword: boolean = false;
+let lastRefreshTime: number = 0;
+const REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes in milliseconds
 
 // Initialize the extension
 browser.runtime.onInstalled.addListener(async () => {
@@ -72,18 +73,29 @@ browser.runtime.onInstalled.addListener(async () => {
 browser.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name === ALARM_NAME) {
     console.log('Checking PRs on alarm');
-    await checkPullRequests();
+    // Only refresh if we have the password
+    if (sessionPassword) {
+      await checkPullRequests();
+    } else if (rememberPassword) {
+      // Try to get remembered password from storage
+      const data = await browser.storage.session.get(['sessionPassword']);
+      if (data.sessionPassword) {
+        sessionPassword = data.sessionPassword;
+        await checkPullRequests();
+      }
+    }
   } else if (alarm.name === PASSWORD_EXPIRY_ALARM) {
     console.log('Password expiry alarm triggered');
     // Clear the session password when expiry alarm triggers
     sessionPassword = null;
     rememberPassword = false;
+    await browser.storage.session.remove(['sessionPassword']);
     // Clear the alarm
     await browser.alarms.clear(PASSWORD_EXPIRY_ALARM);
   }
 });
 
-// Handle messages from popup with proper typing for WebExtension API
+// Handle messages from popup
 browser.runtime.onMessage.addListener(function(
   message: unknown,
   _sender: browser.Runtime.MessageSender,
@@ -117,12 +129,15 @@ browser.runtime.onMessage.addListener(function(
   // Handle password setup
   else if (typedMessage.type === 'SET_PASSWORD') {
     if (typedMessage.password && typeof typedMessage.password === 'string') {
-      // Store the password in memory only (not persistent)
+      // Store the password in memory
       sessionPassword = typedMessage.password;
       
       // Handle remember option
       if (typedMessage.remember === true) {
         rememberPassword = true;
+        
+        // Store password in session storage for cross-tab access
+        browser.storage.session.set({ sessionPassword: typedMessage.password });
         
         // Set up expiration alarm for 24 hours from now
         const expiryTime = Date.now() + (24 * 60 * 60 * 1000); // 24 hours in milliseconds
@@ -133,9 +148,15 @@ browser.runtime.onMessage.addListener(function(
         console.log('Password will be remembered for 24 hours');
       } else {
         rememberPassword = false;
-        // Clear any existing expiry alarm
+        // Clear any existing storage and alarm
+        browser.storage.session.remove(['sessionPassword']);
         browser.alarms.clear(PASSWORD_EXPIRY_ALARM);
       }
+      
+      // Set up periodic refresh
+      browser.alarms.create(ALARM_NAME, {
+        periodInMinutes: CHECK_INTERVAL
+      });
       
       sendResponse(true);
     } else {
@@ -150,30 +171,32 @@ browser.runtime.onMessage.addListener(function(
         password: sessionPassword
       });
     } else {
-      sendResponse({
-        hasRememberedPassword: false
+      // Try to get from session storage
+      browser.storage.session.get(['sessionPassword']).then(data => {
+        if (data.sessionPassword) {
+          sessionPassword = data.sessionPassword;
+          sendResponse({
+            hasRememberedPassword: true,
+            password: data.sessionPassword
+          });
+        } else {
+          sendResponse({
+            hasRememberedPassword: false
+          });
+        }
       });
     }
-  }
-  // Handle password validation
-  else if (typedMessage.type === 'VALIDATE_SETUP') {
-    // This will check if encryption has been set up
-    hasEncryptionSetup().then(isSetup => {
-      sendResponse({isSetup});
-    });
-  }
-  // Handle checking token existence
-  else if (typedMessage.type === 'HAS_TOKEN') {
-    hasStoredToken().then(hasToken => {
-      sendResponse({hasToken});
-    });
   }
   // Handle clearing password from memory
   else if (typedMessage.type === 'CLEAR_SESSION') {
     sessionPassword = null;
     rememberPassword = false;
+    // Clear session storage
+    browser.storage.session.remove(['sessionPassword']);
     // Clear any expiry alarm
     browser.alarms.clear(PASSWORD_EXPIRY_ALARM);
+    // Clear refresh alarm
+    browser.alarms.clear(ALARM_NAME);
     sendResponse(true);
   }
   else {
@@ -185,25 +208,54 @@ browser.runtime.onMessage.addListener(function(
   return true;
 });
 
+// Helper function to set badge text cross-browser
 async function setBadgeText(text: string) {
   try {
+    // Try using Manifest V3 API first
     await browser.action.setBadgeText({ text });
   } catch (e) {
-    // Fallback for Firefox manifest v2
+    // Fallback to Manifest V2 API for Firefox
     await browser.browserAction.setBadgeText({ text });
   }
 }
 
+// Helper function to check if we should refresh
+function shouldRefresh(): boolean {
+  const now = Date.now();
+  if (now - lastRefreshTime >= REFRESH_INTERVAL) {
+    lastRefreshTime = now;
+    return true;
+  }
+  return false;
+}
+
 async function checkPullRequests() {
   console.log('Starting PR check');
-  try {
-    // If we don't have the password in memory, we can't decrypt the token
-    if (!sessionPassword) {
+  
+  // Only proceed if we have the password or can get it from session storage
+  if (!sessionPassword) {
+    const data = await browser.storage.session.get(['sessionPassword']);
+    if (data.sessionPassword) {
+      sessionPassword = data.sessionPassword;
+    } else {
       console.log('No session password available, cannot decrypt token');
       return;
     }
+  }
 
+  // Continue only if enough time has passed since last refresh
+  if (!shouldRefresh()) {
+    console.log('Skipping refresh - too soon since last refresh');
+    return;
+  }
+
+  try {
     // Get the securely stored token
+    if (!sessionPassword) {
+      console.log('No session password available after checks');
+      return;
+    }
+
     const token = await decryptToken(sessionPassword);
     if (!token) {
       console.log('Failed to decrypt GitHub token');
