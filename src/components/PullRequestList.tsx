@@ -36,7 +36,7 @@ const formatTimeAgo = (date: string) => {
 
 export const PullRequestList: FC<PullRequestListProps> = ({ pullRequests }) => {
   return (
-    <div className="container mx-auto px-4">
+    <div className="container mx-auto">
       <ul className="space-y-3">
         {pullRequests.map((pr) => (
           <li 
