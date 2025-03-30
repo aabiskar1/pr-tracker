@@ -47,7 +47,7 @@ export function FilterBar({ onFilterChange, onSortChange }: FilterBarProps) {
   };
 
   return (
-    <div className="flex flex-wrap justify-between items-center gap-3 p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
+    <div className="flex flex-wrap justify-between items-center gap-3 p-3 bg-gray-100 dark:bg-gray-800 rounded-lg filter-bar-container">
       <div className="flex flex-wrap items-center gap-4">
         <div className="flex items-center gap-1 text-gray-700 dark:text-gray-300">
           <FaFilter size={14} />
@@ -142,6 +142,7 @@ export function FilterBar({ onFilterChange, onSortChange }: FilterBarProps) {
                 </div>
               </label>
             ))}
+
           </div>
         </div>
 
@@ -182,6 +183,7 @@ export function FilterBar({ onFilterChange, onSortChange }: FilterBarProps) {
                 </div>
               </label>
             ))}
+
           </div>
         </div>
       </div>
