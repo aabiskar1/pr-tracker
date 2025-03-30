@@ -14,6 +14,87 @@
   --link-color: #646cff;
 }
 
+/* General container styling for both browsers */
+.container {
+  max-width: 800px; /* Ensure consistent width */
+  width: 100%; /* Allow it to scale properly */
+  margin: 0 auto; /* Center the container horizontally */
+  padding: 0 1rem; /* Add padding to prevent content from touching edges */
+}
+
+/* Chrome-specific fixes - using a robust detection method */
+@supports (-webkit-appearance:none) and (not (-moz-appearance:none)) {
+  .container {
+    min-width: 600px; /* Only for Chrome */
+    width: 100%; /* Ensure it scales properly */
+  }
+  
+  /* Fix spacing between elements */
+  .gap-2 {
+    gap: 0.5rem; /* Match Firefox spacing */
+  }
+
+  .gap-3 {
+    gap: 0.75rem; /* Match Firefox spacing */
+  }
+
+  .gap-4 {
+    gap: 1rem; /* Match Firefox spacing */
+  }
+
+  /* Fix alignment of icons and text */
+  .flex {
+    align-items: center;
+    line-height: 1.2; /* Ensures proper vertical alignment */
+  }
+
+  /* Improve padding inside cards */
+  .p-4 {
+    padding: 1rem; /* Match Firefox padding */
+  }
+  
+  .p-5 {
+    padding: 1rem; /* Match Firefox padding */
+  }
+
+  /* Firefox-like rounded corners */
+  .rounded-lg {
+    overflow: hidden;
+    border-radius: 0.375rem;
+  }
+
+  /* Refine scrollbar appearance */
+  ::-webkit-scrollbar {
+    width: 6px; /* Reduced width for subtle appearance */
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: rgba(155, 155, 155, 0.4); /* Lighter color */
+    border-radius: 10px; /* Rounded corners */
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent; /* Invisible track */
+  }
+  
+  /* Fix card spacing */
+  .space-y-3 {
+    margin-top: 0.2rem;
+    margin-bottom: 0.2rem;
+  }
+  
+  /* Fix icon alignment */
+  svg {
+    vertical-align: middle;
+  }
+  
+  /* Fix font rendering */
+  :root {
+    -webkit-font-smoothing: antialiased; /* Improve font rendering in Chrome */
+    -moz-osx-font-smoothing: grayscale; /* Match Firefox font smoothing */
+  }
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .container {

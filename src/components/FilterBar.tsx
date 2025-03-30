@@ -96,6 +96,7 @@ export function FilterBar({ onFilterChange, onSortChange }: FilterBarProps) {
             value={filters.ageFilter}
             onChange={(e) => handleFilterChange('ageFilter', e.target.value)}
             title="Filter by PR age"
+            style={{textAlignLast: 'left'}}
           >
             <option value="all">All Time</option>
             <option value="today">Today</option>
@@ -194,6 +195,7 @@ export function FilterBar({ onFilterChange, onSortChange }: FilterBarProps) {
             defaultValue="newest"
             title="Sort pull requests"
             aria-label="Sort pull requests"
+            style={{textAlignLast: 'left'}}
           >
             <option value="newest">Newest First</option>
             <option value="oldest">Oldest First</option>
