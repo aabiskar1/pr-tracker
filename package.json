@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "build:chrome": "tsc -b && cross-env BROWSER=chrome vite build",
     "build:firefox": "tsc -b && cross-env BROWSER=firefox vite build",
+    "build:all": "npm run build:chrome && npm run build:firefox",
     "lint": "eslint .",
     "preview": "vite preview"
   },
