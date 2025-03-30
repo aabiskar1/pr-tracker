@@ -25,7 +25,8 @@
 /* Chrome-specific fixes - using a robust detection method */
 @supports (-webkit-appearance:none) and (not (-moz-appearance:none)) {
   .container {
-    min-width: 600px; /* Only for Chrome */
+    max-width: 800px; /* Match Firefox width */
+    min-width: 600px; /* Ensure proper width in Chrome */
     width: 100%; /* Ensure it scales properly */
   }
   
