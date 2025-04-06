@@ -149,8 +149,11 @@ browser.runtime.onMessage.addListener(function(
       sessionPassword = typedMessage.password;
     }
     
+    // Check if this is a manual refresh
+    const isManualRefresh = typedMessage.manual === true;
+    
     // Use a Promise chain to handle the async operation
-    checkPullRequests().then(() => {
+    checkPullRequests(isManualRefresh).then(() => {
       sendResponse(true);
     }).catch(error => {
       console.error('Error checking PRs:', error);
@@ -264,7 +267,7 @@ function shouldRefresh(): boolean {
   return false;
 }
 
-async function checkPullRequests() {
+async function checkPullRequests(isManualRefresh = false) {
   console.log('Starting PR check');
   
   // Only proceed if we have the password or can get it from session storage
@@ -279,7 +282,7 @@ async function checkPullRequests() {
   }
 
   // Continue only if enough time has passed since last refresh
-  if (!shouldRefresh()) {
+  if (!isManualRefresh && !shouldRefresh()) {
     console.log('Skipping refresh - too soon since last refresh');
     return;
   }

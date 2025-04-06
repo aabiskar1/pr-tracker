@@ -612,7 +612,8 @@ function App() {
               setIsLoading(true)
               await browser.runtime.sendMessage({ 
                 type: 'CHECK_PRS',
-                password
+                password,
+                manual: true  // Add flag to indicate this is a manual refresh
               })
               setTimeout(async () => {
                 await loadPullRequests()
