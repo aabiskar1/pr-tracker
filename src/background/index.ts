@@ -49,6 +49,34 @@ let rememberPassword: boolean = false;
 let lastRefreshTime: number = 0;
 const REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes in milliseconds
 
+// Initialize the remembered password state when the service worker starts
+const initializeRememberedPassword = async () => {
+  try {
+    const data = await browser.storage.session.get(['sessionPassword', 'rememberPasswordFlag']);
+    
+    if (data.sessionPassword && data.rememberPasswordFlag) {
+      console.log('Restoring remembered password from session storage');
+      sessionPassword = data.sessionPassword;
+      rememberPassword = true;
+      
+      // Check if the password expiry alarm exists
+      const alarms = await browser.alarms.getAll();
+      const hasExpiryAlarm = alarms.some(alarm => alarm.name === PASSWORD_EXPIRY_ALARM);
+      
+      // If no expiry alarm, set one for 12 hours from now
+      if (!hasExpiryAlarm) {
+        console.log('Re-creating password expiry alarm');
+        const expiryTime = Date.now() + (12 * 60 * 60 * 1000);
+        browser.alarms.create(PASSWORD_EXPIRY_ALARM, {
+          when: expiryTime
+        });
+      }
+    }
+  } catch (error) {
+    console.error('Error initializing remembered password:', error);
+  }
+};
+
 // Initialize the extension
 browser.runtime.onInstalled.addListener(async () => {
   console.log('PR Tracker extension installed');
@@ -65,9 +93,12 @@ browser.runtime.onInstalled.addListener(async () => {
     await browser.browserAction.setBadgeBackgroundColor({ color: '#0D47A1' });
   }
   
-  // We don't do an initial check here anymore because we need the password first
-  // The popup will handle this after the user logs in
+  // Initialize remembered password state
+  await initializeRememberedPassword();
 });
+
+// Call initialization on service worker startup
+initializeRememberedPassword();
 
 // Handle alarm
 browser.alarms.onAlarm.addListener(async (alarm) => {
@@ -89,7 +120,7 @@ browser.alarms.onAlarm.addListener(async (alarm) => {
     // Clear the session password when expiry alarm triggers
     sessionPassword = null;
     rememberPassword = false;
-    await browser.storage.session.remove(['sessionPassword']);
+    await browser.storage.session.remove(['sessionPassword', 'rememberPasswordFlag']);
     // Clear the alarm
     await browser.alarms.clear(PASSWORD_EXPIRY_ALARM);
   }
@@ -136,20 +167,23 @@ browser.runtime.onMessage.addListener(function(
       if (typedMessage.remember === true) {
         rememberPassword = true;
         
-        // Store password in session storage for cross-tab access
-        browser.storage.session.set({ sessionPassword: typedMessage.password });
+        // Store BOTH password and flag in session storage
+        browser.storage.session.set({
+          sessionPassword: typedMessage.password,
+          rememberPasswordFlag: true
+        });
         
-        // Set up expiration alarm for 24 hours from now
-        const expiryTime = Date.now() + (24 * 60 * 60 * 1000); // 24 hours in milliseconds
+        // Set up expiration alarm for 12 hours from now
+        const expiryTime = Date.now() + (12 * 60 * 60 * 1000); // 12 hours in milliseconds
         browser.alarms.create(PASSWORD_EXPIRY_ALARM, {
           when: expiryTime
         });
         
-        console.log('Password will be remembered for 24 hours');
+        console.log('Password will be remembered for 12 hours');
       } else {
         rememberPassword = false;
         // Clear any existing storage and alarm
-        browser.storage.session.remove(['sessionPassword']);
+        browser.storage.session.remove(['sessionPassword', 'rememberPasswordFlag']);
         browser.alarms.clear(PASSWORD_EXPIRY_ALARM);
       }
       
@@ -172,9 +206,10 @@ browser.runtime.onMessage.addListener(function(
       });
     } else {
       // Try to get from session storage
-      browser.storage.session.get(['sessionPassword']).then(data => {
-        if (data.sessionPassword) {
+      browser.storage.session.get(['sessionPassword', 'rememberPasswordFlag']).then(data => {
+        if (data.sessionPassword && data.rememberPasswordFlag) {
           sessionPassword = data.sessionPassword;
+          rememberPassword = true;
           sendResponse({
             hasRememberedPassword: true,
             password: data.sessionPassword
@@ -192,7 +227,7 @@ browser.runtime.onMessage.addListener(function(
     sessionPassword = null;
     rememberPassword = false;
     // Clear session storage
-    browser.storage.session.remove(['sessionPassword']);
+    browser.storage.session.remove(['sessionPassword', 'rememberPasswordFlag']);
     // Clear any expiry alarm
     browser.alarms.clear(PASSWORD_EXPIRY_ALARM);
     // Clear refresh alarm

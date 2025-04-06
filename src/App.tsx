@@ -512,7 +512,7 @@ function App() {
             />
             <label htmlFor="rememberPassword" className="ml-2 block text-sm text-gray-600 dark:text-gray-300 flex items-center">
               <FaClock className="mr-1 text-gray-500 dark:text-gray-400" />
-              Remember password for 24 hours
+              Remember password for 12 hours
             </label>
           </div>
           
@@ -575,7 +575,7 @@ function App() {
             />
             <label htmlFor="rememberPassword" className="ml-2 block text-sm text-gray-600 dark:text-gray-300 flex items-center">
               <FaClock className="mr-1 text-gray-500 dark:text-gray-400" />
-              Remember password for 24 hours
+              Remember password for 12 hours
             </label>
           </div>
           
