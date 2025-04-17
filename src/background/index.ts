@@ -277,6 +277,13 @@ async function checkPullRequests(isManualRefresh = false) {
       sessionPassword = data.sessionPassword;
     } else {
       console.log('No session password available, cannot decrypt token');
+      // Notify user about missing session
+      await browser.notifications.create({
+        type: 'basic',
+        iconUrl: '/icon.png',
+        title: 'PR Tracker Error',
+        message: 'Session expired or password missing. Please sign in again.'
+      });
       return;
     }
   }
@@ -291,12 +298,24 @@ async function checkPullRequests(isManualRefresh = false) {
     // Get the securely stored token
     if (!sessionPassword) {
       console.log('No session password available after checks');
+      await browser.notifications.create({
+        type: 'basic',
+        iconUrl: '/icon.png',
+        title: 'PR Tracker Error',
+        message: 'Session password missing. Please sign in again.'
+      });
       return;
     }
 
     const token = await decryptToken(sessionPassword);
     if (!token) {
       console.log('Failed to decrypt GitHub token');
+      await browser.notifications.create({
+        type: 'basic',
+        iconUrl: '/icon.png',
+        title: 'PR Tracker Error',
+        message: 'Failed to decrypt your GitHub token. Please re-authenticate.'
+      });
       return;
     }
 
@@ -314,6 +333,12 @@ async function checkPullRequests(isManualRefresh = false) {
       if (userResponse.status === 401) {
         await removeToken();
       }
+      await browser.notifications.create({
+        type: 'basic',
+        iconUrl: '/icon.png',
+        title: 'PR Tracker Error',
+        message: `Failed to get user info: ${userResponse.status}. Please check your GitHub token.`
+      });
       throw new Error(`Failed to get user info: ${userResponse.status}`);
     }
 
@@ -348,6 +373,12 @@ async function checkPullRequests(isManualRefresh = false) {
       if (authoredResponse.status === 401 || reviewResponse.status === 401) {
         await removeToken();
       }
+      await browser.notifications.create({
+        type: 'basic',
+        iconUrl: '/icon.png',
+        title: 'PR Tracker Error',
+        message: `Failed to fetch PRs: ${authoredResponse.status}, ${reviewResponse.status}. Please check your GitHub token or network.`
+      });
       throw new Error(`Failed to fetch PRs: ${authoredResponse.status}, ${reviewResponse.status}`);
     }
 
@@ -467,9 +498,21 @@ async function checkPullRequests(isManualRefresh = false) {
 
   } catch (error) {
     console.error('Error checking pull requests:', error);
-    if (error instanceof Error && error.message.includes('401')) {
-      await removeToken();
+    let message = 'Unknown error occurred while checking pull requests.';
+    if (error instanceof Error) {
+      if (error.message.includes('401')) {
+        message = 'Authentication failed. Please check your GitHub token.';
+        await removeToken();
+      } else {
+        message = error.message;
+      }
     }
+    await browser.notifications.create({
+      type: 'basic',
+      iconUrl: '/icon.png',
+      title: 'PR Tracker Error',
+      message
+    });
   }
 }
 
@@ -484,6 +527,14 @@ async function getReviewStatus(prUrl: string, token: string): Promise<'approved'
 
     if (!response.ok) {
       console.error(`Failed to fetch review status: ${response.status}`);
+      if (response.status === 401) {
+        await browser.notifications.create({
+          type: 'basic',
+          iconUrl: '/icon.png',
+          title: 'PR Tracker Error',
+          message: 'Failed to fetch review status. Please check your GitHub token.'
+        });
+      }
       return 'pending';
     }
 
@@ -508,6 +559,12 @@ async function getReviewStatus(prUrl: string, token: string): Promise<'approved'
     return 'pending';
   } catch (error) {
     console.error('Error fetching review status:', error);
+    await browser.notifications.create({
+      type: 'basic',
+      iconUrl: '/icon.png',
+      title: 'PR Tracker Error',
+      message: 'Error fetching review status. Please check your network connection.'
+    });
     return 'pending';
   }
 }
@@ -523,6 +580,14 @@ async function getCIStatus(prUrl: string, token: string): Promise<'passing' | 'f
     });
     if (!response.ok) {
       console.error(`Failed to fetch CI status: ${response.status}`);
+      if (response.status === 401) {
+        await browser.notifications.create({
+          type: 'basic',
+          iconUrl: '/icon.png',
+          title: 'PR Tracker Error',
+          message: 'Failed to fetch CI status. Please check your GitHub token.'
+        });
+      }
       return 'pending';
     }
     
@@ -587,6 +652,12 @@ async function getCIStatus(prUrl: string, token: string): Promise<'passing' | 'f
     return 'pending';
   } catch (error) {
     console.error('Error fetching CI status:', error);
+    await browser.notifications.create({
+      type: 'basic',
+      iconUrl: '/icon.png',
+      title: 'PR Tracker Error',
+      message: 'Error fetching CI status. Please check your network connection.'
+    });
     return 'pending';
   }
 }
