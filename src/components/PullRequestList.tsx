@@ -1,5 +1,5 @@
 import { FC } from 'react';
-import { FaClock, FaCheck, FaTimes, FaHourglassHalf } from 'react-icons/fa';
+import { FaClock, FaCheck, FaTimes, FaHourglassHalf, FaCodeBranch, FaUserCheck } from 'react-icons/fa';
 import { getAgeColor } from './FilterBar';
 import { ReviewStatus, CIStatus } from './FilterBar';
 
@@ -57,14 +57,12 @@ export const PullRequestList: FC<PullRequestListProps> = ({ pullRequests }) => {
                     <span className="inline-block px-2 py-1 text-xs font-medium rounded bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300">
                       {pr.repository.name}
                     </span>
-                    
                     {/* Age Indicator */}
                     <div className={`flex items-center gap-1 text-xs ${getAgeColor(pr.created_at)}`}>
                       <FaClock size={12} />
                       <span>{formatTimeAgo(pr.created_at)}</span>
                     </div>
                   </div>
-                  
                   <h3 className="font-medium text-gray-800 dark:text-white mb-1">
                     {pr.title}
                     {pr.draft && (
@@ -74,7 +72,6 @@ export const PullRequestList: FC<PullRequestListProps> = ({ pullRequests }) => {
                     )}
                   </h3>
                 </div>
-                
                 <div className="flex items-center gap-3">
                   {/* CI Status Indicator */}
                   {pr.ci_status && (
@@ -85,6 +82,8 @@ export const PullRequestList: FC<PullRequestListProps> = ({ pullRequests }) => {
                         ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
                         : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
                     }`}>
+                      <FaCodeBranch size={12} className="opacity-80" />
+                      <span>|</span>
                       {pr.ci_status === 'passing' ? (
                         <FaCheck size={12} />
                       ) : pr.ci_status === 'failing' ? (
@@ -92,10 +91,9 @@ export const PullRequestList: FC<PullRequestListProps> = ({ pullRequests }) => {
                       ) : (
                         <FaHourglassHalf size={12} />
                       )}
-                      <span>{pr.ci_status.charAt(0).toUpperCase() + pr.ci_status.slice(1)}</span>
+                      <span className="ml-1">{pr.ci_status.charAt(0).toUpperCase() + pr.ci_status.slice(1)}</span>
                     </div>
                   )}
-                  
                   {/* Review Status */}
                   {pr.review_status && (
                     <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs ${
@@ -105,6 +103,8 @@ export const PullRequestList: FC<PullRequestListProps> = ({ pullRequests }) => {
                         ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
                         : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
                     }`}>
+                      <FaUserCheck size={12} className="opacity-80" />
+                      <span>|</span>
                       {pr.review_status === 'approved' ? (
                         <FaCheck size={12} />
                       ) : pr.review_status === 'changes-requested' ? (
@@ -112,7 +112,7 @@ export const PullRequestList: FC<PullRequestListProps> = ({ pullRequests }) => {
                       ) : (
                         <FaHourglassHalf size={12} />
                       )}
-                      <span>
+                      <span className="ml-1">
                         {pr.review_status === 'approved' 
                           ? 'Approved' 
                           : pr.review_status === 'changes-requested' 
@@ -123,7 +123,6 @@ export const PullRequestList: FC<PullRequestListProps> = ({ pullRequests }) => {
                   )}
                 </div>
               </div>
-              
               {/* Reviewers Section */}
               {pr.requested_reviewers.length > 0 && (
                 <div className="mt-3 flex items-center">
