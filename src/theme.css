@@ -1,0 +1,86 @@
+/* Apply theme variables to elements */
+body {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+}
+
+a {
+  color: var(--link-color);
+}
+
+a:hover {
+  color: var(--hover-color);
+}
+
+/* Card elements */
+.card, 
+.bg-gray-800,
+.bg-zinc-800 {
+  background-color: var(--card-bg) !important;
+}
+
+/* Badge theme colors - light mode */
+@media (prefers-color-scheme: light) {
+  .bg-green-900 {
+    background-color: #dcfce7 !important;
+    color: #166534 !important;
+  }
+  
+  .bg-red-900 {
+    background-color: #fee2e2 !important;
+    color: #991b1b !important;
+  }
+  
+  .bg-yellow-900 {
+    background-color: #fef9c3 !important;
+    color: #854d0e !important;
+  }
+  
+  .bg-gray-900 {
+    background-color: #f3f4f6 !important;
+    color: #4b5563 !important;
+  }  /* Input fields and form elements */
+  input, select, button:not(.bg-primary) {
+    background-color: white !important;
+    color: #1f2937 !important;
+    border: 1px solid #e5e7eb !important;
+  }
+
+  /* Style primary buttons with appropriate text color in light mode */
+  .bg-primary {
+    background-color: var(--link-color) !important;
+    color: white !important;
+  }
+  
+  .hover\:bg-primary\/90:hover {
+    background-color: var(--hover-color) !important;
+    opacity: 0.9 !important;
+    color: white !important;
+  }
+
+  input:focus, select:focus {
+    border-color: var(--link-color) !important;
+    outline-color: var(--link-color) !important;
+  }
+
+  /* Headings need to have proper contrast */
+  h1, h2, h3, h4, h5, h6 {
+    color: #111827 !important;
+  }
+  
+  /* PR item borders need better visibility in light mode */
+  .pr-item, .border, .border-gray-700, .border-zinc-700 {
+    border-color: #e5e7eb !important;
+  }
+}
+
+/* Fix scrollbar colors for both themes */
+::-webkit-scrollbar-thumb {
+  background: var(--text-color) !important;
+  opacity: 0.2 !important;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-color) !important;
+  opacity: 0.3 !important;
+}
