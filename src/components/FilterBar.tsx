@@ -6,6 +6,12 @@ type FilterBarProps = {
   onSortChange: (sort: SortOption) => void;
   onReset: () => void;
   sortOption: SortOption;
+  customQueryInput: string;
+  setCustomQueryInput: (v: string) => void;
+  handleSaveCustomQuery: () => void;
+  handleResetCustomQuery: () => void;
+  isCustomQueryActive: boolean;
+  customQuery: string;
 }
 
 export type FilterState = {
@@ -30,7 +36,7 @@ export const getAgeColor = (date: string) => {
   return 'text-red-500';
 };
 
-export function FilterBar({ filters, onFilterChange, onSortChange, onReset, sortOption }: FilterBarProps) {
+export function FilterBar({ filters, onFilterChange, onSortChange, onReset, sortOption, customQueryInput, setCustomQueryInput, handleSaveCustomQuery, handleResetCustomQuery, isCustomQueryActive, customQuery }: FilterBarProps) {
   const handleFilterChange = (key: keyof FilterState, value: any) => {
     const newFilters = {
       ...filters,
@@ -181,8 +187,8 @@ export function FilterBar({ filters, onFilterChange, onSortChange, onReset, sort
           Reset Filters
         </button>
       </div>
-      {/* Sort Dropdown */}
-      <div className="flex items-center">
+      {/* Right side: Sort dropdown and custom query */}
+      <div className="flex items-center gap-2">
         <div className="relative">
           <select
             className="appearance-none pl-3 pr-8 py-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm text-gray-700 dark:text-gray-200 cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary"
@@ -200,6 +206,34 @@ export function FilterBar({ filters, onFilterChange, onSortChange, onReset, sort
           <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
             <FaSort size={12} className="text-gray-400" />
           </div>
+        </div>
+        {/* Custom Query Input */}
+        <div className="flex flex-row items-center gap-2">
+          <input
+            type="text"
+            className="w-64 md:w-96 px-3 py-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white text-xs"
+            placeholder="Custom GitHub PR search (e.g. is:open is:pr user:myorg)"
+            value={customQueryInput}
+            onChange={e => setCustomQueryInput(e.target.value)}
+            aria-label="Custom GitHub search query"
+          />
+          <button
+            className="bg-primary text-white px-2 py-1 rounded-md hover:bg-primary/90 transition-colors min-w-[48px] text-xs"
+            onClick={handleSaveCustomQuery}
+            disabled={!customQueryInput.trim() || customQueryInput === customQuery}
+            aria-label="Save custom search query"
+          >
+            Save
+          </button>
+          {isCustomQueryActive && (
+            <button
+              className="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-2 py-1 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors min-w-[48px] text-xs"
+              onClick={handleResetCustomQuery}
+              aria-label="Reset to default search"
+            >
+              Reset
+            </button>
+          )}
         </div>
       </div>
     </div>
