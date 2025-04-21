@@ -26,6 +26,14 @@ type PullRequest = {
 // Define App authentication states
 type AuthState = 'initializing' | 'login-needed' | 'password-setup' | 'password-entry' | 'authenticated';
 
+const DEFAULT_FILTERS: FilterState = {
+  showDrafts: true,
+  showReady: true,
+  ageFilter: 'all',
+  reviewStatus: ['approved', 'changes-requested', 'pending'],
+  ciStatus: ['passing', 'failing', 'pending']
+};
+
 function App() {
   const [token, setToken] = useState<string>('')
   const [password, setPassword] = useState<string>('')
@@ -39,6 +47,8 @@ function App() {
   const [authState, setAuthState] = useState<AuthState>('initializing')
   const [showPasswordHelp, setShowPasswordHelp] = useState(false)
   const [theme, setTheme] = useState<ThemePreference>('auto')
+  const [filterState, setFilterState] = useState<FilterState>(DEFAULT_FILTERS);
+  const [sortOption, setSortOption] = useState<SortOption>('newest');
 
   // Load PRs from storage
   const loadPullRequests = async () => {
@@ -137,13 +147,70 @@ function App() {
       }
     }
     
-    browser.storage.onChanged.addListener(storageListener)
+    if (browser.storage && browser.storage.onChanged && browser.storage.onChanged.addListener) {
+      browser.storage.onChanged.addListener(storageListener)
+    }
+
+    // Load filter state and sort option from browser.storage.local on mount
+    (async () => {
+      const data = await browser.storage.local.get(['prtracker-filters', 'prtracker-sort']);
+      let loadedFilters = data['prtracker-filters'] || DEFAULT_FILTERS;
+      let loadedSort = data['prtracker-sort'] || 'newest';
+      setFilterState(loadedFilters);
+      setSortOption(loadedSort);
+      setFilteredPRs(applyFiltersAndSort(loadedFilters, pullRequests, loadedSort));
+    })();
 
     return () => {
-      browser.storage.onChanged.removeListener(storageListener)
+      if (browser.storage && browser.storage.onChanged && browser.storage.onChanged.removeListener) {
+        browser.storage.onChanged.removeListener(storageListener)
+      }
       if (mediaQuery && handler) mediaQuery.removeEventListener('change', handler)
     }
   }, [])
+
+  // Helper to apply filters and sort
+  const applyFiltersAndSort = (filters: FilterState, prs: PullRequest[], sort: SortOption) => {
+    let filtered = prs.filter(pr => {
+      if (pr.draft && !filters.showDrafts) return false;
+      if (!pr.draft && !filters.showReady) return false;
+      if (filters.ageFilter !== 'all') {
+        const days = (Date.now() - new Date(pr.created_at).getTime()) / (1000 * 60 * 60 * 24);
+        if (filters.ageFilter === 'today' && days > 1) return false;
+        if (filters.ageFilter === 'week' && days > 7) return false;
+        if (filters.ageFilter === 'older' && days <= 7) return false;
+      }
+      if (filters.reviewStatus.length > 0 && pr.review_status && 
+          !filters.reviewStatus.includes(pr.review_status)) return false;
+      if (filters.ciStatus.length > 0 && pr.ci_status && 
+          !filters.ciStatus.includes(pr.ci_status)) return false;
+      return true;
+    });
+    // Sort
+    filtered = [...filtered].sort((a, b) => {
+      switch (sort) {
+        case 'newest':
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        case 'oldest':
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        case 'urgent':
+          return b.requested_reviewers.length - a.requested_reviewers.length;
+        case 'most-stale':
+          const aReviewed = a.review_status === 'approved';
+          const bReviewed = b.review_status === 'approved';
+          if (aReviewed !== bReviewed) return aReviewed ? 1 : -1;
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        default:
+          return 0;
+      }
+    });
+    return filtered;
+  }
+
+  // Update filtered PRs when pullRequests, filterState, or sortOption changes
+  useEffect(() => {
+    setFilteredPRs(applyFiltersAndSort(filterState, pullRequests, sortOption));
+  }, [pullRequests, filterState, sortOption]);
 
   const validateToken = async (token: string) => {
     try {
@@ -333,43 +400,21 @@ function App() {
   };
 
   const handleFilterChange = (filters: FilterState) => {
-    const filtered = pullRequests.filter(pr => {
-      if (pr.draft && !filters.showDrafts) return false
-      if (!pr.draft && !filters.showReady) return false
-      if (filters.ageFilter !== 'all') {
-        const days = (Date.now() - new Date(pr.created_at).getTime()) / (1000 * 60 * 60 * 24)
-        if (filters.ageFilter === 'today' && days > 1) return false
-        if (filters.ageFilter === 'week' && days > 7) return false
-        if (filters.ageFilter === 'older' && days <= 7) return false
-      }
-      if (filters.reviewStatus.length > 0 && pr.review_status && 
-          !filters.reviewStatus.includes(pr.review_status)) return false
-      if (filters.ciStatus.length > 0 && pr.ci_status && 
-          !filters.ciStatus.includes(pr.ci_status)) return false
-      return true
-    })
-    setFilteredPRs(filtered)
-  }
+    setFilterState(filters);
+    browser.storage.local.set({ 'prtracker-filters': filters });
+    setFilteredPRs(applyFiltersAndSort(filters, pullRequests, sortOption));
+  };
 
   const handleSortChange = (sort: SortOption) => {
-    const sorted = [...filteredPRs].sort((a, b) => {
-      switch (sort) {
-        case 'newest':
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        case 'oldest':
-          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-        case 'urgent':
-          return b.requested_reviewers.length - a.requested_reviewers.length
-        case 'most-stale':
-          const aReviewed = a.review_status === 'approved'
-          const bReviewed = b.review_status === 'approved'
-          if (aReviewed !== bReviewed) return aReviewed ? 1 : -1
-          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-        default:
-          return 0
-      }
-    })
-    setFilteredPRs(sorted)
+    setSortOption(sort);
+    browser.storage.local.set({ 'prtracker-sort': sort });
+    setFilteredPRs(applyFiltersAndSort(filterState, pullRequests, sort));
+  };
+
+  const handleResetFilters = () => {
+    setFilterState(DEFAULT_FILTERS);
+    browser.storage.local.set({ 'prtracker-filters': DEFAULT_FILTERS });
+    handleFilterChange(DEFAULT_FILTERS);
   }
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -673,7 +718,13 @@ function App() {
       </div>
 
       <div className="mb-4">
-        <FilterBar onFilterChange={handleFilterChange} onSortChange={handleSortChange} />
+        <FilterBar 
+          filters={filterState}
+          onFilterChange={handleFilterChange}
+          onSortChange={handleSortChange}
+          onReset={handleResetFilters}
+          sortOption={sortOption}
+        />
       </div>
       
       <input

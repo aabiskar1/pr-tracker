@@ -1,9 +1,11 @@
-import { useState } from 'react';
 import { FaCheck, FaSort, FaFilter, FaClock, FaCodeBranch, FaUserCheck } from 'react-icons/fa';
 
 type FilterBarProps = {
+  filters: FilterState;
   onFilterChange: (filters: FilterState) => void;
   onSortChange: (sort: SortOption) => void;
+  onReset: () => void;
+  sortOption: SortOption;
 }
 
 export type FilterState = {
@@ -28,21 +30,12 @@ export const getAgeColor = (date: string) => {
   return 'text-red-500';
 };
 
-export function FilterBar({ onFilterChange, onSortChange }: FilterBarProps) {
-  const [filters, setFilters] = useState<FilterState>({
-    showDrafts: true,
-    showReady: true,
-    ageFilter: 'all',
-    reviewStatus: ['approved', 'changes-requested', 'pending'],
-    ciStatus: ['passing', 'failing', 'pending']
-  });
-
+export function FilterBar({ filters, onFilterChange, onSortChange, onReset, sortOption }: FilterBarProps) {
   const handleFilterChange = (key: keyof FilterState, value: any) => {
     const newFilters = {
       ...filters,
       [key]: value
     };
-    setFilters(newFilters);
     onFilterChange(newFilters);
   };
 
@@ -53,7 +46,6 @@ export function FilterBar({ onFilterChange, onSortChange }: FilterBarProps) {
           <FaFilter size={14} />
           <span className="font-medium text-sm">Filters:</span>
         </div>
-        
         {/* PR Status Filters */}
         <div className="flex gap-3">
           <label className="flex items-center gap-2 cursor-pointer" title="Show or hide draft pull requests">
@@ -69,7 +61,6 @@ export function FilterBar({ onFilterChange, onSortChange }: FilterBarProps) {
             />
             <span className="text-sm text-gray-600 dark:text-gray-300">Drafts</span>
           </label>
-          
           <label className="flex items-center gap-2 cursor-pointer" title="Show or hide ready pull requests">
             <div className={`w-4 h-4 flex items-center justify-center rounded border ${filters.showReady ? 'bg-primary border-primary' : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-500'}`}>
               {filters.showReady && <FaCheck size={10} className="text-white" />}
@@ -84,7 +75,6 @@ export function FilterBar({ onFilterChange, onSortChange }: FilterBarProps) {
             <span className="text-sm text-gray-600 dark:text-gray-300">Ready</span>
           </label>
         </div>
-
         {/* PR Age Filter */}
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1">
@@ -104,7 +94,6 @@ export function FilterBar({ onFilterChange, onSortChange }: FilterBarProps) {
             <option value="older">Older</option>
           </select>
         </div>
-
         {/* Review Status Filter */}
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1">
@@ -142,10 +131,8 @@ export function FilterBar({ onFilterChange, onSortChange }: FilterBarProps) {
                 </div>
               </label>
             ))}
-
           </div>
         </div>
-
         {/* CI Status Filter */}
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1">
@@ -183,18 +170,24 @@ export function FilterBar({ onFilterChange, onSortChange }: FilterBarProps) {
                 </div>
               </label>
             ))}
-
           </div>
         </div>
+        {/* Reset Filters Button */}
+        <button
+          type="button"
+          className="ml-2 px-3 py-1 rounded bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 text-sm border border-gray-300 dark:border-gray-600"
+          onClick={onReset}
+        >
+          Reset Filters
+        </button>
       </div>
-      
       {/* Sort Dropdown */}
       <div className="flex items-center">
         <div className="relative">
           <select
             className="appearance-none pl-3 pr-8 py-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm text-gray-700 dark:text-gray-200 cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary"
             onChange={(e) => onSortChange(e.target.value as SortOption)}
-            defaultValue="newest"
+            value={sortOption}
             title="Sort pull requests"
             aria-label="Sort pull requests"
             style={{textAlignLast: 'left'}}
