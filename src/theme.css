@@ -60,6 +60,16 @@ html[data-theme="dark"] .badge-repo {
   color: var(--repo-badge-text-dark, #d1d5db);    /* fallback to Tailwind gray-300 */
 }
 
+.badge-unselected {
+  background: var(--badge-unselected-bg, #f3f4f6); /* fallback to Tailwind gray-100 */
+  color: var(--badge-unselected-text, #6b7280);    /* fallback to Tailwind gray-600 */
+}
+
+html[data-theme="dark"] .badge-unselected {
+  background: var(--badge-unselected-bg-dark, #374151); /* fallback to Tailwind gray-700 */
+  color: var(--badge-unselected-text-dark, #d1d5db);    /* fallback to Tailwind gray-300 */
+}
+
 body, html {
   background: var(--background-primary);
   color: var(--text-primary);

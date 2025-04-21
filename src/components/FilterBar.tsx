@@ -136,7 +136,7 @@ export function FilterBar({ onFilterChange, onSortChange }: FilterBarProps) {
                       : status === 'changes-requested'
                       ? 'badge-changes'
                       : 'badge-pending'
-                    : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
+                    : 'badge-unselected'
                 }`}>
                   {status === 'approved' ? 'Approved' : status === 'changes-requested' ? 'Changes' : 'Pending'}
                 </div>
@@ -177,7 +177,7 @@ export function FilterBar({ onFilterChange, onSortChange }: FilterBarProps) {
                       : status === 'failing'
                       ? 'badge-failing'
                       : 'badge-pending'
-                    : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
+                    : 'badge-unselected'
                 }`}>
                   {status.charAt(0).toUpperCase() + status.slice(1)}
                 </div>
