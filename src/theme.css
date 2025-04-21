@@ -384,3 +384,15 @@ html[data-theme="dark"] .dark\:bg-gray-700,
 html[data-theme="dark"] .dark\:bg-gray-800 {
   background-color: var(--card-bg) !important;
 }
+
+.error-message {
+  background: var(--error-bg, #fee2e2); /* fallback to Tailwind red-100 */
+  color: var(--error-text, #b91c1c);    /* fallback to Tailwind red-800 */
+  border: 1px solid var(--error-border, #fca5a5); /* fallback to Tailwind red-400 */
+}
+
+html[data-theme="dark"] .error-message {
+  background: var(--error-bg-dark, #7f1d1d); /* fallback to Tailwind red-900 */
+  color: var(--error-text-dark, #fca5a5);    /* fallback to Tailwind red-200 */
+  border: 1px solid var(--error-border-dark, #f87171); /* fallback to Tailwind red-400 */
+}

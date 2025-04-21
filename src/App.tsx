@@ -430,8 +430,8 @@ function App() {
         </form>
         
         {tokenError && (
-          <div className="mt-4 flex items-center bg-red-100 border border-red-400 text-red-800 text-sm rounded px-4 py-3" role="alert">
-            <svg className="w-5 h-5 mr-2 text-red-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10A8 8 0 11 2 10a8 8 0 0116 0zm-7-4a1 1 0 112 0v4a1 1 0 01-2 0V6zm1 8a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" clipRule="evenodd" /></svg>
+          <div className="mt-4 flex items-center error-message text-sm rounded px-4 py-3" role="alert">
+            <svg className="w-5 h-5 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10A8 8 0 11 2 10a8 8 0 0116 0zm-7-4a1 1 0 112 0v4a1 1 0 01-2 0V6zm1 8a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" clipRule="evenodd" /></svg>
             <span>{tokenError}</span>
           </div>
         )}
@@ -553,8 +553,8 @@ function App() {
         </form>
         
         {passwordError && (
-          <div className="mt-4 flex items-center bg-red-100 border border-red-400 text-red-800 text-sm rounded px-4 py-3" role="alert">
-            <svg className="w-5 h-5 mr-2 text-red-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10A8 8 0 11 2 10a8 8 0 0116 0zm-7-4a1 1 0 112 0v4a1 1 0 01-2 0V6zm1 8a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" clipRule="evenodd" /></svg>
+          <div className="mt-4 flex items-center error-message text-sm rounded px-4 py-3" role="alert">
+            <svg className="w-5 h-5 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10A8 8 0 11 2 10a8 8 0 0116 0zm-7-4a1 1 0 112 0v4a1 1 0 01-2 0V6zm1 8a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" clipRule="evenodd" /></svg>
             <span>{passwordError}</span>
           </div>
         )}
@@ -621,8 +621,8 @@ function App() {
         </form>
         
         {passwordError && (
-          <div className="mt-4 flex items-center bg-red-100 border border-red-400 text-red-800 text-sm rounded px-4 py-3" role="alert">
-            <svg className="w-5 h-5 mr-2 text-red-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10A8 8 0 11 2 10a8 8 0 0116 0zm-7-4a1 1 0 112 0v4a1 1 0 01-2 0V6zm1 8a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" clipRule="evenodd" /></svg>
+          <div className="mt-4 flex items-center error-message text-sm rounded px-4 py-3" role="alert">
+            <svg className="w-5 h-5 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10A8 8 0 11 2 10a8 8 0 0116 0zm-7-4a1 1 0 112 0v4a1 1 0 01-2 0V6zm1 8a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" clipRule="evenodd" /></svg>
             <span>{passwordError}</span>
           </div>
         )}
