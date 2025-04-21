@@ -49,6 +49,9 @@ function App() {
   const [theme, setTheme] = useState<ThemePreference>('auto')
   const [filterState, setFilterState] = useState<FilterState>(DEFAULT_FILTERS);
   const [sortOption, setSortOption] = useState<SortOption>('newest');
+  const [customQuery, setCustomQuery] = useState<string>('');
+  const [customQueryInput, setCustomQueryInput] = useState<string>('');
+  const [isCustomQueryActive, setIsCustomQueryActive] = useState<boolean>(false);
 
   // Load PRs from storage
   const loadPullRequests = async () => {
@@ -433,6 +436,55 @@ function App() {
     applyTheme(newTheme)
   }
 
+  // Load custom query on mount
+  useEffect(() => {
+    (async () => {
+      const data = await browser.storage.local.get(['prtracker-custom-query']);
+      if (data['prtracker-custom-query']) {
+        setCustomQuery(data['prtracker-custom-query']);
+        setCustomQueryInput(data['prtracker-custom-query']);
+        setIsCustomQueryActive(true);
+      }
+    })();
+  }, []);
+
+  // Save custom query
+  const handleSaveCustomQuery = async () => {
+    await browser.storage.local.set({ 'prtracker-custom-query': customQueryInput });
+    setCustomQuery(customQueryInput);
+    setIsCustomQueryActive(true);
+    setIsLoading(true);
+    await browser.runtime.sendMessage({
+      type: 'CHECK_PRS',
+      password,
+      manual: true,
+      customQuery: customQueryInput
+    });
+    setTimeout(async () => {
+      await loadPullRequests();
+      setIsLoading(false);
+    }, 2000);
+  };
+
+  // Reset to default queries
+  const handleResetCustomQuery = async () => {
+    await browser.storage.local.remove('prtracker-custom-query');
+    setCustomQuery('');
+    setCustomQueryInput('');
+    setIsCustomQueryActive(false);
+    setIsLoading(true);
+    await browser.runtime.sendMessage({
+      type: 'CHECK_PRS',
+      password,
+      manual: true,
+      customQuery: null
+    });
+    setTimeout(async () => {
+      await loadPullRequests();
+      setIsLoading(false);
+    }, 2000);
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px] p-4">
@@ -726,7 +778,44 @@ function App() {
           sortOption={sortOption}
         />
       </div>
-      
+
+      {/* Custom Search Query Section (moved above search input) */}
+      <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+        <div className="flex flex-col md:flex-row md:items-center gap-2">
+          <input
+            type="text"
+            className="flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+            placeholder="Enter custom GitHub PR search query (e.g. is:open is:pr user:myorg)"
+            value={customQueryInput}
+            onChange={e => setCustomQueryInput(e.target.value)}
+            aria-label="Custom GitHub search query"
+          />
+          <button
+            className="bg-primary text-white px-3 py-1 rounded-md hover:bg-primary/90 transition-colors"
+            onClick={handleSaveCustomQuery}
+            disabled={!customQueryInput.trim() || customQueryInput === customQuery}
+            aria-label="Save custom search query"
+          >
+            Save
+          </button>
+          {isCustomQueryActive && (
+            <button
+              className="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-3 py-1 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+              onClick={handleResetCustomQuery}
+              aria-label="Reset to default search"
+            >
+              Reset
+            </button>
+          )}
+        </div>
+        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+          {isCustomQueryActive
+            ? <>Custom search is <b>active</b>. The extension will use your query for PR fetching.<br />Query: <code>{customQuery}</code></>
+            : <>Using default search: PRs you authored or are requested to review.</>}
+        </div>
+      </div>
+
+      {/* Search PRs input */}
       <input
         type="text"
         placeholder="Search PRs"

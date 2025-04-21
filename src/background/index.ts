@@ -126,126 +126,6 @@ browser.alarms.onAlarm.addListener(async (alarm) => {
   }
 });
 
-// Handle messages from popup
-browser.runtime.onMessage.addListener(function(
-  message: unknown,
-  _sender: browser.Runtime.MessageSender,
-  sendResponse: (response?: boolean | object) => void
-): true {
-  console.log('Received message in background:', typeof message);
-  
-  if (!message || typeof message !== 'object') {
-    sendResponse(false);
-    return true;
-  }
-  
-  const typedMessage = message as Record<string, unknown>;
-  
-  // Handle the CHECK_PRS message
-  if (typedMessage.type === 'CHECK_PRS') {
-    console.log('Checking PRs from message');
-    // Use the provided password if available
-    if (typedMessage.password && typeof typedMessage.password === 'string') {
-      sessionPassword = typedMessage.password;
-    }
-    
-    // Check if this is a manual refresh
-    const isManualRefresh = typedMessage.manual === true;
-    
-    // Use a Promise chain to handle the async operation
-    checkPullRequests(isManualRefresh).then(() => {
-      sendResponse(true);
-    }).catch(error => {
-      console.error('Error checking PRs:', error);
-      sendResponse(false);
-    });
-  } 
-  // Handle password setup
-  else if (typedMessage.type === 'SET_PASSWORD') {
-    if (typedMessage.password && typeof typedMessage.password === 'string') {
-      // Store the password in memory
-      sessionPassword = typedMessage.password;
-      
-      // Handle remember option
-      if (typedMessage.remember === true) {
-        rememberPassword = true;
-        
-        // Store BOTH password and flag in session storage
-        browser.storage.session.set({
-          sessionPassword: typedMessage.password,
-          rememberPasswordFlag: true
-        });
-        
-        // Set up expiration alarm for 12 hours from now
-        const expiryTime = Date.now() + (12 * 60 * 60 * 1000); // 12 hours in milliseconds
-        browser.alarms.create(PASSWORD_EXPIRY_ALARM, {
-          when: expiryTime
-        });
-        
-        console.log('Password will be remembered for 12 hours');
-      } else {
-        rememberPassword = false;
-        // Clear any existing storage and alarm
-        browser.storage.session.remove(['sessionPassword', 'rememberPasswordFlag']);
-        browser.alarms.clear(PASSWORD_EXPIRY_ALARM);
-      }
-      
-      // Set up periodic refresh
-      browser.alarms.create(ALARM_NAME, {
-        periodInMinutes: CHECK_INTERVAL
-      });
-      
-      sendResponse(true);
-    } else {
-      sendResponse(false);
-    }
-  } 
-  // Handle checking if password is remembered
-  else if (typedMessage.type === 'GET_REMEMBERED_PASSWORD') {
-    if (sessionPassword && rememberPassword) {
-      sendResponse({
-        hasRememberedPassword: true,
-        password: sessionPassword
-      });
-    } else {
-      // Try to get from session storage
-      browser.storage.session.get(['sessionPassword', 'rememberPasswordFlag']).then(data => {
-        if (data.sessionPassword && data.rememberPasswordFlag) {
-          sessionPassword = data.sessionPassword;
-          rememberPassword = true;
-          sendResponse({
-            hasRememberedPassword: true,
-            password: data.sessionPassword
-          });
-        } else {
-          sendResponse({
-            hasRememberedPassword: false
-          });
-        }
-      });
-    }
-  }
-  // Handle clearing password from memory
-  else if (typedMessage.type === 'CLEAR_SESSION') {
-    sessionPassword = null;
-    rememberPassword = false;
-    // Clear session storage
-    browser.storage.session.remove(['sessionPassword', 'rememberPasswordFlag']);
-    // Clear any expiry alarm
-    browser.alarms.clear(PASSWORD_EXPIRY_ALARM);
-    // Clear refresh alarm
-    browser.alarms.clear(ALARM_NAME);
-    sendResponse(true);
-  }
-  else {
-    // Always send a response even if we don't recognize the message
-    sendResponse(false);
-  }
-  
-  // Always return true to indicate we'll handle the response asynchronously
-  return true;
-});
-
 // Helper function to set badge text cross-browser
 async function setBadgeText(text: string) {
   try {
@@ -267,7 +147,7 @@ function shouldRefresh(): boolean {
   return false;
 }
 
-async function checkPullRequests(isManualRefresh = false) {
+async function checkPullRequests(isManualRefresh = false, customQueryFromMsg?: string | null) {
   console.log('Starting PR check');
   
   // Only proceed if we have the password or can get it from session storage
@@ -318,7 +198,6 @@ async function checkPullRequests(isManualRefresh = false) {
       });
       return;
     }
-
     console.log('Token decrypted successfully, fetching PRs');
 
     // Get user info
@@ -345,47 +224,76 @@ async function checkPullRequests(isManualRefresh = false) {
     const user = await userResponse.json();
     console.log(`Fetched user info for ${user.login}`);
 
-    // Fetch both authored and review-requested PRs
-    const searchQuery = `is:open is:pr author:${user.login} archived:false`;
-    const assignedQuery = `is:open is:pr review-requested:${user.login} archived:false`;
-
-    console.log(`Searching for PRs with queries: 
-      - Authored: ${searchQuery}
-      - Review requested: ${assignedQuery}`);
-
-    const [authoredResponse, reviewResponse] = await Promise.all([
-      fetch(`https://api.github.com/search/issues?q=${encodeURIComponent(searchQuery)}&per_page=100`, {
-        headers: {
-          'Authorization': `token ${token}`,
-          'Accept': 'application/vnd.github.v3+json'
-        }
-      }),
-      fetch(`https://api.github.com/search/issues?q=${encodeURIComponent(assignedQuery)}&per_page=100`, {
-        headers: {
-          'Authorization': `token ${token}`,
-          'Accept': 'application/vnd.github.v3+json'
-        }
-      })
-    ]);
-
-    if (!authoredResponse.ok || !reviewResponse.ok) {
-      console.error(`PR search failed. Authored status: ${authoredResponse.status}, Review status: ${reviewResponse.status}`);
-      if (authoredResponse.status === 401 || reviewResponse.status === 401) {
-        await removeToken();
+    // --- Custom Query Support ---
+    let customQuery = customQueryFromMsg;
+    if (typeof customQuery === 'undefined') {
+      // If not provided in message, try to load from storage
+      const data = await browser.storage.local.get(['prtracker-custom-query']);
+      if (data['prtracker-custom-query']) {
+        customQuery = data['prtracker-custom-query'];
       }
-      await browser.notifications.create({
-        type: 'basic',
-        iconUrl: '/icon.png',
-        title: 'PR Tracker Error',
-        message: `Failed to fetch PRs: ${authoredResponse.status}, ${reviewResponse.status}. Please check your GitHub token or network.`
-      });
-      throw new Error(`Failed to fetch PRs: ${authoredResponse.status}, ${reviewResponse.status}`);
     }
 
-    const authoredData = await authoredResponse.json();
-    const reviewData = await reviewResponse.json();
+    let prItems: any[] = [];
+    if (customQuery && customQuery.trim()) {
+      // Use the custom query for a single search
+      console.log('Using custom search query:', customQuery);
+      const customResp = await fetch(`https://api.github.com/search/issues?q=${encodeURIComponent(customQuery)}&per_page=100`, {
+        headers: {
+          'Authorization': `token ${token}`,
+          'Accept': 'application/vnd.github.v3+json'
+        }
+      });
+      if (!customResp.ok) {
+        console.error(`Custom PR search failed. Status: ${customResp.status}`);
+        if (customResp.status === 401) await removeToken();
+        await browser.notifications.create({
+          type: 'basic',
+          iconUrl: '/icon.png',
+          title: 'PR Tracker Error',
+          message: `Failed to fetch PRs: ${customResp.status}. Please check your GitHub token or network.`
+        });
+        throw new Error(`Failed to fetch PRs: ${customResp.status}`);
+      }
+      const customData = await customResp.json();
+      prItems = customData.items || [];
+    } else {
+      // Default: Fetch both authored and review-requested PRs
+      const searchQuery = `is:open is:pr author:${user.login} archived:false`;
+      const assignedQuery = `is:open is:pr review-requested:${user.login} archived:false`;
+      console.log(`Searching for PRs with queries: \n  - Authored: ${searchQuery}\n  - Review requested: ${assignedQuery}`);
+      const [authoredResponse, reviewResponse] = await Promise.all([
+        fetch(`https://api.github.com/search/issues?q=${encodeURIComponent(searchQuery)}&per_page=100`, {
+          headers: {
+            'Authorization': `token ${token}`,
+            'Accept': 'application/vnd.github.v3+json'
+          }
+        }),
+        fetch(`https://api.github.com/search/issues?q=${encodeURIComponent(assignedQuery)}&per_page=100`, {
+          headers: {
+            'Authorization': `token ${token}`,
+            'Accept': 'application/vnd.github.v3+json'
+          }
+        })
+      ]);
+      if (!authoredResponse.ok || !reviewResponse.ok) {
+        console.error(`PR search failed. Authored status: ${authoredResponse.status}, Review status: ${reviewResponse.status}`);
+        if (authoredResponse.status === 401 || reviewResponse.status === 401) {
+          await removeToken();
+        }
+        await browser.notifications.create({
+          type: 'basic',
+          iconUrl: '/icon.png',
+          title: 'PR Tracker Error',
+          message: `Failed to fetch PRs: ${authoredResponse.status}, ${reviewResponse.status}. Please check your GitHub token or network.`
+        });
+        throw new Error(`Failed to fetch PRs: ${authoredResponse.status}, ${reviewResponse.status}`);
+      }
 
-    console.log(`Found ${authoredData.items.length} authored PRs and ${reviewData.items.length} review requested PRs`);
+      const authoredData = await authoredResponse.json();
+      const reviewData = await reviewResponse.json();
+      prItems = [...(authoredData.items || []), ...(reviewData.items || [])];
+    }
 
     // Get full PR details
     const getPRDetails = async (item: GitHubIssueSearchItem, token: string) => {
@@ -422,16 +330,13 @@ async function checkPullRequests(isManualRefresh = false) {
     };
 
     console.log('Fetching detailed PR information...');
-    const authoredPRs = (await Promise.all(authoredData.items.map((item: GitHubIssueSearchItem) => 
+    const detailedPRs = (await Promise.all(prItems.map((item: GitHubIssueSearchItem) => 
       getPRDetails(item, token)
     ))).filter(Boolean);
-    const reviewPRs = (await Promise.all(reviewData.items.map((item: GitHubIssueSearchItem) => 
-      getPRDetails(item, token)
-    ))).filter(Boolean);
-    console.log(`Successfully fetched details for ${authoredPRs.length} authored PRs and ${reviewPRs.length} review PRs`);
+    console.log(`Successfully fetched details for ${detailedPRs.length} PRs`);
 
     // Combine and deduplicate PRs
-    const allPRs = [...authoredPRs, ...reviewPRs];
+    const allPRs = detailedPRs;
     
     // Map each PR to our simplified format, handling potential undefined properties safely
     const uniquePRs = Array.from(new Map(allPRs.map(pr => {
@@ -661,3 +566,109 @@ async function getCIStatus(prUrl: string, token: string): Promise<'passing' | 'f
     return 'pending';
   }
 }
+
+// Patch the message handler to pass customQueryFromMsg
+browser.runtime.onMessage.addListener(function(
+  message: unknown,
+  _sender: browser.Runtime.MessageSender,
+  sendResponse: (response?: boolean | object) => void
+): true {
+  console.log('Received message in background:', typeof message);
+  
+  if (!message || typeof message !== 'object') {
+    sendResponse(false);
+    return true;
+  }
+  const typedMessage = message as Record<string, unknown>;
+  if (typedMessage.type === 'CHECK_PRS') {
+    if (typedMessage.password && typeof typedMessage.password === 'string') {
+      sessionPassword = typedMessage.password;
+    }
+    const isManualRefresh = typedMessage.manual === true;
+    const customQueryFromMsg = typeof typedMessage.customQuery === 'string' ? typedMessage.customQuery : undefined;
+    checkPullRequests(isManualRefresh, customQueryFromMsg).then(() => {
+      sendResponse(true);
+    }).catch(error => {
+      console.error('Error checking PRs:', error);
+      sendResponse(false);
+    });
+  } 
+  else if (typedMessage.type === 'SET_PASSWORD') {
+    if (typedMessage.password && typeof typedMessage.password === 'string') {
+      // Store the password in memory
+      sessionPassword = typedMessage.password;
+      
+      // Handle remember option
+      if (typedMessage.remember === true) {
+        rememberPassword = true;
+        
+        // Store BOTH password and flag in session storage
+        browser.storage.session.set({
+          sessionPassword: typedMessage.password,
+          rememberPasswordFlag: true
+        });
+        
+        // Set up expiration alarm for 12 hours from now
+        const expiryTime = Date.now() + (12 * 60 * 60 * 1000); // 12 hours in milliseconds
+        browser.alarms.create(PASSWORD_EXPIRY_ALARM, {
+          when: expiryTime
+        });
+        
+        console.log('Password will be remembered for 12 hours');
+      } else {
+        rememberPassword = false;
+        // Clear any existing storage and alarm
+        browser.storage.session.remove(['sessionPassword', 'rememberPasswordFlag']);
+        browser.alarms.clear(PASSWORD_EXPIRY_ALARM);
+      }
+      
+      // Set up periodic refresh
+      browser.alarms.create(ALARM_NAME, {
+        periodInMinutes: CHECK_INTERVAL
+      });
+      
+      sendResponse(true);
+    } else {
+      sendResponse(false);
+    }
+  } 
+  else if (typedMessage.type === 'GET_REMEMBERED_PASSWORD') {
+    if (sessionPassword && rememberPassword) {
+      sendResponse({
+        hasRememberedPassword: true,
+        password: sessionPassword
+      });
+    } else {
+      // Try to get from session storage
+      browser.storage.session.get(['sessionPassword', 'rememberPasswordFlag']).then(data => {
+        if (data.sessionPassword && data.rememberPasswordFlag) {
+          sessionPassword = data.sessionPassword;
+          rememberPassword = true;
+          sendResponse({
+            hasRememberedPassword: true,
+            password: data.sessionPassword
+          });
+        } else {
+          sendResponse({
+            hasRememberedPassword: false
+          });
+        }
+      });
+    }
+  }
+  else if (typedMessage.type === 'CLEAR_SESSION') {
+    sessionPassword = null;
+    rememberPassword = false;
+    // Clear session storage
+    browser.storage.session.remove(['sessionPassword', 'rememberPasswordFlag']);
+    // Clear any expiry alarm
+    browser.alarms.clear(PASSWORD_EXPIRY_ALARM);
+    // Clear refresh alarm
+    browser.alarms.clear(ALARM_NAME);
+    sendResponse(true);
+  }
+  else {
+    sendResponse(false);
+  }
+  return true;
+});
