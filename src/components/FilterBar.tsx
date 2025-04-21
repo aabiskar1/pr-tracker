@@ -191,12 +191,11 @@ export function FilterBar({ filters, onFilterChange, onSortChange, onReset, sort
       <div className="flex items-center gap-2">
         <div className="relative">
           <select
-            className="appearance-none pl-3 pr-8 py-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm text-gray-700 dark:text-gray-200 cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary"
+            className="appearance-none pl-3 pr-8 py-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm text-gray-700 dark:text-gray-200 cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary text-left"
             onChange={(e) => onSortChange(e.target.value as SortOption)}
             value={sortOption}
             title="Sort pull requests"
             aria-label="Sort pull requests"
-            style={{textAlignLast: 'left'}}
           >
             <option value="newest">Newest First</option>
             <option value="oldest">Oldest First</option>

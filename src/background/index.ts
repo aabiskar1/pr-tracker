@@ -376,30 +376,31 @@ async function checkPullRequests(isManualRefresh = false, customQueryFromMsg?: s
     await browser.storage.local.set({ pullRequests: uniquePRs });
 
     // Handle notifications
-    const oldPrs = ((await browser.storage.local.get('oldPullRequests')).oldPullRequests || []) as PullRequest[];
-    const newPrs = uniquePRs.filter(pr => !oldPrs.find(old => old.id === pr.id));
-    if (newPrs.length > 0) {
-      console.log(`Sending notification for ${newPrs.length} new PRs`);
-      try {
-        // Create a notification with a unique ID
-        const notificationId = `new-prs-${Date.now()}`;
-        
-        // Chrome requires a full path to the icon and it must be a PNG file
-        // Firefox is more flexible with SVG files and relative paths
-        // Use a 48x48 or 128x128 icon for best results in Chrome
-        await browser.notifications.create(notificationId, {
-          type: 'basic',
-          iconUrl: '/icon.png', // This works in both Chrome and Firefox
-          title: 'New Pull Requests',
-          message: `You have ${newPrs.length} new pull request${newPrs.length > 1 ? 's' : ''}!`
-        });
-        
-        console.log('Notification sent successfully with icon: /icon.png');
-      } catch (error) {
-        console.error('Error creating notification:', error);
+    const { 'prtracker-notifications-enabled': notificationsEnabled } = await browser.storage.local.get('prtracker-notifications-enabled');
+    if (notificationsEnabled !== false) {
+      const oldPrs = ((await browser.storage.local.get('oldPullRequests')).oldPullRequests || []) as PullRequest[];
+      const newPrs = uniquePRs.filter(pr => !oldPrs.find(old => old.id === pr.id));
+      if (newPrs.length > 0) {
+        console.log(`Sending notification for ${newPrs.length} new PRs`);
+        try {
+          // Create a notification with a unique ID
+          const notificationId = `new-prs-${Date.now()}`;
+          await browser.notifications.create(notificationId, {
+            type: 'basic',
+            iconUrl: '/icon.png', // This works in both Chrome and Firefox
+            title: 'New Pull Requests',
+            message: `You have ${newPrs.length} new pull request${newPrs.length > 1 ? 's' : ''}!`
+          });
+          console.log('Notification sent successfully with icon: /icon.png');
+        } catch (error) {
+          console.error('Error creating notification:', error);
+        }
       }
+      await browser.storage.local.set({ oldPullRequests: uniquePRs });
+    } else {
+      // Still update oldPullRequests for correct diff next time
+      await browser.storage.local.set({ oldPullRequests: uniquePRs });
     }
-    await browser.storage.local.set({ oldPullRequests: uniquePRs });
 
   } catch (error) {
     console.error('Error checking pull requests:', error);

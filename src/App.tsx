@@ -52,6 +52,7 @@ function App() {
   const [customQuery, setCustomQuery] = useState<string>('');
   const [customQueryInput, setCustomQueryInput] = useState<string>('');
   const [isCustomQueryActive, setIsCustomQueryActive] = useState<boolean>(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(true);
 
   // Load PRs from storage
   const loadPullRequests = async () => {
@@ -485,6 +486,13 @@ function App() {
     }, 2000);
   };
 
+  // Toggle notifications
+  const handleToggleNotifications = async () => {
+    const newValue = !notificationsEnabled;
+    setNotificationsEnabled(newValue);
+    await browser.storage.local.set({ 'prtracker-notifications-enabled': newValue });
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px] p-4">
@@ -739,8 +747,16 @@ function App() {
     <div className="w-full max-w-3xl mx-auto p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Pull Requests</h2>
-        <div className="flex space-x-2">
+        <div className="flex space-x-2 items-center">
           <ThemeSwitcher theme={theme} onThemeChange={handleThemeChange} />
+          <button
+            className={`px-3 py-1 rounded border text-sm transition-colors ${notificationsEnabled ? 'bg-green-100 text-green-800 border-green-300 dark:bg-green-900 dark:text-green-200' : 'bg-gray-200 text-gray-600 border-gray-300 dark:bg-gray-700 dark:text-gray-300'}`}
+            onClick={handleToggleNotifications}
+            aria-label={notificationsEnabled ? 'Disable notifications' : 'Enable notifications'}
+            type="button"
+          >
+            {notificationsEnabled ? '🔔 Notifications On' : '🔕 Notifications Off'}
+          </button>
           <button 
             onClick={async () => {
               setIsLoading(true)
@@ -768,7 +784,6 @@ function App() {
           </button>
         </div>
       </div>
-
       <div className="mb-4">
         <FilterBar 
           filters={filterState}
