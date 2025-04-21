@@ -99,14 +99,26 @@
   margin-right: 0.5rem;
 }
 
-.pr-draft {
-  background: #eee;
-  color: #666;
+/* THEME BADGE CLASSES */
+.pr-draft.badge-pending {
+  background: var(--badge-pending);
+  color: #fff;
 }
-
-.pr-reviewers {
-  background: #e3f2fd;
-  color: #0D47A1;
+.pr-reviewers.badge-approved {
+  background: var(--badge-approved);
+  color: #fff;
+}
+.pr-reviewers.badge-changes {
+  background: var(--badge-changes);
+  color: #fff;
+}
+.pr-reviewers.badge-passing {
+  background: var(--badge-passing);
+  color: #fff;
+}
+.pr-reviewers.badge-failing {
+  background: var(--badge-failing);
+  color: #fff;
 }
 
 .filter-bar {

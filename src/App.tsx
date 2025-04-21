@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react'
 import browser from 'webextension-polyfill'
 import { FilterBar, FilterState, SortOption } from './components/FilterBar'
 import { PullRequestList } from './components/PullRequestList'
+import ThemeSwitcher from './components/ThemeSwitcher.js'
 import './App.css'
-import { FaGithub, FaLock, FaKey, FaUnlock, FaSignInAlt, FaShieldAlt, FaQuestionCircle, FaClock, FaSun, FaMoon } from 'react-icons/fa'
+import { FaGithub, FaLock, FaKey, FaUnlock, FaSignInAlt, FaShieldAlt, FaQuestionCircle, FaClock } from 'react-icons/fa'
 import { encryptToken, validatePassword, hasStoredToken, hasEncryptionSetup, clearSecureStorage } from './services/secureStorage'
+import { getStoredTheme, setStoredTheme, applyTheme, ThemePreference } from './services/themeManager'
 
 type PullRequest = {
   id: number
@@ -36,16 +38,7 @@ function App() {
   const [passwordError, setPasswordError] = useState<string>('')
   const [authState, setAuthState] = useState<AuthState>('initializing')
   const [showPasswordHelp, setShowPasswordHelp] = useState(false)
-  const [theme, setTheme] = useState<'light' | 'dark'>('dark')
-
-  // Toggle theme function
-  const toggleTheme = () => {
-    const newTheme = theme === 'dark' ? 'light' : 'dark'
-    setTheme(newTheme)
-    document.documentElement.setAttribute('data-theme', newTheme)
-    // Save theme preference to storage
-    browser.storage.local.set({ theme: newTheme })
-  }
+  const [theme, setTheme] = useState<ThemePreference>('auto')
 
   // Load PRs from storage
   const loadPullRequests = async () => {
@@ -58,6 +51,19 @@ function App() {
   }
 
   useEffect(() => {
+    // THEME: Load and apply theme preference
+    let mediaQuery: MediaQueryList | null = null;
+    let handler: ((e: MediaQueryListEvent) => void) | null = null;
+    getStoredTheme().then(storedTheme => {
+      setTheme(storedTheme)
+      applyTheme(storedTheme)
+      if (storedTheme === 'auto') {
+        mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+        handler = () => applyTheme('auto');
+        mediaQuery.addEventListener('change', handler);
+      }
+    })
+
     // Check for token and load PRs from storage
     const initializeApp = async () => {
       try {
@@ -121,7 +127,8 @@ function App() {
     }
 
     initializeApp();
-      // Set up storage change listener to update PRs when they change
+    
+    // Set up storage change listener to update PRs when they change
     const storageListener = (changes: Record<string, browser.Storage.StorageChange>) => {
       console.log('Storage changed:', changes)
       if (changes.pullRequests) {
@@ -132,24 +139,9 @@ function App() {
     
     browser.storage.onChanged.addListener(storageListener)
 
-    // Load saved theme preference (if any) or use system preference
-    const initTheme = async () => {
-      const data = await browser.storage.local.get(['theme'])
-      if (data.theme) {
-        setTheme(data.theme)
-        document.documentElement.setAttribute('data-theme', data.theme)
-      } else {
-        // Check system preference
-        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-        const systemTheme = prefersDark ? 'dark' : 'light'
-        setTheme(systemTheme)
-        document.documentElement.setAttribute('data-theme', systemTheme)
-      }
-    }
-    initTheme()
-
     return () => {
       browser.storage.onChanged.removeListener(storageListener)
+      if (mediaQuery && handler) mediaQuery.removeEventListener('change', handler)
     }
   }, [])
 
@@ -387,6 +379,13 @@ function App() {
       pr.repository.name.toLowerCase().includes(searchTerm)
     )
     setFilteredPRs(filtered)
+  }
+
+  // Theme change handler
+  const handleThemeChange = async (newTheme: ThemePreference) => {
+    setTheme(newTheme)
+    await setStoredTheme(newTheme)
+    applyTheme(newTheme)
   }
 
   if (isLoading) {
@@ -640,22 +639,11 @@ function App() {
   }
 
   return (
-    <div className="w-full max-w-3xl mx-auto p-4 bg-white dark:bg-gray-800 rounded-lg shadow">      <div className="flex items-center justify-between mb-4">
+    <div className="w-full max-w-3xl mx-auto p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
+      <div className="flex items-center justify-between mb-4">
         <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Pull Requests</h2>
-        <div className="flex space-x-2">          <button 
-            onClick={toggleTheme}
-            className="flex items-center px-2 py-1 rounded-md transition-colors gap-2 theme-toggle-switch"
-            aria-label={theme === 'dark' ? "Switch to light theme" : "Switch to dark theme"}
-            title={theme === 'dark' ? "Switch to light theme" : "Switch to dark theme"}
-          >
-            <span className="text-gray-600 dark:text-gray-300 text-sm">
-              {theme === 'dark' ? <FaMoon className="inline mr-1" /> : <FaSun className="inline mr-1" />}
-            </span>
-            <div className="relative inline-block w-10 h-5 transition duration-200 ease-in-out rounded-full cursor-pointer">
-              <div className={`absolute left-0 top-0 w-10 h-5 rounded-full transition-colors toggle-track ${theme === 'dark' ? 'bg-gray-600' : 'bg-primary'}`}></div>
-              <div className={`absolute left-0 top-0 w-5 h-5 transform transition-transform duration-200 ease-in-out rounded-full shadow-md toggle-thumb ${theme === 'dark' ? '' : 'translate-x-5'}`}></div>
-            </div>
-          </button>
+        <div className="flex space-x-2">
+          <ThemeSwitcher theme={theme} onThemeChange={handleThemeChange} />
           <button 
             onClick={async () => {
               setIsLoading(true)

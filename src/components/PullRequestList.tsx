@@ -54,7 +54,7 @@ export const PullRequestList: FC<PullRequestListProps> = ({ pullRequests }) => {
               <div className="flex justify-between items-start">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="inline-block px-2 py-1 text-xs font-medium rounded bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300">
+                    <span className="inline-block px-2 py-1 text-xs font-medium rounded badge-repo">
                       {pr.repository.name}
                     </span>
                     {/* Age Indicator */}
@@ -66,7 +66,7 @@ export const PullRequestList: FC<PullRequestListProps> = ({ pullRequests }) => {
                   <h3 className="font-medium text-gray-800 dark:text-white mb-1">
                     {pr.title}
                     {pr.draft && (
-                      <span className="ml-2 px-2 py-0.5 text-xs rounded bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300">
+                      <span className="ml-2 px-2 py-0.5 text-xs rounded badge-draft">
                         Draft
                       </span>
                     )}
@@ -76,11 +76,11 @@ export const PullRequestList: FC<PullRequestListProps> = ({ pullRequests }) => {
                   {/* CI Status Indicator */}
                   {pr.ci_status && (
                     <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs ${
-                      pr.ci_status === 'passing' 
-                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                      pr.ci_status === 'passing'
+                        ? 'badge-passing'
                         : pr.ci_status === 'failing'
-                        ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                        : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                        ? 'badge-failing'
+                        : 'badge-pending'
                     }`}>
                       <FaCodeBranch size={12} className="opacity-80" />
                       <span>|</span>
@@ -98,10 +98,10 @@ export const PullRequestList: FC<PullRequestListProps> = ({ pullRequests }) => {
                   {pr.review_status && (
                     <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs ${
                       pr.review_status === 'approved'
-                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                        ? 'badge-approved'
                         : pr.review_status === 'changes-requested'
-                        ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                        : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                        ? 'badge-changes'
+                        : 'badge-pending'
                     }`}>
                       <FaUserCheck size={12} className="opacity-80" />
                       <span>|</span>
@@ -113,10 +113,10 @@ export const PullRequestList: FC<PullRequestListProps> = ({ pullRequests }) => {
                         <FaHourglassHalf size={12} />
                       )}
                       <span className="ml-1">
-                        {pr.review_status === 'approved' 
-                          ? 'Approved' 
-                          : pr.review_status === 'changes-requested' 
-                          ? 'Changes' 
+                        {pr.review_status === 'approved'
+                          ? 'Approved'
+                          : pr.review_status === 'changes-requested'
+                          ? 'Changes'
                           : 'Pending'}
                       </span>
                     </div>
