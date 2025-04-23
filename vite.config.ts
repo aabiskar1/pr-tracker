@@ -17,7 +17,7 @@ export default defineConfig({
       manifest: {
         manifest_version: isFirefox ? 2 : 3,
         name: "PR Tracker",
-        version: "1.0.0",
+        version: "1.0.1",
         description: "Track and manage your GitHub pull requests",
         permissions: [
           "storage",
@@ -28,7 +28,7 @@ export default defineConfig({
         ...(isFirefox ? {
           browser_specific_settings: {
             gecko: {
-              id: "prtracker@example.com"
+              id: "{dabd690e-283a-4c0a-98de-3fc963365d13}"
             }
           },
           background: {
@@ -37,7 +37,12 @@ export default defineConfig({
           },
           browser_action: {
             default_popup: "index.html",
-            default_icon: "icon.svg",
+            default_icon: {
+              "16": "icons/icon-16.png",
+              "32": "icons/icon-32.png",
+              "48": "icons/icon-48.png",
+              "128": "icons/icon-128.png"
+            },
             browser_style: true
           },
           content_security_policy: "script-src 'self'; object-src 'self';"
@@ -51,7 +56,12 @@ export default defineConfig({
           },
           action: {
             default_popup: "index.html",
-            default_icon: "icon.svg"
+            default_icon: {
+              "16": "icons/icon-16.png",
+              "32": "icons/icon-32.png",
+              "48": "icons/icon-48.png",
+              "128": "icons/icon-128.png"
+            }
           }
         }),
         icons: {
