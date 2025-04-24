@@ -207,10 +207,10 @@ export function FilterBar({ filters, onFilterChange, onSortChange, onReset, sort
           </div>
         </div>
         {/* Custom Query Input */}
-        <div className="flex flex-row items-center gap-2">
+        <div className="flex flex-row items-center gap-2 flex-1 min-w-[320px]">
           <input
             type="text"
-            className="w-[22rem] md:w-[44rem] px-3 py-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white text-xs"
+            className="w-full min-w-[260px] px-3 py-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white text-xs"
             placeholder="Custom GitHub PR search (e.g. is:open is:pr user:myorg)"
             value={customQueryInput}
             onChange={e => setCustomQueryInput(e.target.value)}
