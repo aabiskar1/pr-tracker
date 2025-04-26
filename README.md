@@ -4,7 +4,11 @@
   <img src="./screenshots/light-theme.png" alt="PR Tracker Light Theme Screenshot" width="600" />
 </p>
 
+Chrome webstore link: [PR Tracker for Chrome](https://chromewebstore.google.com/detail/pr-tracker/kfeglmkcicfmegclihokchplngcokgil)
+
+
 A browser extension to help you efficiently track and manage your GitHub pull requests. The extension provides status updates, filtering capabilities, and visual indicators for PR age, review status, and CI/build status.
+
 
 ## Features
 
@@ -33,6 +37,14 @@ A browser extension to help you efficiently track and manage your GitHub pull re
   - Timestamp indicators
 
 ## Installation
+
+Download the extension from the Chrome Web Store or Firefox Add-ons site, or build it from source.
+
+Chrome webstore link: [PR Tracker for Chrome](https://chromewebstore.google.com/detail/pr-tracker/kfeglmkcicfmegclihokchplngcokgil)
+
+Firefox add-ons link: [PR Tracker for Firefox](https://addons.mozilla.org/en-US/firefox/addon/pr-tracker/) - (coming soon, currently in review) 
+
+OR
 
 1. Clone the repository:
    ```bash
