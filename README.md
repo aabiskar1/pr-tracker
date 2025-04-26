@@ -42,7 +42,7 @@ Download the extension from the Chrome Web Store or Firefox Add-ons site, or bui
 
 Chrome webstore link: [PR Tracker for Chrome](https://chromewebstore.google.com/detail/pr-tracker/kfeglmkcicfmegclihokchplngcokgil)
 
-Firefox add-ons link: [PR Tracker for Firefox](https://addons.mozilla.org/en-US/firefox/addon/pr-tracker/) - (coming soon, currently in review) 
+Firefox add-ons link: [PR Tracker for Firefox](https://addons.mozilla.org/en-US/firefox/addon/pr-tracker/)
 
 OR
 
