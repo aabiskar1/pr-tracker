@@ -1,40 +1,52 @@
 {
-  "name": "pr-tracker",
-  "private": true,
-  "version": "0.0.0",
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "build:chrome": "tsc -b && cross-env BROWSER=chrome vite build",
-    "build:firefox": "tsc -b && cross-env BROWSER=firefox vite build",
-    "build:all": "npm run build:chrome && npm run build:firefox",
-    "lint": "eslint .",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "@tailwindcss/vite": "^4.0.12",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "react-icons": "^5.5.0",
-    "webextension-polyfill": "^0.12.0"
-  },
-  "devDependencies": {
-    "@eslint/js": "^9.21.0",
-    "@samrum/vite-plugin-web-extension": "^5.1.1",
-    "@types/chrome": "^0.0.307",
-    "@types/react": "^19.0.10",
-    "@types/react-dom": "^19.0.4",
-    "@types/webextension-polyfill": "^0.10.5",
-    "@vitejs/plugin-react": "^4.3.4",
-    "cross-env": "^7.0.3",
-    "eslint": "^9.21.0",
-    "eslint-plugin-react-hooks": "^5.1.0",
-    "eslint-plugin-react-refresh": "^0.4.19",
-    "globals": "^15.15.0",
-    "tailwindcss": "^4.0.12",
-    "typescript": "~5.7.2",
-    "typescript-eslint": "^8.24.1",
-    "vite": "^5.4.14"
-  }
+    "name": "pr-tracker",
+    "version": "0.0.0",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "build": "tsc -b && vite build",
+        "build:all": "npm run build:chrome && npm run build:firefox",
+        "build:chrome": "tsc -b && cross-env BROWSER=chrome vite build",
+        "build:firefox": "tsc -b && cross-env BROWSER=firefox vite build",
+        "check-format": "prettier --check .",
+        "dev": "vite",
+        "format": "prettier --write .",
+        "lint": "eslint .",
+        "prepare": "husky install",
+        "preview": "vite preview"
+    },
+    "prettier": {
+        "bracketSpacing": true,
+        "singleQuote": true,
+        "tabWidth": 4,
+        "trailingComma": "es5"
+    },
+    "dependencies": {
+        "@tailwindcss/vite": "^4.0.12",
+        "react": "^19.0.0",
+        "react-dom": "^19.0.0",
+        "react-icons": "^5.5.0",
+        "webextension-polyfill": "^0.12.0"
+    },
+    "devDependencies": {
+        "@eslint/js": "^9.21.0",
+        "@samrum/vite-plugin-web-extension": "^5.1.1",
+        "@types/chrome": "^0.0.307",
+        "@types/react": "^19.0.10",
+        "@types/react-dom": "^19.0.4",
+        "@types/webextension-polyfill": "^0.10.5",
+        "@vitejs/plugin-react": "^4.3.4",
+        "cross-env": "^7.0.3",
+        "eslint": "^9.21.0",
+        "eslint-plugin-react-hooks": "^5.1.0",
+        "eslint-plugin-react-refresh": "^0.4.19",
+        "globals": "^15.15.0",
+        "lint-staged": "^15.5.1",
+        "prettier": "^3.5.3",
+        "sort-package-json": "^3.0.0",
+        "tailwindcss": "^4.0.12",
+        "typescript": "~5.7.2",
+        "typescript-eslint": "^8.24.1",
+        "vite": "^5.4.14"
+    }
 }

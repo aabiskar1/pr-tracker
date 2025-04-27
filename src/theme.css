@@ -1,398 +1,438 @@
 /* Apply theme variables to elements */
 :root {
-  --background-primary: #ffffff;
-  --text-primary: #333333;
-  --border-color: #e0e0e0;
+    --background-primary: #ffffff;
+    --text-primary: #333333;
+    --border-color: #e0e0e0;
 
-  /* Badge colors (consistent across themes) */
-  --badge-passing: #28a745;
-  --badge-failing: #cb2431;
-  --badge-pending: #dbab09;
-  --badge-approved: #28a745;
-  --badge-changes: #cb2431;
+    /* Badge colors (consistent across themes) */
+    --badge-passing: #28a745;
+    --badge-failing: #cb2431;
+    --badge-pending: #dbab09;
+    --badge-approved: #28a745;
+    --badge-changes: #cb2431;
 }
 
-[data-theme="dark"] {
-  --background-primary: #1e1e1e;
-  --text-primary: #e0e0e0;
-  --border-color: #444444;
-  /* Badge colors remain unchanged */
+[data-theme='dark'] {
+    --background-primary: #1e1e1e;
+    --text-primary: #e0e0e0;
+    --border-color: #444444;
+    /* Badge colors remain unchanged */
 }
 
 /* Example usage for badges */
 .badge-passing {
-  background: var(--badge-passing);
-  color: #fff;
+    background: var(--badge-passing);
+    color: #fff;
 }
 .badge-failing {
-  background: var(--badge-failing);
-  color: #fff;
+    background: var(--badge-failing);
+    color: #fff;
 }
 .badge-pending {
-  background: var(--badge-pending);
-  color: #fff;
+    background: var(--badge-pending);
+    color: #fff;
 }
 .badge-approved {
-  background: var(--badge-approved);
-  color: #fff;
+    background: var(--badge-approved);
+    color: #fff;
 }
 .badge-changes {
-  background: var(--badge-changes);
-  color: #fff;
+    background: var(--badge-changes);
+    color: #fff;
 }
 .badge-draft {
-  background: var(--draft-badge-bg, #d1d5db); /* fallback to Tailwind gray-300 */
-  color: var(--draft-badge-text, #374151);     /* fallback to Tailwind gray-700 */
+    background: var(
+        --draft-badge-bg,
+        #d1d5db
+    ); /* fallback to Tailwind gray-300 */
+    color: var(--draft-badge-text, #374151); /* fallback to Tailwind gray-700 */
 }
 
-html[data-theme="dark"] .badge-draft {
-  background: var(--draft-badge-bg-dark, #374151); /* fallback to Tailwind gray-600 */
-  color: var(--draft-badge-text-dark, #d1d5db);    /* fallback to Tailwind gray-300 */
+html[data-theme='dark'] .badge-draft {
+    background: var(
+        --draft-badge-bg-dark,
+        #374151
+    ); /* fallback to Tailwind gray-600 */
+    color: var(
+        --draft-badge-text-dark,
+        #d1d5db
+    ); /* fallback to Tailwind gray-300 */
 }
 
 .badge-repo {
-  background: var(--repo-badge-bg, #e5e7eb); /* fallback to Tailwind gray-200 */
-  color: var(--repo-badge-text, #374151);     /* fallback to Tailwind gray-700 */
+    background: var(
+        --repo-badge-bg,
+        #e5e7eb
+    ); /* fallback to Tailwind gray-200 */
+    color: var(--repo-badge-text, #374151); /* fallback to Tailwind gray-700 */
 }
 
-html[data-theme="dark"] .badge-repo {
-  background: var(--repo-badge-bg-dark, #374151); /* fallback to Tailwind gray-600 */
-  color: var(--repo-badge-text-dark, #d1d5db);    /* fallback to Tailwind gray-300 */
+html[data-theme='dark'] .badge-repo {
+    background: var(
+        --repo-badge-bg-dark,
+        #374151
+    ); /* fallback to Tailwind gray-600 */
+    color: var(
+        --repo-badge-text-dark,
+        #d1d5db
+    ); /* fallback to Tailwind gray-300 */
 }
 
 .badge-unselected {
-  background: var(--badge-unselected-bg, #f3f4f6); /* fallback to Tailwind gray-100 */
-  color: var(--badge-unselected-text, #6b7280);    /* fallback to Tailwind gray-600 */
+    background: var(
+        --badge-unselected-bg,
+        #f3f4f6
+    ); /* fallback to Tailwind gray-100 */
+    color: var(
+        --badge-unselected-text,
+        #6b7280
+    ); /* fallback to Tailwind gray-600 */
 }
 
-html[data-theme="dark"] .badge-unselected {
-  background: var(--badge-unselected-bg-dark, #374151); /* fallback to Tailwind gray-700 */
-  color: var(--badge-unselected-text-dark, #d1d5db);    /* fallback to Tailwind gray-300 */
+html[data-theme='dark'] .badge-unselected {
+    background: var(
+        --badge-unselected-bg-dark,
+        #374151
+    ); /* fallback to Tailwind gray-700 */
+    color: var(
+        --badge-unselected-text-dark,
+        #d1d5db
+    ); /* fallback to Tailwind gray-300 */
 }
 
-body, html {
-  background: var(--background-primary);
-  color: var(--text-primary);
-  transition: background-color 0.3s ease, color 0.3s ease;
+body,
+html {
+    background: var(--background-primary);
+    color: var(--text-primary);
+    transition:
+        background-color 0.3s ease,
+        color 0.3s ease;
 }
 
 /* Apply background color to specific container elements */
-.bg-white, .dark\:bg-gray-800, 
-.rounded-lg, .rounded-xl, 
-.w-full.max-w-md.mx-auto.p-6, 
+.bg-white,
+.dark\:bg-gray-800,
+.rounded-lg,
+.rounded-xl,
+.w-full.max-w-md.mx-auto.p-6,
 .w-full.max-w-3xl.mx-auto.p-4 {
-  background: var(--background-primary) !important;
-  color: var(--text-primary) !important;
-  border-color: var(--border-color) !important;
+    background: var(--background-primary) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--border-color) !important;
 }
 
-input, select, textarea {
-  background: var(--background-primary) !important;
-  color: var(--text-primary) !important;
-  border: 1px solid var(--border-color) !important;
+input,
+select,
+textarea {
+    background: var(--background-primary) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border-color) !important;
 }
 
 a {
-  color: var(--link-color);
+    color: var(--link-color);
 }
 
 a:hover {
-  color: var(--hover-color);
+    color: var(--hover-color);
 }
 
 /* Card elements */
-.card, 
+.card,
 .bg-gray-800,
 .bg-zinc-800 {
-  background-color: var(--card-bg) !important;
+    background-color: var(--card-bg) !important;
 }
 
 /* Light theme styles using data-theme attribute */
-html[data-theme="light"] {
-  --text-color: rgba(0, 0, 0, 0.87);
-  --text-color-secondary: #4b5563; 
-  --bg-color: #ffffff;
-  --card-bg: #f5f5f5;
-  --hover-color: #4338ca;
-  --link-color: #5046e4;
-  --border-color: #d1d5db;
-  --label-color: #111827;
-  --input-bg: #ffffff;
-  --input-border: #d1d5db;
-  --input-text: #111827;
-  --button-text: #ffffff;
-  --button-bg-secondary: #f3f4f6;
-  --button-text-secondary: #374151;
+html[data-theme='light'] {
+    --text-color: rgba(0, 0, 0, 0.87);
+    --text-color-secondary: #4b5563;
+    --bg-color: #ffffff;
+    --card-bg: #f5f5f5;
+    --hover-color: #4338ca;
+    --link-color: #5046e4;
+    --border-color: #d1d5db;
+    --label-color: #111827;
+    --input-bg: #ffffff;
+    --input-border: #d1d5db;
+    --input-text: #111827;
+    --button-text: #ffffff;
+    --button-bg-secondary: #f3f4f6;
+    --button-text-secondary: #374151;
 }
 
 /* Dark theme styles using data-theme attribute */
-html[data-theme="dark"] {
-  --text-color: #e6edf3;
-  --text-color-secondary: #8b949e;
-  --bg-color: #161b22; /* GitHub's main dark background */
-  --card-bg: #22272e;  /* GitHub's card background */
-  --hover-color: #2188ff;
-  --link-color: #58a6ff;
-  --border-color: #30363d;
-  --primary-button-bg: #238636;
-  --primary-button-hover: #2ea043;
-  --label-color: #e6edf3;
-  --input-bg: #161b22;
-  --input-border: #30363d;
-  --input-text: #e6edf3;
-  --button-text: #ffffff;
-  --button-bg-secondary: #21262d;
-  --button-text-secondary: #c9d1d9;
+html[data-theme='dark'] {
+    --text-color: #e6edf3;
+    --text-color-secondary: #8b949e;
+    --bg-color: #161b22; /* GitHub's main dark background */
+    --card-bg: #22272e; /* GitHub's card background */
+    --hover-color: #2188ff;
+    --link-color: #58a6ff;
+    --border-color: #30363d;
+    --primary-button-bg: #238636;
+    --primary-button-hover: #2ea043;
+    --label-color: #e6edf3;
+    --input-bg: #161b22;
+    --input-border: #30363d;
+    --input-text: #e6edf3;
+    --button-text: #ffffff;
+    --button-bg-secondary: #21262d;
+    --button-text-secondary: #c9d1d9;
 }
 
 /* Badge theme colors - light mode */
-html[data-theme="light"] .bg-green-900 {
-  background-color: #dcfce7 !important;
-  color: #166534 !important;
+html[data-theme='light'] .bg-green-900 {
+    background-color: #dcfce7 !important;
+    color: #166534 !important;
 }
 
-html[data-theme="light"] .bg-red-900 {
-  background-color: #fee2e2 !important;
-  color: #991b1b !important;
+html[data-theme='light'] .bg-red-900 {
+    background-color: #fee2e2 !important;
+    color: #991b1b !important;
 }
 
-html[data-theme="light"] .bg-yellow-900 {
-  background-color: #fef9c3 !important;
-  color: #854d0e !important;
+html[data-theme='light'] .bg-yellow-900 {
+    background-color: #fef9c3 !important;
+    color: #854d0e !important;
 }
 
-html[data-theme="light"] .bg-gray-900 {
-  background-color: #f3f4f6 !important;
-  color: #4b5563 !important;
+html[data-theme='light'] .bg-gray-900 {
+    background-color: #f3f4f6 !important;
+    color: #4b5563 !important;
 }
 
 /* Input fields and form elements - light mode */
-html[data-theme="light"] input, 
-html[data-theme="light"] select, 
-html[data-theme="light"] textarea {
-  background-color: var(--input-bg) !important;
-  color: var(--input-text) !important;
-  border: 1px solid var(--input-border) !important;
+html[data-theme='light'] input,
+html[data-theme='light'] select,
+html[data-theme='light'] textarea {
+    background-color: var(--input-bg) !important;
+    color: var(--input-text) !important;
+    border: 1px solid var(--input-border) !important;
 }
 
-html[data-theme="light"] button:not(.bg-primary) {
-  background-color: var(--button-bg-secondary) !important;
-  color: var(--button-text-secondary) !important;
-  border: 1px solid var(--border-color) !important;
+html[data-theme='light'] button:not(.bg-primary) {
+    background-color: var(--button-bg-secondary) !important;
+    color: var(--button-text-secondary) !important;
+    border: 1px solid var(--border-color) !important;
 }
 
 /* Style primary buttons with appropriate text color in light mode */
-html[data-theme="light"] .bg-primary {
-  background-color: var(--link-color) !important;
-  color: var(--button-text) !important;
+html[data-theme='light'] .bg-primary {
+    background-color: var(--link-color) !important;
+    color: var(--button-text) !important;
 }
 
-html[data-theme="light"] .hover\:bg-primary\/90:hover {
-  background-color: var(--hover-color) !important;
-  opacity: 0.9 !important;
-  color: var(--button-text) !important;
+html[data-theme='light'] .hover\:bg-primary\/90:hover {
+    background-color: var(--hover-color) !important;
+    opacity: 0.9 !important;
+    color: var(--button-text) !important;
 }
 
-html[data-theme="light"] input:focus, 
-html[data-theme="light"] select:focus {
-  border-color: var(--link-color) !important;
-  outline-color: var(--link-color) !important;
+html[data-theme='light'] input:focus,
+html[data-theme='light'] select:focus {
+    border-color: var(--link-color) !important;
+    outline-color: var(--link-color) !important;
 }
 
 /* Headings need to have proper contrast */
-html[data-theme="light"] h1, 
-html[data-theme="light"] h2, 
-html[data-theme="light"] h3, 
-html[data-theme="light"] h4, 
-html[data-theme="light"] h5, 
-html[data-theme="light"] h6 {
-  color: var(--label-color) !important;
+html[data-theme='light'] h1,
+html[data-theme='light'] h2,
+html[data-theme='light'] h3,
+html[data-theme='light'] h4,
+html[data-theme='light'] h5,
+html[data-theme='light'] h6 {
+    color: var(--label-color) !important;
 }
 
 /* Improved label contrast for light theme */
-html[data-theme="light"] label,
-html[data-theme="light"] .text-gray-600,
-html[data-theme="light"] .text-gray-700,
-html[data-theme="light"] .text-gray-800 {
-  color: var(--text-color-secondary) !important;
+html[data-theme='light'] label,
+html[data-theme='light'] .text-gray-600,
+html[data-theme='light'] .text-gray-700,
+html[data-theme='light'] .text-gray-800 {
+    color: var(--text-color-secondary) !important;
 }
 
 /* PR item borders need better visibility in light mode */
-html[data-theme="light"] .pr-item, 
-html[data-theme="light"] .border, 
-html[data-theme="light"] .border-gray-700, 
-html[data-theme="light"] .border-zinc-700 {
-  border-color: var(--border-color) !important;
+html[data-theme='light'] .pr-item,
+html[data-theme='light'] .border,
+html[data-theme='light'] .border-gray-700,
+html[data-theme='light'] .border-zinc-700 {
+    border-color: var(--border-color) !important;
 }
 
 /* Fix scrollbar colors for both themes */
 ::-webkit-scrollbar-thumb {
-  background: var(--text-color) !important;
-  opacity: 0.2 !important;
+    background: var(--text-color) !important;
+    opacity: 0.2 !important;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-color) !important;
-  opacity: 0.3 !important;
+    background: var(--text-color) !important;
+    opacity: 0.3 !important;
 }
 
 /* Dark theme specific overrides */
-html[data-theme="dark"] body,
-html[data-theme="dark"] p,
-html[data-theme="dark"] span,
-html[data-theme="dark"] div,
-html[data-theme="dark"] h1,
-html[data-theme="dark"] h2,
-html[data-theme="dark"] h3,
-html[data-theme="dark"] h4,
-html[data-theme="dark"] h5,
-html[data-theme="dark"] h6,
-html[data-theme="dark"] label {
-  color: var(--text-color) !important;
+html[data-theme='dark'] body,
+html[data-theme='dark'] p,
+html[data-theme='dark'] span,
+html[data-theme='dark'] div,
+html[data-theme='dark'] h1,
+html[data-theme='dark'] h2,
+html[data-theme='dark'] h3,
+html[data-theme='dark'] h4,
+html[data-theme='dark'] h5,
+html[data-theme='dark'] h6,
+html[data-theme='dark'] label {
+    color: var(--text-color) !important;
 }
 
-html[data-theme="dark"] .text-gray-600,
-html[data-theme="dark"] .text-gray-700,
-html[data-theme="dark"] .text-gray-800,
-html[data-theme="dark"] .dark\:text-gray-300,
-html[data-theme="dark"] .dark\:text-gray-400 {
-  color: var(--text-color) !important;
+html[data-theme='dark'] .text-gray-600,
+html[data-theme='dark'] .text-gray-700,
+html[data-theme='dark'] .text-gray-800,
+html[data-theme='dark'] .dark\:text-gray-300,
+html[data-theme='dark'] .dark\:text-gray-400 {
+    color: var(--text-color) !important;
 }
 
-html[data-theme="dark"] .help-text,
-html[data-theme="dark"] .repo-name,
-html[data-theme="dark"] .filter-group label {
-  color: #8b949e !important;
+html[data-theme='dark'] .help-text,
+html[data-theme='dark'] .repo-name,
+html[data-theme='dark'] .filter-group label {
+    color: #8b949e !important;
 }
 
-html[data-theme="dark"] .filter-bar {
-  background-color: var(--card-bg) !important;
+html[data-theme='dark'] .filter-bar {
+    background-color: var(--card-bg) !important;
 }
 
-html[data-theme="dark"] .pr-item {
-  border-color: var(--border-color) !important;
+html[data-theme='dark'] .pr-item {
+    border-color: var(--border-color) !important;
 }
 
-html[data-theme="dark"] .bg-primary {
-  background-color: var(--primary-button-bg) !important;
+html[data-theme='dark'] .bg-primary {
+    background-color: var(--primary-button-bg) !important;
 }
 
-html[data-theme="dark"] .hover\:bg-primary\/90:hover {
-  background-color: var(--primary-button-hover) !important;
+html[data-theme='dark'] .hover\:bg-primary\/90:hover {
+    background-color: var(--primary-button-hover) !important;
 }
 
-html[data-theme="dark"] input,
-html[data-theme="dark"] select,
-html[data-theme="dark"] textarea {
-  background-color: #0d1117 !important;
-  border-color: var(--border-color) !important;
-  color: var(--text-color) !important;
+html[data-theme='dark'] input,
+html[data-theme='dark'] select,
+html[data-theme='dark'] textarea {
+    background-color: #0d1117 !important;
+    border-color: var(--border-color) !important;
+    color: var(--text-color) !important;
 }
 
-html[data-theme="dark"] input:focus,
-html[data-theme="dark"] select:focus,
-html[data-theme="dark"] textarea:focus {
-  border-color: var(--link-color) !important;
-  outline-color: var(--link-color) !important;
+html[data-theme='dark'] input:focus,
+html[data-theme='dark'] select:focus,
+html[data-theme='dark'] textarea:focus {
+    border-color: var(--link-color) !important;
+    outline-color: var(--link-color) !important;
 }
 
-html[data-theme="dark"] button:not(.bg-primary) {
-  background-color: #21262d !important;
-  border-color: var(--border-color) !important;
-  color: var(--text-color) !important;
+html[data-theme='dark'] button:not(.bg-primary) {
+    background-color: #21262d !important;
+    border-color: var(--border-color) !important;
+    color: var(--text-color) !important;
 }
 
-html[data-theme="dark"] button:not(.bg-primary):hover {
-  background-color: #30363d !important;
+html[data-theme='dark'] button:not(.bg-primary):hover {
+    background-color: #30363d !important;
 }
 
 /* Enhance toggle switch appearance for better clarity */
 /* Custom styling for the theme toggle switch */
 .theme-toggle-switch .toggle-track {
-  background-color: var(--border-color) !important;
+    background-color: var(--border-color) !important;
 }
 
 .theme-toggle-switch .toggle-thumb {
-  background-color: var(--bg-color) !important;
-  border: 1px solid var(--border-color) !important;
+    background-color: var(--bg-color) !important;
+    border: 1px solid var(--border-color) !important;
 }
 
-html[data-theme="light"] .theme-toggle-switch .toggle-track {
-  background-color: var(--link-color) !important;
+html[data-theme='light'] .theme-toggle-switch .toggle-track {
+    background-color: var(--link-color) !important;
 }
 
-html[data-theme="dark"] .theme-toggle-switch .toggle-track {
-  background-color: var(--text-color-secondary) !important;
+html[data-theme='dark'] .theme-toggle-switch .toggle-track {
+    background-color: var(--text-color-secondary) !important;
 }
 
 /* Enhance paragraph and description text contrast */
-html[data-theme="light"] p,
-html[data-theme="light"] .help-text,
-html[data-theme="light"] .repo-name,
-html[data-theme="light"] .text-gray-500 {
-  color: var(--text-color-secondary) !important;
+html[data-theme='light'] p,
+html[data-theme='light'] .help-text,
+html[data-theme='light'] .repo-name,
+html[data-theme='light'] .text-gray-500 {
+    color: var(--text-color-secondary) !important;
 }
 
-html[data-theme="dark"] p,
-html[data-theme="dark"] div, 
-html[data-theme="dark"] span,
-html[data-theme="dark"] h1,
-html[data-theme="dark"] h2,
-html[data-theme="dark"] h3,
-html[data-theme="dark"] h4,
-html[data-theme="dark"] h5,
-html[data-theme="dark"] h6 {
-  color: var(--text-color) !important;
+html[data-theme='dark'] p,
+html[data-theme='dark'] div,
+html[data-theme='dark'] span,
+html[data-theme='dark'] h1,
+html[data-theme='dark'] h2,
+html[data-theme='dark'] h3,
+html[data-theme='dark'] h4,
+html[data-theme='dark'] h5,
+html[data-theme='dark'] h6 {
+    color: var(--text-color) !important;
 }
 
-html[data-theme="dark"] .help-text,
-html[data-theme="dark"] .repo-name,
-html[data-theme="dark"] .text-gray-500,
-html[data-theme="dark"] .text-gray-600,
-html[data-theme="dark"] .text-gray-400 {
-  color: var(--text-color-secondary) !important;
+html[data-theme='dark'] .help-text,
+html[data-theme='dark'] .repo-name,
+html[data-theme='dark'] .text-gray-500,
+html[data-theme='dark'] .text-gray-600,
+html[data-theme='dark'] .text-gray-400 {
+    color: var(--text-color-secondary) !important;
 }
 
 /* Make the filter bar match theme properly */
-html[data-theme="light"] .filter-bar {
-  background-color: var(--card-bg) !important;
-  border: 1px solid var(--border-color) !important;
+html[data-theme='light'] .filter-bar {
+    background-color: var(--card-bg) !important;
+    border: 1px solid var(--border-color) !important;
 }
 
-html[data-theme="dark"] .filter-bar {
-  background-color: var(--card-bg) !important;
-  border: 1px solid var(--border-color) !important;
+html[data-theme='dark'] .filter-bar {
+    background-color: var(--card-bg) !important;
+    border: 1px solid var(--border-color) !important;
 }
 
 /* Improve filter labels contrast */
-html[data-theme="light"] .filter-group label {
-  color: var(--text-color-secondary) !important;
+html[data-theme='light'] .filter-group label {
+    color: var(--text-color-secondary) !important;
 }
 
-html[data-theme="dark"] .filter-group label {
-  color: var(--text-color) !important;
+html[data-theme='dark'] .filter-group label {
+    color: var(--text-color) !important;
 }
 
 /* Force override for specific Tailwind dark mode classes that might cause contrast issues */
-html[data-theme="dark"] .dark\:text-white,
-html[data-theme="dark"] .dark\:text-gray-300,
-html[data-theme="dark"] .dark\:text-gray-400 {
-  color: var(--text-color) !important;
+html[data-theme='dark'] .dark\:text-white,
+html[data-theme='dark'] .dark\:text-gray-300,
+html[data-theme='dark'] .dark\:text-gray-400 {
+    color: var(--text-color) !important;
 }
 
-html[data-theme="dark"] .dark\:bg-gray-700,
-html[data-theme="dark"] .dark\:bg-gray-800 {
-  background-color: var(--card-bg) !important;
+html[data-theme='dark'] .dark\:bg-gray-700,
+html[data-theme='dark'] .dark\:bg-gray-800 {
+    background-color: var(--card-bg) !important;
 }
 
 .error-message {
-  background: var(--error-bg, #fee2e2); /* fallback to Tailwind red-100 */
-  color: var(--error-text, #b91c1c);    /* fallback to Tailwind red-800 */
-  border: 1px solid var(--error-border, #fca5a5); /* fallback to Tailwind red-400 */
+    background: var(--error-bg, #fee2e2); /* fallback to Tailwind red-100 */
+    color: var(--error-text, #b91c1c); /* fallback to Tailwind red-800 */
+    border: 1px solid var(--error-border, #fca5a5); /* fallback to Tailwind red-400 */
 }
 
-html[data-theme="dark"] .error-message {
-  background: var(--error-bg-dark, #7f1d1d); /* fallback to Tailwind red-900 */
-  color: var(--error-text-dark, #fca5a5);    /* fallback to Tailwind red-200 */
-  border: 1px solid var(--error-border-dark, #f87171); /* fallback to Tailwind red-400 */
+html[data-theme='dark'] .error-message {
+    background: var(
+        --error-bg-dark,
+        #7f1d1d
+    ); /* fallback to Tailwind red-900 */
+    color: var(--error-text-dark, #fca5a5); /* fallback to Tailwind red-200 */
+    border: 1px solid var(--error-border-dark, #f87171); /* fallback to Tailwind red-400 */
 }

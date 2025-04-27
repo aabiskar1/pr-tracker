@@ -1,40 +1,38 @@
 {
-  "manifest_version": 3,
-  "name": "PR Tracker",
-  "version": "1.0.2",
-  "description": "Track and manage your GitHub pull requests",
-  "permissions": [
-    "storage",
-    "notifications",
-    "alarms",
-    "management",
-    "unlimitedStorage"
-  ],
-  "host_permissions": [
-    "https://api.github.com/*"
-  ],
-  "action": {
-    "default_popup": "index.html",
-    "default_icon": {
-      "16": "icons/icon-16.png",
-      "32": "icons/icon-32.png",
-      "48": "icons/icon-48.png",
-      "128": "icons/icon-128.png"
+    "manifest_version": 3,
+    "name": "PR Tracker",
+    "version": "1.0.2",
+    "description": "Track and manage your GitHub pull requests",
+    "permissions": [
+        "storage",
+        "notifications",
+        "alarms",
+        "management",
+        "unlimitedStorage"
+    ],
+    "host_permissions": ["https://api.github.com/*"],
+    "action": {
+        "default_popup": "index.html",
+        "default_icon": {
+            "16": "icons/icon-16.png",
+            "32": "icons/icon-32.png",
+            "48": "icons/icon-48.png",
+            "128": "icons/icon-128.png"
+        }
+    },
+    "background": {
+        "service_worker": "src/background/index.ts",
+        "type": "module"
+    },
+    "icons": {
+        "16": "icons/icon-16.png",
+        "32": "icons/icon-32.png",
+        "48": "icons/icon-48.png",
+        "128": "icons/icon-128.png"
+    },
+    "browser_specific_settings": {
+        "gecko": {
+            "id": "{dabd690e-283a-4c0a-98de-3fc963365d13}"
+        }
     }
-  },
-  "background": {
-    "service_worker": "src/background/index.ts",
-    "type": "module"
-  },
-  "icons": {
-    "16": "icons/icon-16.png",
-    "32": "icons/icon-32.png",
-    "48": "icons/icon-48.png",
-    "128": "icons/icon-128.png"
-  },
-  "browser_specific_settings": {
-    "gecko": {
-      "id": "{dabd690e-283a-4c0a-98de-3fc963365d13}"
-    }
-  }
 }
