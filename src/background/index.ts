@@ -148,13 +148,15 @@ async function setBadgeText(text: string) {
 }
 
 // Helper function to check if we should refresh
-function shouldRefresh(): boolean {
+function shouldRefresh(): { shouldRefresh: boolean; remainingMs: number } {
     const now = Date.now();
-    if (now - lastRefreshTime >= REFRESH_INTERVAL) {
+    const elapsed = now - lastRefreshTime;
+    const remainingMs = REFRESH_INTERVAL - elapsed;
+    if (elapsed >= REFRESH_INTERVAL) {
         lastRefreshTime = now;
-        return true;
+        return { shouldRefresh: true, remainingMs: 0 };
     }
-    return false;
+    return { shouldRefresh: false, remainingMs: Math.max(0, remainingMs) };
 }
 
 async function checkPullRequests(
@@ -188,9 +190,15 @@ async function checkPullRequests(
     }
 
     // Continue only if enough time has passed since last refresh
-    if (!isManualRefresh && !shouldRefresh()) {
-        console.log('Skipping refresh - too soon since last refresh');
-        return;
+    if (!isManualRefresh) {
+        const refreshResult = shouldRefresh();
+        if (!refreshResult.shouldRefresh) {
+            const seconds = Math.ceil(refreshResult.remainingMs / 1000);
+            console.log(
+                `Skipping refresh - too soon since last refresh (remaining: ${seconds}s)`
+            );
+            return;
+        }
     }
 
     try {
