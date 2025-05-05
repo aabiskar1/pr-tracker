@@ -17,7 +17,7 @@ export default defineConfig({
             manifest: {
                 manifest_version: isFirefox ? 2 : 3,
                 name: 'PR Tracker',
-                version: '1.0.2',
+                version: '1.0.3',
                 description: 'Track and manage your GitHub pull requests',
                 permissions: [
                     'storage',

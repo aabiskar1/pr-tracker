@@ -60,6 +60,23 @@ const DEFAULT_FILTERS: FilterState = {
 };
 
 function App() {
+    // Global error state for critical errors (network, token, etc)
+    const [globalError, setGlobalError] = useState<string>('');
+
+    // Listen for error messages from background script
+    useEffect(() => {
+        function handleMessage(message: any) {
+            if (message && message.type === 'SHOW_ERROR' && message.message) {
+                setGlobalError(message.message);
+            }
+        }
+        if (browser.runtime && browser.runtime.onMessage) {
+            browser.runtime.onMessage.addListener(handleMessage);
+            return () => {
+                browser.runtime.onMessage.removeListener(handleMessage);
+            };
+        }
+    }, []);
     const [token, setToken] = useState<string>('');
     const [password, setPassword] = useState<string>('');
     const [confirmPassword, setConfirmPassword] = useState<string>('');
@@ -920,6 +937,22 @@ function App() {
 
     return (
         <div className="w-full max-w-3xl mx-auto p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
+            {/* Global error banner for critical errors */}
+            {globalError && (
+                <div className="mb-4 flex items-center error-message text-sm rounded px-4 py-3" role="alert">
+                    <svg className="w-5 h-5 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10A8 8 0 11 2 10a8 8 0 0116 0zm-7-4a1 1 0 112 0v4a1 1 0 01-2 0V6zm1 8a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" clipRule="evenodd" />
+                    </svg>
+                    <span className="flex-1">{globalError}</span>
+                    <button
+                        onClick={() => setGlobalError('')}
+                        className="ml-4 text-xs underline text-gray-700 dark:text-gray-200"
+                        aria-label="Dismiss error message"
+                    >
+                        Dismiss
+                    </button>
+                </div>
+            )}
             <div className="flex items-center justify-between mb-4">
                 <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
                     Pull Requests
