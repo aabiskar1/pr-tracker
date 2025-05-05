@@ -171,12 +171,17 @@ async function checkPullRequests(
         } else {
             console.log('No session password available, cannot decrypt token');
             // Notify user about missing session
+            const errorMsg =
+                'Session expired or password missing. Please sign in again.';
             await browser.notifications.create({
                 type: 'basic',
                 iconUrl: '/icon.png',
                 title: 'PR Tracker Error',
-                message:
-                    'Session expired or password missing. Please sign in again.',
+                message: errorMsg,
+            });
+            browser.runtime.sendMessage({
+                type: 'SHOW_ERROR',
+                message: errorMsg,
             });
             return;
         }
@@ -192,11 +197,16 @@ async function checkPullRequests(
         // Get the securely stored token
         if (!sessionPassword) {
             console.log('No session password available after checks');
+            const errorMsg = 'Session password missing. Please sign in again.';
             await browser.notifications.create({
                 type: 'basic',
                 iconUrl: '/icon.png',
                 title: 'PR Tracker Error',
-                message: 'Session password missing. Please sign in again.',
+                message: errorMsg,
+            });
+            browser.runtime.sendMessage({
+                type: 'SHOW_ERROR',
+                message: errorMsg,
             });
             return;
         }
@@ -204,12 +214,17 @@ async function checkPullRequests(
         const token = await decryptToken(sessionPassword);
         if (!token) {
             console.log('Failed to decrypt GitHub token');
+            const errorMsg =
+                'Failed to decrypt your GitHub token. Please re-authenticate.';
             await browser.notifications.create({
                 type: 'basic',
                 iconUrl: '/icon.png',
                 title: 'PR Tracker Error',
-                message:
-                    'Failed to decrypt your GitHub token. Please re-authenticate.',
+                message: errorMsg,
+            });
+            browser.runtime.sendMessage({
+                type: 'SHOW_ERROR',
+                message: errorMsg,
             });
             return;
         }
@@ -229,11 +244,16 @@ async function checkPullRequests(
             if (userResponse.status === 401) {
                 await removeToken();
             }
+            const errorMsg = `Failed to get user info: ${userResponse.status}. Please check your GitHub token.`;
             await browser.notifications.create({
                 type: 'basic',
                 iconUrl: '/icon.png',
                 title: 'PR Tracker Error',
-                message: `Failed to get user info: ${userResponse.status}. Please check your GitHub token.`,
+                message: errorMsg,
+            });
+            browser.runtime.sendMessage({
+                type: 'SHOW_ERROR',
+                message: errorMsg,
             });
             throw new Error(`Failed to get user info: ${userResponse.status}`);
         }
@@ -271,11 +291,16 @@ async function checkPullRequests(
                     `Custom PR search failed. Status: ${customResp.status}`
                 );
                 if (customResp.status === 401) await removeToken();
+                const errorMsg = `Failed to fetch PRs: ${customResp.status}. Please check your GitHub token or network.`;
                 await browser.notifications.create({
                     type: 'basic',
                     iconUrl: '/icon.png',
                     title: 'PR Tracker Error',
-                    message: `Failed to fetch PRs: ${customResp.status}. Please check your GitHub token or network.`,
+                    message: errorMsg,
+                });
+                browser.runtime.sendMessage({
+                    type: 'SHOW_ERROR',
+                    message: errorMsg,
                 });
                 throw new Error(`Failed to fetch PRs: ${customResp.status}`);
             }
@@ -318,11 +343,16 @@ async function checkPullRequests(
                 ) {
                     await removeToken();
                 }
+                const errorMsg = `Failed to fetch PRs: ${authoredResponse.status}, ${reviewResponse.status}. Please check your GitHub token or network.`;
                 await browser.notifications.create({
                     type: 'basic',
                     iconUrl: '/icon.png',
                     title: 'PR Tracker Error',
-                    message: `Failed to fetch PRs: ${authoredResponse.status}, ${reviewResponse.status}. Please check your GitHub token or network.`,
+                    message: errorMsg,
+                });
+                browser.runtime.sendMessage({
+                    type: 'SHOW_ERROR',
+                    message: errorMsg,
                 });
                 throw new Error(
                     `Failed to fetch PRs: ${authoredResponse.status}, ${reviewResponse.status}`
@@ -497,6 +527,7 @@ async function checkPullRequests(
             title: 'PR Tracker Error',
             message,
         });
+        browser.runtime.sendMessage({ type: 'SHOW_ERROR', message });
     }
 }
 
@@ -550,13 +581,15 @@ async function getReviewStatus(
         return 'pending';
     } catch (error) {
         console.error('Error fetching review status:', error);
+        const errorMsg =
+            'Error fetching review status. Please check your network connection.';
         await browser.notifications.create({
             type: 'basic',
             iconUrl: '/icon.png',
             title: 'PR Tracker Error',
-            message:
-                'Error fetching review status. Please check your network connection.',
+            message: errorMsg,
         });
+        browser.runtime.sendMessage({ type: 'SHOW_ERROR', message: errorMsg });
         return 'pending';
     }
 }
@@ -662,13 +695,15 @@ async function getCIStatus(
         return 'pending';
     } catch (error) {
         console.error('Error fetching CI status:', error);
+        const errorMsg =
+            'Error fetching CI status. Please check your network connection.';
         await browser.notifications.create({
             type: 'basic',
             iconUrl: '/icon.png',
             title: 'PR Tracker Error',
-            message:
-                'Error fetching CI status. Please check your network connection.',
+            message: errorMsg,
         });
+        browser.runtime.sendMessage({ type: 'SHOW_ERROR', message: errorMsg });
         return 'pending';
     }
 }
