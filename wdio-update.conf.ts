@@ -1,4 +1,5 @@
 import { browser } from '@wdio/globals';
+import type WebdriverIOType from 'webdriverio';
 import path from 'path';
 
 export const config: WebdriverIO.Config = {
@@ -255,14 +256,13 @@ export const config: WebdriverIO.Config = {
                     // For Chrome, navigate to extensions page
                     await browser.url('chrome://extensions');
                     await browser.pause(1000);
+
                     // Enable developer mode to see extension IDs
                     const devMode = await browser.execute(() => {
-                        const devModeElement = document
+                        document
                             .querySelector('extensions-manager')
-                            ?.shadowRoot?.querySelector('#devMode');
-                        if (devModeElement instanceof HTMLElement) {
-                            devModeElement.click();
-                        }
+                            ?.shadowRoot?.querySelector('#devMode')
+                            ?.click();
                         return true;
                     });
 
