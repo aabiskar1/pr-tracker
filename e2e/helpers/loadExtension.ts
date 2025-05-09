@@ -24,23 +24,20 @@ export function getChromeExtensionBase64(): string {
 }
 
 /**
- * Get arguments for loading the extension based on browser type
+ * Get arguments for loading the extension in Chrome
  */
 export function getExtensionArgs(): string[] {
-    const browserName = getBrowserName();
     const isDebug = Boolean(process.env.DEBUG);
     const baseArgs = [];
 
     // Add headless mode if not in debug
     if (!isDebug) {
-        baseArgs.push(browserName === 'firefox' ? '-headless' : '--headless');
+        baseArgs.push('--headless');
     }
 
     // Add load extension argument for Chrome
-    if (browserName === 'chrome') {
-        const extensionPath = getChromeExtensionBase64();
-        baseArgs.push(`--load-extension=${extensionPath}`);
-    }
+    const extensionPath = getChromeExtensionBase64();
+    baseArgs.push(`--load-extension=${extensionPath}`);
 
     return baseArgs;
 }

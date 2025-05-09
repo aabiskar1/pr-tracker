@@ -59,7 +59,7 @@ export const config: WebdriverIO.Config = {
     // and 30 processes will get spawned. The property handles how many capabilities
     // from the same test should run tests.
     //
-    maxInstances: 10,
+    maxInstances: 1,
     //
     // If you have trouble getting all important capabilities together, check out the
     // Sauce Labs platform configurator - a great tool to configure your capabilities:
@@ -67,47 +67,29 @@ export const config: WebdriverIO.Config = {
     //
     capabilities:
         process.env.TEST_TYPE === 'extension'
-            ? process.env.BROWSER === 'firefox'
-                ? [
-                      {
-                          browserName: 'firefox',
-                          'moz:firefoxOptions': {
-                              args: process.env.DEBUG ? [] : ['-headless'],
-                              // Firefox requires a different approach for extension loading
-                              prefs: {
-                                  'xpinstall.signatures.required': false,
-                                  'browser.startup.homepage_override.mstone':
-                                      'ignore',
-                                  'startup.homepage_welcome_url': 'about:blank',
-                                  'startup.homepage_welcome_url.additional': '',
-                                  'browser.startup.firstrun': false,
-                              },
-                          },
+            ? [
+                  {
+                      browserName: 'chrome',
+                      'goog:chromeOptions': {
+                          args: process.env.DEBUG
+                              ? [
+                                    '--load-extension=' +
+                                        path.resolve(
+                                            process.cwd(),
+                                            'dist-chrome'
+                                        ),
+                                ]
+                              : [
+                                    '--headless',
+                                    '--load-extension=' +
+                                        path.resolve(
+                                            process.cwd(),
+                                            'dist-chrome'
+                                        ),
+                                ],
                       },
-                  ]
-                : [
-                      {
-                          browserName: 'chrome',
-                          'goog:chromeOptions': {
-                              args: process.env.DEBUG
-                                  ? [
-                                        '--load-extension=' +
-                                            path.resolve(
-                                                process.cwd(),
-                                                'dist-chrome'
-                                            ),
-                                    ]
-                                  : [
-                                        '--headless',
-                                        '--load-extension=' +
-                                            path.resolve(
-                                                process.cwd(),
-                                                'dist-chrome'
-                                            ),
-                                    ],
-                          },
-                      },
-                  ]
+                  },
+              ]
             : [
                   {
                       // Default capabilities for component tests
@@ -162,7 +144,7 @@ export const config: WebdriverIO.Config = {
     // Services take over a specific job you don't want to take care of. They enhance
     // your test setup with almost no effort. Unlike plugins, they don't add new
     // commands. Instead, they hook themselves up into the test process.
-    services: ['firefox-profile'],
+    services: [],
 
     // Framework you want to run your specs with.
     // The following are supported: Mocha, Jasmine, and Cucumber
@@ -251,65 +233,49 @@ export const config: WebdriverIO.Config = {
         if (process.env.TEST_TYPE === 'extension') {
             // Add the getExtensionId command to browser
             await browser.addCommand('getExtensionId', async function () {
-                if (process.env.BROWSER === 'chrome') {
-                    // For Chrome, navigate to extensions page
-                    await browser.url('chrome://extensions');
-                    await browser.pause(1000);
-                    // Enable developer mode to see extension IDs
-                    const devMode = await browser.execute(() => {
-                        const devModeElement = document
-                            .querySelector('extensions-manager')
-                            ?.shadowRoot?.querySelector('#devMode');
-                        if (devModeElement instanceof HTMLElement) {
-                            devModeElement.click();
-                        }
-                        return true;
-                    });
-
-                    await browser.pause(500);
-
-                    // Get the extension ID
-                    const extensionId = await browser.execute(() => {
-                        // This is complex because Chrome extensions page uses shadow DOM
-                        const extensions = Array.from(
-                            document
-                                .querySelector('extensions-manager')
-                                ?.shadowRoot?.querySelector(
-                                    'extensions-item-list'
-                                )
-                                ?.shadowRoot?.querySelectorAll(
-                                    'extensions-item'
-                                ) || []
-                        );
-
-                        for (const item of extensions) {
-                            const name =
-                                item.shadowRoot?.querySelector(
-                                    '#name'
-                                )?.textContent;
-                            if (
-                                name &&
-                                name.toLowerCase().includes('pr tracker')
-                            ) {
-                                return item.id;
-                            }
-                        }
-
-                        return '';
-                    });
-
-                    if (extensionId) {
-                        console.log(
-                            `Found Chrome extension ID: ${extensionId}`
-                        );
-                        return extensionId;
+                // For Chrome, navigate to extensions page
+                await browser.url('chrome://extensions');
+                await browser.pause(1000);
+                // Enable developer mode to see extension IDs
+                const devMode = await browser.execute(() => {
+                    const devModeElement = document
+                        .querySelector('extensions-manager')
+                        ?.shadowRoot?.querySelector('#devMode');
+                    if (devModeElement instanceof HTMLElement) {
+                        devModeElement.click();
                     }
-                } else if (process.env.BROWSER === 'firefox') {
-                    // For Firefox, we can use a fixed ID
-                    // This ID should match the one in your Firefox manifest
-                    const fixedId = '{dabd690e-283a-4c0a-98de-3fc963365d13}';
-                    console.log(`Using Firefox extension ID: ${fixedId}`);
-                    return fixedId;
+                    return true;
+                });
+
+                await browser.pause(500);
+
+                // Get the extension ID
+                const extensionId = await browser.execute(() => {
+                    // This is complex because Chrome extensions page uses shadow DOM
+                    const extensions = Array.from(
+                        document
+                            .querySelector('extensions-manager')
+                            ?.shadowRoot?.querySelector('extensions-item-list')
+                            ?.shadowRoot?.querySelectorAll('extensions-item') ||
+                            []
+                    );
+
+                    for (const item of extensions) {
+                        const name =
+                            item.shadowRoot?.querySelector(
+                                '#name'
+                            )?.textContent;
+                        if (name && name.toLowerCase().includes('pr tracker')) {
+                            return item.id;
+                        }
+                    }
+
+                    return '';
+                });
+
+                if (extensionId) {
+                    console.log(`Found Chrome extension ID: ${extensionId}`);
+                    return extensionId;
                 }
 
                 throw new Error(

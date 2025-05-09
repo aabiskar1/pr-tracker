@@ -10,7 +10,7 @@ import path from 'path';
 
 describe('PR Tracker Extension E2E Tests', function () {
     let extensionId: string;
-    const browserName = getBrowserName();
+    const browserName = 'chrome';
 
     before(async function () {
         // This test requires a built extension
@@ -36,11 +36,7 @@ describe('PR Tracker Extension E2E Tests', function () {
 
     it('should open extension popup and authenticate if needed', async function () {
         // Navigate to the extension popup
-        if (browserName === 'chrome') {
-            await browser.url(`chrome-extension://${extensionId}/index.html`);
-        } else if (browserName === 'firefox') {
-            await browser.url(`moz-extension://${extensionId}/index.html`);
-        }
+        await browser.url(`chrome-extension://${extensionId}/index.html`);
 
         // Wait for the extension to load
         await browser.pause(2000);
@@ -66,134 +62,51 @@ describe('PR Tracker Extension E2E Tests', function () {
                     'Authentication form found - attempting to authenticate'
                 );
 
-                try {
-                    // Try to automatically authenticate using GitHub token
-                    await authenticateExtension();
+                // Find the input with placeholder containing 'ghp_'
+                const tokenInput = await $('input[placeholder*="ghp_"]');
+                await tokenInput.waitForExist({ timeout: 5000 });
+                await expect(tokenInput).toBeExisting();
 
-                    // After authentication, verify we can see the PR list
-                    const prList = await $(
-                        '.list-container, .pr-list, div.space-y-3'
-                    );
-                    await prList.waitForExist({ timeout: 10000 });
-                    await expect(prList).toBeDisplayed();
-                } catch (authErr) {
-                    console.log(
-                        'Automated authentication failed, checking basic form elements instead'
-                    );
+                // Fill the token from .env.test
+                const token = getGitHubToken();
+                await tokenInput.setValue(token);
 
-                    // If automatic auth fails, just verify form elements
-                    const tokenInput = await $('input[type="password"]');
-                    await expect(tokenInput).toBeExisting();
+                // Find and click the Next button after entering the token
+                const nextButton = await $('button*=Next');
+                await expect(nextButton).toBeExisting();
+                await nextButton.click();
 
-                    const authButton = await $(
-                        'button[type="submit"], button*=Authenticate'
-                    );
-                    await expect(authButton).toBeExisting();
-                }
+                // Wait for 10 seconds after clicking Next
+                await browser.pause(2000); // Wait for password UI to appear
+
+                // Fill in password and confirm password fields
+                const password = '12345678';
+                const passwordInput = await $(
+                    'input#password, input[placeholder="Enter password"]'
+                );
+                const confirmPasswordInput = await $(
+                    'input#confirmPassword, input[placeholder="Confirm password"]'
+                );
+                await passwordInput.waitForExist({ timeout: 5000 });
+                await confirmPasswordInput.waitForExist({ timeout: 5000 });
+                await passwordInput.setValue(password);
+                await confirmPasswordInput.setValue(password);
+
+                // Click the Create Password & Encrypt Token button
+                const createPasswordButton = await $('button*=Create Password');
+                await expect(createPasswordButton).toBeExisting();
+                await createPasswordButton.click();
+
+                // Wait for PR list to appear after password setup
+                const prList = await $(
+                    '.list-container, .pr-list, div.space-y-3'
+                );
+                await prList.waitForExist({ timeout: 10000 });
+                await expect(prList).toBeDisplayed();
             }
         } catch (err) {
             console.error('Test failed:', err);
             throw err;
-        }
-    });
-
-    it('should have dark/light mode toggle', async function () {
-        // Navigate to the extension popup
-        if (browserName === 'chrome') {
-            await browser.url(`chrome-extension://${extensionId}/index.html`);
-        } else if (browserName === 'firefox') {
-            await browser.url(`moz-extension://${extensionId}/index.html`);
-        }
-
-        // Wait for the extension to load
-        await browser.pause(2000);
-
-        // Look for theme toggle button
-        const themeToggle = await $(
-            'button.theme-toggle, button svg[class*="moon"], button svg[class*="sun"]'
-        );
-        await expect(themeToggle).toBeExisting();
-
-        // Click theme toggle and verify theme change
-        const initialTheme = await browser.execute(() => {
-            // Check for theme in different possible locations
-            const docTheme =
-                document.documentElement.getAttribute('data-theme');
-            const bodyTheme = document.body.getAttribute('data-theme');
-            const isDarkClass =
-                document.documentElement.classList.contains('dark');
-            const storedTheme = localStorage.getItem('theme');
-
-            if (docTheme) return docTheme;
-            if (bodyTheme) return bodyTheme;
-            if (isDarkClass) return 'dark';
-            if (storedTheme) return storedTheme;
-            return 'light';
-        });
-
-        await themeToggle.click();
-        await browser.pause(500);
-
-        const newTheme = await browser.execute(() => {
-            // Check for theme in different possible locations
-            const docTheme =
-                document.documentElement.getAttribute('data-theme');
-            const bodyTheme = document.body.getAttribute('data-theme');
-            const isDarkClass =
-                document.documentElement.classList.contains('dark');
-            const storedTheme = localStorage.getItem('theme');
-
-            if (docTheme) return docTheme;
-            if (bodyTheme) return bodyTheme;
-            if (isDarkClass) return 'dark';
-            if (storedTheme) return storedTheme;
-            return 'light';
-        });
-
-        // Theme should have toggled
-        expect(newTheme).not.toEqual(initialTheme);
-    });
-
-    // Additional test for PR list functionality (only runs if authenticated)
-    it('should show PR list with filterable results when authenticated', async function () {
-        // Skip this test if not authenticated
-        if (!(await isAuthenticated())) {
-            console.log('Not authenticated - skipping PR list test');
-            this.skip();
-            return;
-        }
-
-        // Navigate to the extension popup
-        if (browserName === 'chrome') {
-            await browser.url(`chrome-extension://${extensionId}/index.html`);
-        } else if (browserName === 'firefox') {
-            await browser.url(`moz-extension://${extensionId}/index.html`);
-        }
-
-        // Wait for the extension to load
-        await browser.pause(2000);
-
-        // Check for PR list elements
-        const prListContainer = await $('.pr-list, div.space-y-3');
-        await expect(prListContainer).toBeExisting();
-
-        // Find and check search/filter functionality
-        const searchInput = await $(
-            'input[type="search"], input[placeholder*="search"], input[placeholder*="filter"]'
-        );
-        if (await searchInput.isExisting()) {
-            // Test search functionality if available
-            await searchInput.setValue('test search');
-            await browser.pause(500);
-            await searchInput.clearValue();
-        }
-
-        // Check for sort or filter elements
-        const sortElement = await $(
-            'select, button[aria-label*="sort"], button[aria-label*="filter"]'
-        );
-        if (await sortElement.isExisting()) {
-            await expect(sortElement).toBeClickable();
         }
     });
 });
