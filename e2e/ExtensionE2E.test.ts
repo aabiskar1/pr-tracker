@@ -97,12 +97,177 @@ describe('PR Tracker Extension E2E Tests', function () {
                 await expect(createPasswordButton).toBeExisting();
                 await createPasswordButton.click();
 
-                // Wait for PR list to appear after password setup
-                const prList = await $(
-                    '.list-container, .pr-list, div.space-y-3'
+                // Wait for the extension to finish any async storage after password setup
+                await browser.pause(1000);
+
+                // Inject fake PR data into browser storage and trigger UI update
+                await browser.executeAsync(
+                    (prs, done) => {
+                        // Use window.chrome or window.browser for cross-browser compatibility
+                        const storage =
+                            window.chrome &&
+                            window.chrome.storage &&
+                            window.chrome.storage.local
+                                ? window.chrome.storage.local
+                                : window.browser &&
+                                    window.browser.storage &&
+                                    window.browser.storage.local
+                                  ? window.browser.storage.local
+                                  : null;
+                        if (!storage) return done('No storage API found');
+                        storage.set({ pullRequests: prs }, () => {
+                            // Dispatch a storage event to notify React UI (simulate real extension behavior)
+                            window.dispatchEvent(new Event('storage'));
+                            done();
+                        });
+                    },
+                    [
+                        {
+                            id: 1,
+                            title: 'Add new authentication flow',
+                            html_url:
+                                'https://github.com/acme/auth-service/pull/1',
+                            repository: { name: 'auth-service' },
+                            state: 'open',
+                            draft: false,
+                            created_at: new Date(
+                                Date.now() - 2 * 24 * 60 * 60 * 1000
+                            ).toISOString(),
+                            requested_reviewers: [
+                                {
+                                    login: 'alice',
+                                    avatar_url:
+                                        'https://avatars.githubusercontent.com/u/1?v=4',
+                                },
+                            ],
+                            review_status: 'pending',
+                            ci_status: 'passing',
+                        },
+                        {
+                            id: 2,
+                            title: 'Fix bug in dashboard',
+                            html_url:
+                                'https://github.com/acme/web-dashboard/pull/2',
+                            repository: { name: 'web-dashboard' },
+                            state: 'open',
+                            draft: true,
+                            created_at: new Date(
+                                Date.now() - 5 * 24 * 60 * 60 * 1000
+                            ).toISOString(),
+                            requested_reviewers: [],
+                            review_status: 'approved',
+                            ci_status: 'failing',
+                        },
+                        {
+                            id: 3,
+                            title: 'Refactor API layer',
+                            html_url:
+                                'https://github.com/acme/api-gateway/pull/3',
+                            repository: { name: 'api-gateway' },
+                            state: 'open',
+                            draft: false,
+                            created_at: new Date(
+                                Date.now() - 1 * 24 * 60 * 60 * 1000
+                            ).toISOString(),
+                            requested_reviewers: [
+                                {
+                                    login: 'bob',
+                                    avatar_url:
+                                        'https://avatars.githubusercontent.com/u/2?v=4',
+                                },
+                                {
+                                    login: 'carol',
+                                    avatar_url:
+                                        'https://avatars.githubusercontent.com/u/3?v=4',
+                                },
+                            ],
+                            review_status: 'changes-requested',
+                            ci_status: 'pending',
+                        },
+                        {
+                            id: 4,
+                            title: 'Update README and docs',
+                            html_url: 'https://github.com/acme/docs/pull/4',
+                            repository: { name: 'docs' },
+                            state: 'open',
+                            draft: false,
+                            created_at: new Date(
+                                Date.now() - 10 * 24 * 60 * 60 * 1000
+                            ).toISOString(),
+                            requested_reviewers: [],
+                            review_status: 'approved',
+                            ci_status: 'passing',
+                        },
+                        {
+                            id: 5,
+                            title: 'WIP: Add dark mode support',
+                            html_url:
+                                'https://github.com/acme/ui-library/pull/5',
+                            repository: { name: 'ui-library' },
+                            state: 'open',
+                            draft: true,
+                            created_at: new Date(
+                                Date.now() - 3 * 24 * 60 * 60 * 1000
+                            ).toISOString(),
+                            requested_reviewers: [
+                                {
+                                    login: 'dave',
+                                    avatar_url:
+                                        'https://avatars.githubusercontent.com/u/4?v=4',
+                                },
+                            ],
+                            review_status: 'pending',
+                            ci_status: 'pending',
+                        },
+                        {
+                            id: 6,
+                            title: 'Hotfix: Security patch',
+                            html_url:
+                                'https://github.com/acme/auth-service/pull/6',
+                            repository: { name: 'auth-service' },
+                            state: 'open',
+                            draft: false,
+                            created_at: new Date(
+                                Date.now() - 0.5 * 24 * 60 * 60 * 1000
+                            ).toISOString(),
+                            requested_reviewers: [
+                                {
+                                    login: 'eve',
+                                    avatar_url:
+                                        'https://avatars.githubusercontent.com/u/5?v=4',
+                                },
+                            ],
+                            review_status: 'approved',
+                            ci_status: 'passing',
+                        },
+                        {
+                            id: 7,
+                            title: 'Remove deprecated endpoints',
+                            html_url:
+                                'https://github.com/acme/api-gateway/pull/7',
+                            repository: { name: 'api-gateway' },
+                            state: 'open',
+                            draft: false,
+                            created_at: new Date(
+                                Date.now() - 15 * 24 * 60 * 60 * 1000
+                            ).toISOString(),
+                            requested_reviewers: [],
+                            review_status: 'changes-requested',
+                            ci_status: 'failing',
+                        },
+                    ]
                 );
-                await prList.waitForExist({ timeout: 10000 });
-                await expect(prList).toBeDisplayed();
+
+                // Wait for the UI to update with the fake PRs
+                await browser.pause(1000);
+
+                // Now check that some of the fake PRs are shown in the UI
+                const prTitle1 = await $('*=Add new authentication flow');
+                await expect(prTitle1).toBeExisting();
+                const prTitle2 = await $('*=Fix bug in dashboard');
+                await expect(prTitle2).toBeExisting();
+                const prTitle3 = await $('*=Refactor API layer');
+                await expect(prTitle3).toBeExisting();
             }
         } catch (err) {
             console.error('Test failed:', err);
