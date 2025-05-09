@@ -86,6 +86,63 @@ OR
         3. Click "Load Temporary Add-on"
         4. Select any file from the `dist-firefox` directory
 
+## Tests
+
+To run end-to-end (E2E) tests for the PR Tracker extension, follow these steps:
+
+### Prerequisites
+
+- Node.js 20 or later
+- Chrome and/or Firefox installed
+- Extension built for the respective browsers:
+    - Run `npm run build:chrome` for Chrome testing
+    - Run `npm run build:firefox` for Firefox testing
+
+### Setting Up Authentication for Testing
+
+The extension requires a GitHub personal access token for authentication. To simplify testing, use a `.env.test` file to store your token:
+
+1. Copy the `.env.test.example` file in the project root and rename it to `.env.test`:
+
+    ```bash
+    cp .env.test.example .env.test
+    ```
+
+2. Open `.env.test` and set your GitHub token value:
+
+    ```env
+    GITHUB_TOKEN=your_github_token_here
+    ```
+
+    Replace `your_github_token_here` with a valid GitHub token that has the necessary permissions (`repo` scope).
+
+> **IMPORTANT**: Never commit your `.env.test` file to version control. It's already added to `.gitignore`.
+
+### Running Tests
+
+#### Basic Extension Tests
+
+Test the extension UI components:
+
+```bash
+npm run test:extension:chrome
+```
+
+#### Debug Mode
+
+To run tests with a visible browser window (not headless):
+
+```bash
+npm run test:extension:chrome:debug
+```
+
+### Troubleshooting
+
+- **Extension not found**: Make sure you've built the extension before running tests
+- **Authentication failing**: Verify your GitHub token is valid and has the correct permissions
+- **Element not found errors**: Check that selectors are properly defined and exist in the DOM
+- **Tests timing out**: Increase the timeout values in the appropriate wait calls
+
 ## Usage
 
 1. After installation, click the extension icon in your browser toolbar

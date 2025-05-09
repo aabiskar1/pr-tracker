@@ -13,6 +13,7 @@ dist-ssr
 *.local
 dist-chrome
 dist-firefox
+.env.test
 
 # Editor directories and files
 .vscode/*
