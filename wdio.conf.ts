@@ -71,22 +71,13 @@ export const config: WebdriverIO.Config = {
                   {
                       browserName: 'chrome',
                       'goog:chromeOptions': {
-                          args: process.env.DEBUG
-                              ? [
-                                    '--load-extension=' +
-                                        path.resolve(
-                                            process.cwd(),
-                                            'dist-chrome'
-                                        ),
-                                ]
-                              : [
-                                    '--headless',
-                                    '--load-extension=' +
-                                        path.resolve(
-                                            process.cwd(),
-                                            'dist-chrome'
-                                        ),
-                                ],
+                          args: [
+                              ...(process.env.DEBUG ? [] : ['--headless']),
+                              '--disable-extensions-except=' +
+                                  path.resolve(process.cwd(), 'dist-chrome'),
+                              '--load-extension=' +
+                                  path.resolve(process.cwd(), 'dist-chrome'),
+                          ],
                       },
                   },
               ]
