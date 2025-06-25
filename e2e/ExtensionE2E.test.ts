@@ -1,12 +1,12 @@
-import { browser, $, expect } from '@wdio/globals';
 import { getExtensionPath, getExtensionId } from './helpers/extensionHelper';
-import { getBrowserName } from './helpers/utils';
 import {
     authenticateExtension,
     getGitHubToken,
     isAuthenticated,
 } from './helpers/authHelper';
 import path from 'path';
+import { browser, expect, $ } from '@wdio/globals';
+import type { Browser } from 'webdriverio';
 
 describe('PR Tracker Extension E2E Tests', function () {
     let extensionId: string;
