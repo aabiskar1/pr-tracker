@@ -1,8 +1,7 @@
 #root {
-    max-width: 1280px;
     margin: 0 auto;
     padding: 0rem;
-    text-align: center;
+    text-align: left;
 }
 
 .logo {
@@ -42,8 +41,31 @@
 }
 
 .container {
-    width: 400px;
-    padding: 1rem;
+    width: 100%;
+    padding: 0.75rem;
+}
+
+/* Screen-specific sizing */
+.screen-auth {
+    min-width: 420px !important;
+    min-height: 360px !important;
+}
+
+.screen-prlist {
+    /* Make the inner container fluid; width is controlled by html/body per engine */
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: 600px !important; /* taller to show ~3.5+ cards */
+    padding-right: 1rem; /* right inner gutter */
+    padding-left: 1rem;  /* left inner gutter for symmetry */
+    box-sizing: border-box !important;
+}
+
+/* Utility: left-align the selected option rendering in selects */
+@supports (text-align-last: left) {
+    .select-left {
+        text-align-last: left;
+    }
 }
 
 .token-input {
@@ -98,6 +120,27 @@
     border-radius: 1rem;
     font-size: 0.8rem;
     margin-right: 0.5rem;
+}
+
+/* Subtle left accent for PR cards based on state; utility class applied via Tailwind combos */
+.pr-card-accent {
+    border-left: 4px solid var(--border-color);
+}
+
+/* Header count pill */
+.count-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.75rem;
+    height: 1.5rem;
+    padding: 0 0.5rem;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    line-height: 1;
+    background: var(--badge-unselected-bg, #f3f4f6);
+    color: var(--badge-unselected-text, #374151);
+    border: 1px solid var(--border-color);
 }
 
 /* THEME BADGE CLASSES */

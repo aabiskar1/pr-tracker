@@ -13,6 +13,9 @@ import {
     FaShieldAlt,
     FaQuestionCircle,
     FaClock,
+    FaSync,
+    FaSignOutAlt,
+    FaSearch,
 } from 'react-icons/fa';
 import {
     encryptToken,
@@ -98,6 +101,19 @@ function App() {
         useState<boolean>(false);
     const [notificationsEnabled, setNotificationsEnabled] =
         useState<boolean>(true);
+
+    // Update a data attribute on <html> so CSS can size the popup per-screen (helps Firefox)
+    useEffect(() => {
+        const screen = isLoading
+            ? 'loading'
+            : authState === 'authenticated'
+              ? 'prlist'
+              : 'auth';
+        document.documentElement.setAttribute('data-screen', screen);
+        return () => {
+            // Do not clear to avoid flicker; next render will overwrite
+        };
+    }, [isLoading, authState]);
 
     // Load PRs from storage
     const loadPullRequests = async () => {
@@ -560,6 +576,15 @@ function App() {
                 setCustomQueryInput(data['prtracker-custom-query']);
                 setIsCustomQueryActive(true);
             }
+            // Load notifications preference
+            const notif = await browser.storage.local.get([
+                'prtracker-notifications-enabled',
+            ]);
+            if (typeof notif['prtracker-notifications-enabled'] === 'boolean') {
+                setNotificationsEnabled(
+                    notif['prtracker-notifications-enabled'] as boolean
+                );
+            }
         })();
     }, []);
 
@@ -626,7 +651,7 @@ function App() {
 
     if (authState === 'login-needed') {
         return (
-            <div className="w-full max-w-md mx-auto p-6 bg-white dark:bg-gray-800 rounded-xl shadow-md">
+            <div className="screen-auth w-full max-w-md mx-auto p-6 bg-white dark:bg-gray-800 rounded-xl shadow-md">
                 <div className="flex items-center justify-center mb-6">
                     <FaGithub className="text-4xl text-gray-700 dark:text-gray-300 mr-2" />
                     <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
@@ -695,7 +720,7 @@ function App() {
 
     if (authState === 'password-setup') {
         return (
-            <div className="w-full max-w-md mx-auto p-6 bg-white dark:bg-gray-800 rounded-xl shadow-md">
+            <div className="screen-auth w-full max-w-md mx-auto p-6 bg-white dark:bg-gray-800 rounded-xl shadow-md">
                 <div className="flex items-center justify-center mb-6">
                     <FaLock className="text-4xl text-gray-700 dark:text-gray-300 mr-2" />
                     <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
@@ -851,7 +876,7 @@ function App() {
 
     if (authState === 'password-entry') {
         return (
-            <div className="w-full max-w-md mx-auto p-6 bg-white dark:bg-gray-800 rounded-xl shadow-md">
+            <div className="screen-auth w-full max-w-md mx-auto p-6 bg-white dark:bg-gray-800 rounded-xl shadow-md">
                 <div className="flex items-center justify-center mb-6">
                     <FaUnlock className="text-4xl text-gray-700 dark:text-gray-300 mr-2" />
                     <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
@@ -936,7 +961,7 @@ function App() {
     }
 
     return (
-        <div className="w-full max-w-3xl mx-auto p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
+    <div className="screen-prlist w-full max-w-3xl mx-auto p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
             {/* Global error banner for critical errors */}
             {globalError && (
                 <div className="mb-4 flex items-center error-message text-sm rounded px-4 py-3" role="alert">
@@ -953,29 +978,39 @@ function App() {
                     </button>
                 </div>
             )}
-            <div className="flex items-center justify-between mb-4">
-                <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
+            <div className="flex items-center justify-between mb-4 gap-2">
+                <h2 className="flex items-center gap-2 text-2xl font-bold text-gray-800 dark:text-white">
                     Pull Requests
                 </h2>
-                <div className="flex space-x-2 items-center">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3 justify-end">
                     <ThemeSwitcher
                         theme={theme}
                         onThemeChange={handleThemeChange}
                     />
-                    <button
-                        className={`px-3 py-1 rounded border text-sm transition-colors ${notificationsEnabled ? 'bg-green-100 text-green-800 border-green-300 dark:bg-green-900 dark:text-green-200' : 'bg-gray-200 text-gray-600 border-gray-300 dark:bg-gray-700 dark:text-gray-300'}`}
-                        onClick={handleToggleNotifications}
-                        aria-label={
-                            notificationsEnabled
-                                ? 'Disable notifications'
-                                : 'Enable notifications'
-                        }
-                        type="button"
-                    >
-                        {notificationsEnabled
-                            ? '🔔 Notifications On'
-                            : '🔕 Notifications Off'}
-                    </button>
+                    {/* Notifications toggle */}
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={handleToggleNotifications}
+                            aria-label={
+                                notificationsEnabled
+                                    ? 'Disable notifications'
+                                    : 'Enable notifications'
+                            }
+                            className="theme-toggle-switch relative inline-flex items-center h-6"
+                            data-enabled={notificationsEnabled ? 'true' : 'false'}
+                        >
+                            <span
+                                className={`toggle-track w-11 h-6 rounded-full transition-colors ${notificationsEnabled ? 'bg-green-600' : 'bg-gray-300 dark:bg-gray-600'}`}
+                            />
+                            <span
+                                className={`toggle-thumb absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition-transform transform ${notificationsEnabled ? 'translate-x-5' : 'translate-x-0'}`}
+                            />
+                        </button>
+                        <span className="text-sm text-gray-600 dark:text-gray-300">
+                            {notificationsEnabled ? '🔔 Alert on' : '🔕 Alert off'}
+                        </span>
+                    </div>
                     <button
                         onClick={async () => {
                             setIsLoading(true);
@@ -989,16 +1024,18 @@ function App() {
                                 setIsLoading(false);
                             }, 2000);
                         }}
-                        className="bg-primary text-white px-3 py-1 rounded-md hover:bg-primary/90 transition-colors"
+                        className="bg-primary text-white px-3 py-1 rounded-md hover:bg-primary/90 transition-colors inline-flex items-center gap-2"
                         aria-label="Refresh Pull Requests"
                     >
+                        <FaSync className={isLoading ? 'animate-spin' : ''} />
                         Refresh
                     </button>
                     <button
                         onClick={handleSignOut}
-                        className="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-3 py-1 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                        className="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-3 py-1 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors inline-flex items-center gap-2"
                         aria-label="Sign Out"
                     >
+                        <FaSignOutAlt />
                         Sign Out
                     </button>
                 </div>
@@ -1020,13 +1057,18 @@ function App() {
             </div>
 
             {/* Search PRs input */}
-            <input
-                type="text"
-                placeholder="Search PRs"
-                className="w-full px-4 py-2 mb-4 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                onChange={handleSearch}
-                aria-label="Search Pull Requests"
-            />
+        <div className="relative mb-4 leading-none">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <FaSearch className="text-gray-400" />
+                </div>
+                <input
+                    type="text"
+                    placeholder="Search pull requests"
+            className="w-full pl-10 pr-3 h-10 leading-none border rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    onChange={handleSearch}
+                    aria-label="Search Pull Requests"
+                />
+            </div>
 
             {filteredPRs.length === 0 ? (
                 <div className="text-center py-8">

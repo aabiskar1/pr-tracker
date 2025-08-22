@@ -121,6 +121,13 @@ html {
     border-color: var(--border-color) !important;
 }
 
+/* Count pill theming */
+.count-pill {
+    background: var(--badge-unselected-bg, #f3f4f6) !important;
+    color: var(--badge-unselected-text, #374151) !important;
+    border-color: var(--border-color) !important;
+}
+
 input,
 select,
 textarea {
@@ -349,19 +356,16 @@ html[data-theme='dark'] button:not(.bg-primary):hover {
     background-color: var(--border-color) !important;
 }
 
+.theme-toggle-switch .toggle-track {
+    background-color: var(--border-color) !important;
+}
+.theme-toggle-switch[data-enabled='true'] .toggle-track {
+    background-color: #22c55e !important; /* green-500 */
+}
 .theme-toggle-switch .toggle-thumb {
     background-color: var(--bg-color) !important;
     border: 1px solid var(--border-color) !important;
 }
-
-html[data-theme='light'] .theme-toggle-switch .toggle-track {
-    background-color: var(--link-color) !important;
-}
-
-html[data-theme='dark'] .theme-toggle-switch .toggle-track {
-    background-color: var(--text-color-secondary) !important;
-}
-
 /* Enhance paragraph and description text contrast */
 html[data-theme='light'] p,
 html[data-theme='light'] .help-text,

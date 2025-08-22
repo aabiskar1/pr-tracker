@@ -66,8 +66,8 @@ export function FilterBar({
     };
 
     return (
-        <div className="flex flex-wrap justify-between items-center gap-3 p-3 bg-gray-100 dark:bg-gray-800 rounded-lg filter-bar-container">
-            <div className="flex flex-wrap items-center gap-4">
+        <div className="flex flex-col sm:flex-row flex-wrap justify-between items-start sm:items-center gap-3 p-3 bg-gray-100 dark:bg-gray-800 rounded-lg filter-bar-container w-full">
+            <div className="flex flex-wrap items-center gap-3 sm:gap-4 min-w-0">
                 <div className="flex items-center gap-1 text-gray-700 dark:text-gray-300">
                     <FaFilter size={14} />
                     <span className="font-medium text-sm">Filters:</span>
@@ -138,13 +138,12 @@ export function FilterBar({
                         </span>
                     </div>
                     <select
-                        className="pl-2 pr-6 py-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm text-gray-700 dark:text-gray-200"
+                        className="pl-2 pr-6 py-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm text-gray-700 dark:text-gray-200 select-left"
                         value={filters.ageFilter}
                         onChange={(e) =>
                             handleFilterChange('ageFilter', e.target.value)
                         }
                         title="Filter by PR age"
-                        style={{ textAlignLast: 'left' }}
                     >
                         <option value="all">All Time</option>
                         <option value="today">Today</option>
@@ -152,15 +151,17 @@ export function FilterBar({
                         <option value="older">Older</option>
                     </select>
                 </div>
-                {/* Review Status Filter */}
-                <div className="flex items-center gap-2">
+                {/* Reviews + CI grouped on the same row */}
+                <div className="flex items-center gap-4 flex-wrap sm:flex-nowrap min-w-0">
+                    {/* Review Status Filter */}
+                    <div className="flex items-center gap-2 whitespace-nowrap min-w-0">
                     <div className="flex items-center gap-1">
                         <FaUserCheck size={14} className="text-gray-500" />
                         <span className="text-sm text-gray-600 dark:text-gray-300">
                             Reviews:
                         </span>
                     </div>
-                    <div className="flex gap-2">
+                        <div className="inline-flex flex-nowrap items-center gap-2 shrink min-w-0">
                         {(
                             [
                                 'approved',
@@ -216,17 +217,17 @@ export function FilterBar({
                                 </div>
                             </label>
                         ))}
+                        </div>
                     </div>
-                </div>
-                {/* CI Status Filter */}
-                <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-1">
-                        <FaCodeBranch size={14} className="text-gray-500" />
-                        <span className="text-sm text-gray-600 dark:text-gray-300">
-                            CI:
-                        </span>
-                    </div>
-                    <div className="flex gap-2">
+                    {/* CI Status Filter */}
+                    <div className="flex items-center gap-2 whitespace-nowrap min-w-0">
+                        <div className="flex items-center gap-1">
+                            <FaCodeBranch size={14} className="text-gray-500" />
+                            <span className="text-sm text-gray-600 dark:text-gray-300">
+                                CI:
+                            </span>
+                        </div>
+                        <div className="inline-flex flex-nowrap items-center gap-2 shrink min-w-0">
                         {(['passing', 'failing', 'pending'] as CIStatus[]).map(
                             (status) => (
                                 <label
@@ -275,19 +276,20 @@ export function FilterBar({
                                 </label>
                             )
                         )}
+                        </div>
                     </div>
                 </div>
                 {/* Reset Filters Button */}
                 <button
                     type="button"
-                    className="ml-2 px-3 py-1 rounded bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 text-sm border border-gray-300 dark:border-gray-600"
+                    className="ml-2 px-3 py-1 rounded bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 text-sm border border-gray-300 dark:border-gray-600 whitespace-nowrap"
                     onClick={onReset}
                 >
                     Reset Filters
                 </button>
             </div>
             {/* Right side: Sort dropdown and custom query */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 w-full sm:w-auto min-w-0">
                 <div className="relative">
                     <select
                         className="appearance-none pl-3 pr-8 py-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm text-gray-700 dark:text-gray-200 cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary text-left"
@@ -308,10 +310,10 @@ export function FilterBar({
                     </div>
                 </div>
                 {/* Custom Query Input */}
-                <div className="flex flex-row items-center gap-2 flex-1 min-w-[320px]">
+                <div className="flex flex-row items-center gap-2 flex-1 min-w-[220px] min-w-0">
                     <input
                         type="text"
-                        className="w-full min-w-[260px] px-3 py-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white text-xs"
+            className="w-full min-w-[200px] px-3 py-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white text-xs"
                         placeholder="Custom GitHub PR search (e.g. is:open is:pr user:myorg)"
                         value={customQueryInput}
                         onChange={(e) => setCustomQueryInput(e.target.value)}

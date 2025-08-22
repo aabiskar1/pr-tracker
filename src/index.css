@@ -17,6 +17,20 @@
     --link-color: #5046e4;
 }
 
+/* Popup width and height are now controlled by screen-specific containers */
+
+/* Avoid horizontal scrollbars in popup */
+html, body, #root, .container {
+    overflow-x: hidden;
+}
+
+/* Keep scrollbar gutter stable so content doesn't shift/squeeze */
+@supports (scrollbar-gutter: stable) {
+    :root {
+        scrollbar-gutter: stable both-edges;
+    }
+}
+
 /* Dark theme colors */
 @media (prefers-color-scheme: dark) {
     :root {
@@ -30,22 +44,119 @@
 
 /* Firefox-specific styles */
 @supports (-moz-appearance: none) {
-    .container {
-        max-width: 700px !important;
+    /* Firefox: per-screen viewport sizing via data-screen */
+    html, body, #root {
         width: 100% !important;
-        padding-left: 0 !important;
-        padding-right: 0 !important;
+        margin: 0 auto !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Auth screens: smaller */
+    html[data-screen='auth'] body,
+    html[data-screen='auth'] #root {
+        min-width: 420px !important;
+        max-width: 560px !important;
+        min-height: 320px !important; /* reduced height for auth screens */
+    }
+
+    /* Loading screen: comfortable width */
+    html[data-screen='loading'] body,
+    html[data-screen='loading'] #root {
+        min-width: 480px !important;
+        max-width: 600px !important;
+        min-height: 420px !important;
+    }
+
+    /* PR list screen: larger */
+    html[data-screen='prlist'] body,
+    html[data-screen='prlist'] #root {
+    min-width: 580px !important; /* increased min-width for Firefox */
+    max-width: 650px !important; /* reduced max-width for Firefox */
+        min-height: 600px !important; /* a bit taller than before */
+    }
+
+    /* Ensure a visible right-side gutter on the PR list screen (Firefox) */
+    html[data-screen='prlist'] body,
+    html[data-screen='prlist'] #root {
+        padding-right: 0px !important; /* remove extra padding that causes gap */
+        box-sizing: border-box !important;
+    }
+
+    /* Stabilize scrollbar spacing in Firefox on the PR list screen */
+    html[data-screen='prlist'] body {
+        scrollbar-gutter: stable both-edges !important;
+    }
+
+    .container {
+        max-width: 100% !important;
+        width: 100% !important;
+        padding-left: 0 !important; /* let inner screen container control spacing */
+        padding-right: 0rem !important; /* remove right gutter that causes gap */
         margin-left: auto !important;
         margin-right: auto !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Main app container width */
+    .w-full.max-w-3xl.mx-auto.p-4 {
+        max-width: 100% !important;
+        width: 100% !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Auth containers */
+    .w-full.max-w-md.mx-auto.p-6,
+    .flex.items-center.justify-center.min-h-\[400px\].p-4 {
+        max-width: 560px !important;
+        width: 100% !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+    }
+    * {
+        scrollbar-width: thin !important;
+        scrollbar-color: rgba(175, 175, 175, 0.3) transparent !important;
+    }
+    /* Add a small visual gutter on the right in PR list to avoid edge-hugging */
+    html[data-screen='prlist'] .screen-prlist {
+        padding-right: 0rem !important; /* remove extra padding */
+    }
+
+    /* Fix button text alignment in Firefox */
+    button {
+        text-align: center !important;
     }
 }
 
 /* Chrome-specific fixes to make it look more compact like Firefox */
 @supports (-webkit-appearance: none) and (not (-moz-appearance: none)) {
+    /* Chrome: per-screen sizing */
+    html[data-screen='auth'] body,
+    html[data-screen='auth'] #root {
+        min-width: 420px !important;
+        max-width: 560px !important;
+        min-height: 380px !important;
+    }
+
+    html[data-screen='loading'] body,
+    html[data-screen='loading'] #root {
+        min-width: 480px !important;
+        max-width: 600px !important;
+        min-height: 420px !important;
+    }
+
+    html[data-screen='prlist'] body,
+    html[data-screen='prlist'] #root {
+        min-width: 640px !important; /* increased from 620px for Chrome to fit Reset button */
+        max-width: 750px !important; /* increased from 720px for Chrome */
+        min-height: 600px !important;
+    }
     /* Global container width */
     .container {
-        max-width: 550px !important;
-        min-width: 550px !important;
+        max-width: 750px !important; /* increased to match new Chrome width */
         width: 100% !important;
         margin-left: auto !important;
         margin-right: auto !important;
@@ -53,16 +164,14 @@
 
     /* Fix for login/auth containers to be wider */
     .w-full.max-w-md.mx-auto.p-6 {
-        max-width: 450px !important;
-        min-width: 450px !important;
-        width: 450px !important;
+    max-width: 520px !important;
+    width: 100% !important;
     }
 
     /* Fix for loading page container */
     .flex.items-center.justify-center.min-h-\[400px\].p-4 {
-        max-width: 450px !important;
-        min-width: 450px !important;
-        width: 450px !important;
+    max-width: 560px !important;
+    width: 100% !important;
         margin-left: auto !important;
         margin-right: auto !important;
     }
@@ -70,6 +179,9 @@
     /* Main container padding */
     .w-full.max-w-3xl.mx-auto.p-4 {
         padding: 0.5rem 1rem !important;
+        max-width: 750px !important; /* increased to match new Chrome width */
+        width: 100% !important;
+        box-sizing: border-box !important;
     }
 
     /* Force all text to be left-aligned instead of centered */
@@ -90,7 +202,7 @@
     /* Ensure the FilterBar and PR list have exactly the same width */
     .filter-bar-container,
     .space-y-3 {
-        width: 100% !important;
+    width: calc(100% - 0px) !important; /* allow container padding to take effect */
         box-sizing: border-box !important;
     }
 
@@ -249,5 +361,27 @@
     .text-center,
     .mx-auto {
         text-align: center !important;
+    }
+
+    /* Increase custom query input width for Chrome to show full placeholder text */
+    .min-w-\[200px\] {
+        min-width: 320px !important;
+    }
+
+    /* Remove card-like appearance from auth screens */
+    html[data-screen='auth'] .screen-auth {
+        background: transparent !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        border: none !important;
+    }
+
+    /* Fix blue info section text contrast in light mode */
+    html[data-theme='light'] .text-blue-700 {
+        color: #1e40af !important; /* darker blue for better contrast on light blue background */
+    }
+
+    html[data-theme='light'] .text-blue-600 {
+        color: #1d4ed8 !important; /* darker blue for better contrast */
     }
 }
