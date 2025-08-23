@@ -165,6 +165,7 @@ function App() {
         }
     };
 
+    // Run app initialization only once on mount (avoid re-running on password changes)
     useEffect(() => {
         // THEME: Load and apply theme preference
         let mediaQuery: MediaQueryList | null = null;
@@ -312,41 +313,6 @@ function App() {
             browser.storage.onChanged.addListener(storageListener);
         }
 
-        // Load filter state and sort option from browser.storage.local on mount
-        (async () => {
-            // Try to get from encrypted storage first if we have the password
-            if (password) {
-                try {
-                    const encryptedData = await decryptAppData(password);
-                    if (encryptedData && encryptedData.preferences) {
-                        let loadedFilters = encryptedData.preferences.filters || DEFAULT_FILTERS;
-                        let loadedSort = encryptedData.preferences.sort || 'newest';
-                        setFilterState(loadedFilters);
-                        setSortOption(loadedSort);
-                        setFilteredPRs(
-                            applyFiltersAndSort(loadedFilters, pullRequests, loadedSort)
-                        );
-                        return; // Don't load from unencrypted if we successfully loaded from encrypted
-                    }
-                } catch (error) {
-                    console.log('Failed to load filters/sort from encrypted storage, falling back to unencrypted:', error);
-                }
-            }
-            
-            // Fallback to unencrypted storage
-            const data = await browser.storage.local.get([
-                'prtracker-filters',
-                'prtracker-sort',
-            ]);
-            let loadedFilters = data['prtracker-filters'] || DEFAULT_FILTERS;
-            let loadedSort = data['prtracker-sort'] || 'newest';
-            setFilterState(loadedFilters);
-            setSortOption(loadedSort);
-            setFilteredPRs(
-                applyFiltersAndSort(loadedFilters, pullRequests, loadedSort)
-            );
-        })();
-
         return () => {
             if (
                 browser.storage &&
@@ -358,7 +324,41 @@ function App() {
             if (mediaQuery && handler)
                 mediaQuery.removeEventListener('change', handler);
         };
-    }, [password]); // Only depend on password, not pullRequests to avoid loops
+    }, []);
+
+    // Load filter state and sort option when app mounts or password becomes available
+    useEffect(() => {
+        (async () => {
+            // Try to get from encrypted storage first if we have the password
+            if (password) {
+                try {
+                    const encryptedData = await decryptAppData(password);
+                    if (encryptedData && encryptedData.preferences) {
+                        const loadedFilters = encryptedData.preferences.filters || DEFAULT_FILTERS;
+                        const loadedSort = encryptedData.preferences.sort || 'newest';
+                        setFilterState(loadedFilters);
+                        setSortOption(loadedSort);
+                        return; // Don't load from unencrypted if we successfully loaded from encrypted
+                    }
+                } catch (error) {
+                    console.log(
+                        'Failed to load filters/sort from encrypted storage, falling back to unencrypted:',
+                        error
+                    );
+                }
+            }
+
+            // Fallback to unencrypted storage
+            const data = await browser.storage.local.get([
+                'prtracker-filters',
+                'prtracker-sort',
+            ]);
+            const loadedFilters = data['prtracker-filters'] || DEFAULT_FILTERS;
+            const loadedSort = data['prtracker-sort'] || 'newest';
+            setFilterState(loadedFilters);
+            setSortOption(loadedSort);
+        })();
+    }, [password]);
 
     // Helper to apply filters and sort
     const applyFiltersAndSort = (
@@ -788,14 +788,21 @@ function App() {
                     will be securely encrypted before storage.
                 </p>
 
-                <form onSubmit={handleTokenSubmit} className="space-y-4">
+                <form onSubmit={handleTokenSubmit} className="space-y-4" autoComplete="on">
                     <input
+                        id="githubToken"
+                        name="github-token"
                         type="password"
                         value={token}
                         onChange={(e) => setToken(e.target.value)}
                         placeholder="ghp_..."
                         className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                         aria-label="GitHub personal access token"
+                        autoComplete="new-password"
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        data-1p-ignore="false"
                     />
                     <button
                         type="submit"
@@ -869,7 +876,7 @@ function App() {
                     </div>
                 </div>
 
-                <form onSubmit={handlePasswordSetup} className="space-y-4">
+                <form onSubmit={handlePasswordSetup} className="space-y-4" autoComplete="on">
                     <div>
                         <div className="flex justify-between items-center mb-1">
                             <label
@@ -904,13 +911,19 @@ function App() {
                         )}
 
                         <input
-                            id="password"
+                            id="newPassword"
+                            name="new-password"
                             type="password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                             aria-label="Password"
                             placeholder="Enter password"
+                            autoComplete="new-password"
+                            autoCapitalize="none"
+                            autoCorrect="off"
+                            spellCheck={false}
+                            data-1p-ignore="false"
                             minLength={8}
                             required
                         />
@@ -918,19 +931,25 @@ function App() {
 
                     <div>
                         <label
-                            htmlFor="confirmPassword"
+                            htmlFor="confirmNewPassword"
                             className="text-sm text-gray-600 dark:text-gray-300 font-medium mb-1 block"
                         >
                             Confirm Password
                         </label>
                         <input
-                            id="confirmPassword"
+                            id="confirmNewPassword"
+                            name="confirm-password"
                             type="password"
                             value={confirmPassword}
                             onChange={(e) => setConfirmPassword(e.target.value)}
                             className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                             aria-label="Confirm Password"
                             placeholder="Confirm password"
+                            autoComplete="new-password"
+                            autoCapitalize="none"
+                            autoCorrect="off"
+                            spellCheck={false}
+                            data-1p-ignore="false"
                             required
                         />
                     </div>
@@ -1013,14 +1032,21 @@ function App() {
                     your pull requests.
                 </p>
 
-                <form onSubmit={handlePasswordEntry} className="space-y-4">
+                <form onSubmit={handlePasswordEntry} className="space-y-4" autoComplete="on">
                     <input
+                        id="currentPassword"
+                        name="current-password"
                         type="password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         placeholder="Enter your password"
                         className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                         aria-label="Enter your password"
+                        autoComplete="current-password"
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        data-1p-ignore="false"
                         required
                     />
 
@@ -1191,6 +1217,8 @@ function App() {
             className="w-full pl-10 pr-3 h-10 leading-none border rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                     onChange={handleSearch}
                     aria-label="Search Pull Requests"
+                    name="search-pull-requests"
+                    autoComplete="off"
                 />
             </div>
 

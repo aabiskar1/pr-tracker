@@ -144,6 +144,8 @@ export function FilterBar({
                             handleFilterChange('ageFilter', e.target.value)
                         }
                         title="Filter by PR age"
+                        name="pr-age-filter"
+                        autoComplete="off"
                     >
                         <option value="all">All Time</option>
                         <option value="today">Today</option>
@@ -299,6 +301,8 @@ export function FilterBar({
                         value={sortOption}
                         title="Sort pull requests"
                         aria-label="Sort pull requests"
+                        name="sort-pull-requests"
+                        autoComplete="off"
                     >
                         <option value="newest">Newest First</option>
                         <option value="oldest">Oldest First</option>
@@ -318,6 +322,8 @@ export function FilterBar({
                         value={customQueryInput}
                         onChange={(e) => setCustomQueryInput(e.target.value)}
                         aria-label="Custom GitHub search query"
+                        name="custom-github-search-query"
+                        autoComplete="off"
                     />
                     <button
                         className="bg-primary text-white px-2 py-1 rounded-md hover:bg-primary/90 transition-colors min-w-[48px] text-xs"
