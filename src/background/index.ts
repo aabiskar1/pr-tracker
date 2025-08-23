@@ -38,6 +38,7 @@ type PullRequest = {
     requested_reviewers: { login: string; avatar_url: string }[];
     review_status?: 'approved' | 'changes-requested' | 'pending';
     ci_status?: 'passing' | 'failing' | 'pending';
+    author?: { login: string; avatar_url: string };
 };
 
 const ALARM_NAME = 'check-prs';
@@ -465,6 +466,12 @@ async function checkPullRequests(
                                         pr.requested_reviewers || [],
                                     review_status: pr.review_status,
                                     ci_status: pr.ci_status,
+                                    author: pr.user
+                                        ? {
+                                              login: pr.user.login,
+                                              avatar_url: pr.user.avatar_url,
+                                          }
+                                        : undefined,
                                 },
                             ];
                         } catch (err) {

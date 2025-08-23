@@ -23,6 +23,7 @@ type PullRequest = {
     requested_reviewers: { login: string; avatar_url: string }[];
     review_status?: ReviewStatus;
     ci_status?: CIStatus;
+    author?: { login: string; avatar_url: string };
 };
 
 type PullRequestListProps = {
@@ -168,32 +169,72 @@ export const PullRequestList: FC<PullRequestListProps> = ({ pullRequests }) => {
                             </div>
                             {/* Reviewers Section */}
                             {pr.requested_reviewers.length > 0 && (
-                                <div className="mt-3 flex items-center">
-                                    <div className="flex -space-x-1 mr-2">
-                                        {pr.requested_reviewers.slice(0, 10).map(
-                                            (reviewer) => (
-                                                <img
-                                                    key={reviewer.login}
-                                                    src={reviewer.avatar_url}
-                                                    alt={reviewer.login}
-                                                    className="w-6 h-6 rounded-full border border-white dark:border-gray-800"
-                                                    title={reviewer.login}
-                                                />
-                                            )
-                                        )}
-                                        {pr.requested_reviewers.length > 10 && (
-                                            <div className="w-6 h-6 rounded-full border border-white dark:border-gray-800 bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-xs text-gray-600 dark:text-gray-300 font-medium">
-                                                ...
-                                            </div>
-                                        )}
+                                <div className="mt-3 flex items-center justify-between">
+                                    <div className="flex items-center">
+                                        <div className="flex -space-x-1 mr-2">
+                                            {pr.requested_reviewers.slice(0, 10).map(
+                                                (reviewer) => (
+                                                    <img
+                                                        key={reviewer.login}
+                                                        src={reviewer.avatar_url}
+                                                        alt={reviewer.login}
+                                                        className="w-6 h-6 rounded-full border border-white dark:border-gray-800"
+                                                        title={reviewer.login}
+                                                    />
+                                                )
+                                            )}
+                                            {pr.requested_reviewers.length > 10 && (
+                                                <div className="w-6 h-6 rounded-full border border-white dark:border-gray-800 bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-xs text-gray-600 dark:text-gray-300 font-medium">
+                                                    ...
+                                                </div>
+                                            )}
+                                        </div>
+                                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                                            {pr.requested_reviewers.length} reviewer
+                                            {pr.requested_reviewers.length !== 1
+                                                ? 's'
+                                                : ''}{' '}
+                                            requested
+                                        </span>
                                     </div>
-                                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                                        {pr.requested_reviewers.length} reviewer
-                                        {pr.requested_reviewers.length !== 1
-                                            ? 's'
-                                            : ''}{' '}
-                                        requested
-                                    </span>
+                                    
+                                    {/* Author Section */}
+                                    {pr.author && (
+                                        <div className="flex items-center">
+                                            <span className="text-xs text-gray-500 dark:text-gray-400 mr-2">
+                                                Author: 
+                                            </span>
+                                            <img
+                                                src={pr.author.avatar_url}
+                                                alt={pr.author.login}
+                                                className="w-6 h-6 rounded-full border border-white dark:border-gray-800"
+                                                title={pr.author.login}
+                                            />
+                                            <span className="text-xs text-gray-600 dark:text-gray-300 ml-1 font-medium">
+                                                @{pr.author.login}
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Author Section (when no reviewers) */}
+                            {pr.requested_reviewers.length === 0 && pr.author && (
+                                <div className="mt-3 flex justify-end">
+                                    <div className="flex items-center">
+                                        <span className="text-xs text-gray-500 dark:text-gray-400 mr-2">
+                                            Author: 
+                                        </span>
+                                        <img
+                                            src={pr.author.avatar_url}
+                                            alt={pr.author.login}
+                                            className="w-6 h-6 rounded-full border border-white dark:border-gray-800"
+                                            title={pr.author.login}
+                                        />
+                                        <span className="text-xs text-gray-600 dark:text-gray-300 ml-1 font-medium">
+                                            @{pr.author.login}
+                                        </span>
+                                    </div>
                                 </div>
                             )}
                         </a>
