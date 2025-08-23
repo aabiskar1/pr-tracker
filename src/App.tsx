@@ -23,6 +23,7 @@ import {
     hasStoredToken,
     hasEncryptionSetup,
     clearSecureStorage,
+    decryptAppData,
 } from './services/secureStorage';
 import {
     getStoredTheme,
@@ -117,11 +118,50 @@ function App() {
 
     // Load PRs from storage
     const loadPullRequests = async () => {
-        const data = await browser.storage.local.get(['pullRequests']);
-        console.log('Loaded pull requests from storage:', data.pullRequests);
-        if (data.pullRequests) {
-            setPullRequests(data.pullRequests as PullRequest[]);
-            setFilteredPRs(data.pullRequests as PullRequest[]);
+        console.log('Loading pull requests from storage...');
+        try {
+            // First try to load from encrypted storage if we have a password
+            if (password) {
+                try {
+                    const appData = await decryptAppData(password);
+                    if (appData && appData.pullRequests) {
+                        console.log('Loaded pull requests from encrypted storage:', appData.pullRequests);
+                        setPullRequests(appData.pullRequests as PullRequest[]);
+                        setFilteredPRs(appData.pullRequests as PullRequest[]);
+                        
+                        // Load preferences from encrypted storage
+                        if (appData.preferences) {
+                            if (typeof appData.preferences.notificationsEnabled === 'boolean') {
+                                setNotificationsEnabled(appData.preferences.notificationsEnabled);
+                            }
+                            if (appData.preferences.customQuery) {
+                                setCustomQuery(appData.preferences.customQuery);
+                                setCustomQueryInput(appData.preferences.customQuery);
+                                setIsCustomQueryActive(true);
+                            }
+                            if (appData.preferences.filters) {
+                                setFilterState(appData.preferences.filters);
+                            }
+                            if (appData.preferences.sort) {
+                                setSortOption(appData.preferences.sort);
+                            }
+                        }
+                        return;
+                    }
+                } catch (error) {
+                    console.log('Failed to load from encrypted storage, falling back to unencrypted:', error);
+                }
+            }
+            
+            // Fallback to unencrypted storage
+            const data = await browser.storage.local.get(['pullRequests']);
+            console.log('Loaded pull requests from unencrypted storage:', data.pullRequests);
+            if (data.pullRequests) {
+                setPullRequests(data.pullRequests as PullRequest[]);
+                setFilteredPRs(data.pullRequests as PullRequest[]);
+            }
+        } catch (error) {
+            console.error('Error loading pull requests:', error);
         }
     };
 
@@ -161,22 +201,58 @@ function App() {
                     setPassword(rememberedPasswordResponse.password);
                     // Auto-authenticate
                     setAuthState('authenticated');
-                    // Load PRs
-                    const data = await browser.storage.local.get([
-                        'pullRequests',
-                    ]);
-                    if (data.pullRequests) {
-                        setPullRequests(data.pullRequests as PullRequest[]);
-                        setFilteredPRs(data.pullRequests as PullRequest[]);
+                    
+                    // Try to load from encrypted storage first
+                    try {
+                        const appData = await decryptAppData(rememberedPasswordResponse.password);
+                        if (appData && appData.pullRequests) {
+                            console.log('Loaded pull requests from encrypted storage');
+                            setPullRequests(appData.pullRequests as PullRequest[]);
+                            setFilteredPRs(appData.pullRequests as PullRequest[]);
+                            
+                            // Load preferences from encrypted storage
+                            if (appData.preferences) {
+                                if (typeof appData.preferences.notificationsEnabled === 'boolean') {
+                                    setNotificationsEnabled(appData.preferences.notificationsEnabled);
+                                }
+                                if (appData.preferences.customQuery) {
+                                    setCustomQuery(appData.preferences.customQuery);
+                                    setCustomQueryInput(appData.preferences.customQuery);
+                                    setIsCustomQueryActive(true);
+                                }
+                                if (appData.preferences.filters) {
+                                    setFilterState(appData.preferences.filters);
+                                }
+                                if (appData.preferences.sort) {
+                                    setSortOption(appData.preferences.sort);
+                                }
+                            }
+                        }
+                    } catch (error) {
+                        console.log('Failed to load encrypted data, falling back to unencrypted:', error);
+                        // Fallback to unencrypted storage
+                        const data = await browser.storage.local.get([
+                            'pullRequests',
+                        ]);
+                        if (data.pullRequests) {
+                            setPullRequests(data.pullRequests as PullRequest[]);
+                            setFilteredPRs(data.pullRequests as PullRequest[]);
+                        }
                     }
 
-                    // Trigger a refresh
-                    browser.runtime.sendMessage({
+                    // Trigger a refresh and wait for it to complete
+                    console.log('Triggering background PR refresh...');
+                    await browser.runtime.sendMessage({
                         type: 'CHECK_PRS',
                         password: rememberedPasswordResponse.password,
                     });
+                    
+                    // Wait for background refresh to complete and then load fresh data
+                    setTimeout(async () => {
+                        await loadPullRequests();
+                        setIsLoading(false);
+                    }, 3000);
 
-                    setIsLoading(false);
                     return;
                 }
 
@@ -238,6 +314,26 @@ function App() {
 
         // Load filter state and sort option from browser.storage.local on mount
         (async () => {
+            // Try to get from encrypted storage first if we have the password
+            if (password) {
+                try {
+                    const encryptedData = await decryptAppData(password);
+                    if (encryptedData && encryptedData.preferences) {
+                        let loadedFilters = encryptedData.preferences.filters || DEFAULT_FILTERS;
+                        let loadedSort = encryptedData.preferences.sort || 'newest';
+                        setFilterState(loadedFilters);
+                        setSortOption(loadedSort);
+                        setFilteredPRs(
+                            applyFiltersAndSort(loadedFilters, pullRequests, loadedSort)
+                        );
+                        return; // Don't load from unencrypted if we successfully loaded from encrypted
+                    }
+                } catch (error) {
+                    console.log('Failed to load filters/sort from encrypted storage, falling back to unencrypted:', error);
+                }
+            }
+            
+            // Fallback to unencrypted storage
             const data = await browser.storage.local.get([
                 'prtracker-filters',
                 'prtracker-sort',
@@ -262,7 +358,7 @@ function App() {
             if (mediaQuery && handler)
                 mediaQuery.removeEventListener('change', handler);
         };
-    }, []);
+    }, [password]); // Only depend on password, not pullRequests to avoid loops
 
     // Helper to apply filters and sort
     const applyFiltersAndSort = (
@@ -425,7 +521,7 @@ function App() {
             setTimeout(async () => {
                 await loadPullRequests();
                 setIsLoading(false);
-            }, 2000);
+            }, 1500);
         } catch (error) {
             console.error('Error setting up password:', error);
             setPasswordError('Error setting up encryption. Please try again.');
@@ -471,7 +567,7 @@ function App() {
             setTimeout(async () => {
                 await loadPullRequests();
                 setIsLoading(false);
-            }, 2000);
+            }, 1500);
         } catch (error) {
             console.error('Error validating password:', error);
             setPasswordError('Error validating password. Please try again.');
@@ -532,18 +628,21 @@ function App() {
 
     const handleFilterChange = (filters: FilterState) => {
         setFilterState(filters);
+        // Save to unencrypted storage for backward compatibility
         browser.storage.local.set({ 'prtracker-filters': filters });
         setFilteredPRs(applyFiltersAndSort(filters, pullRequests, sortOption));
     };
 
     const handleSortChange = (sort: SortOption) => {
         setSortOption(sort);
+        // Save to unencrypted storage for backward compatibility
         browser.storage.local.set({ 'prtracker-sort': sort });
         setFilteredPRs(applyFiltersAndSort(filterState, pullRequests, sort));
     };
 
     const handleResetFilters = () => {
         setFilterState(DEFAULT_FILTERS);
+        // Save to unencrypted storage for backward compatibility
         browser.storage.local.set({ 'prtracker-filters': DEFAULT_FILTERS });
         handleFilterChange(DEFAULT_FILTERS);
     };
@@ -568,6 +667,28 @@ function App() {
     // Load custom query on mount
     useEffect(() => {
         (async () => {
+            // Try to get preferences from encrypted storage first if we have the password
+            if (password) {
+                try {
+                    const encryptedData = await decryptAppData(password);
+                    if (encryptedData && encryptedData.preferences) {
+                        // Load from encrypted storage
+                        if (encryptedData.preferences.customQuery) {
+                            setCustomQuery(encryptedData.preferences.customQuery);
+                            setCustomQueryInput(encryptedData.preferences.customQuery);
+                            setIsCustomQueryActive(true);
+                        }
+                        if (typeof encryptedData.preferences.notificationsEnabled === 'boolean') {
+                            setNotificationsEnabled(encryptedData.preferences.notificationsEnabled);
+                        }
+                        return; // Don't load from unencrypted if we successfully loaded from encrypted
+                    }
+                } catch (error) {
+                    console.log('Failed to load preferences from encrypted storage, falling back to unencrypted:', error);
+                }
+            }
+            
+            // Fallback to unencrypted storage
             const data = await browser.storage.local.get([
                 'prtracker-custom-query',
             ]);
@@ -586,10 +707,11 @@ function App() {
                 );
             }
         })();
-    }, []);
+    }, [password]); // Re-run when password changes
 
     // Save custom query
     const handleSaveCustomQuery = async () => {
+        // Save to unencrypted storage for backward compatibility
         await browser.storage.local.set({
             'prtracker-custom-query': customQueryInput,
         });
@@ -605,11 +727,12 @@ function App() {
         setTimeout(async () => {
             await loadPullRequests();
             setIsLoading(false);
-        }, 2000);
+        }, 1500);
     };
 
     // Reset to default queries
     const handleResetCustomQuery = async () => {
+        // Remove from unencrypted storage for backward compatibility
         await browser.storage.local.remove('prtracker-custom-query');
         setCustomQuery('');
         setCustomQueryInput('');
@@ -624,13 +747,14 @@ function App() {
         setTimeout(async () => {
             await loadPullRequests();
             setIsLoading(false);
-        }, 2000);
+        }, 1500);
     };
 
     // Toggle notifications
     const handleToggleNotifications = async () => {
         const newValue = !notificationsEnabled;
         setNotificationsEnabled(newValue);
+        // Save to unencrypted storage for backward compatibility
         await browser.storage.local.set({
             'prtracker-notifications-enabled': newValue,
         });
@@ -1022,7 +1146,7 @@ function App() {
                             setTimeout(async () => {
                                 await loadPullRequests();
                                 setIsLoading(false);
-                            }, 2000);
+                            }, 1500);
                         }}
                         className="bg-primary text-white px-3 py-1 rounded-md hover:bg-primary/90 transition-colors inline-flex items-center gap-2"
                         aria-label="Refresh Pull Requests"
