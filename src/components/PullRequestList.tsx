@@ -170,7 +170,7 @@ export const PullRequestList: FC<PullRequestListProps> = ({ pullRequests }) => {
                             {pr.requested_reviewers.length > 0 && (
                                 <div className="mt-3 flex items-center">
                                     <div className="flex -space-x-1 mr-2">
-                                        {pr.requested_reviewers.map(
+                                        {pr.requested_reviewers.slice(0, 10).map(
                                             (reviewer) => (
                                                 <img
                                                     key={reviewer.login}
@@ -180,6 +180,11 @@ export const PullRequestList: FC<PullRequestListProps> = ({ pullRequests }) => {
                                                     title={reviewer.login}
                                                 />
                                             )
+                                        )}
+                                        {pr.requested_reviewers.length > 10 && (
+                                            <div className="w-6 h-6 rounded-full border border-white dark:border-gray-800 bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-xs text-gray-600 dark:text-gray-300 font-medium">
+                                                ...
+                                            </div>
                                         )}
                                     </div>
                                     <span className="text-xs text-gray-500 dark:text-gray-400">
