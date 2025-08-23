@@ -120,8 +120,8 @@ function App() {
     const loadPullRequests = async () => {
         console.log('Loading pull requests from storage...');
         try {
-            // First try to load from encrypted storage if we have a password
-            if (password) {
+            // First try to load from encrypted storage only when authenticated
+            if (password && authState === 'authenticated') {
                 try {
                     const appData = await decryptAppData(password);
                     if (appData && appData.pullRequests) {
@@ -326,11 +326,11 @@ function App() {
         };
     }, []);
 
-    // Load filter state and sort option when app mounts or password becomes available
+        // Load filter state and sort option when app mounts or password becomes available
     useEffect(() => {
         (async () => {
-            // Try to get from encrypted storage first if we have the password
-            if (password) {
+            // Try to get from encrypted storage first only when authenticated
+            if (password && authState === 'authenticated') {
                 try {
                     const encryptedData = await decryptAppData(password);
                     if (encryptedData && encryptedData.preferences) {
@@ -358,7 +358,7 @@ function App() {
             setFilterState(loadedFilters);
             setSortOption(loadedSort);
         })();
-    }, [password]);
+    }, [password, authState]);
 
     // Helper to apply filters and sort
     const applyFiltersAndSort = (
@@ -664,11 +664,11 @@ function App() {
         applyTheme(newTheme);
     };
 
-    // Load custom query on mount
+    // Load custom query on mount or when authenticated
     useEffect(() => {
         (async () => {
-            // Try to get preferences from encrypted storage first if we have the password
-            if (password) {
+            // Try to get preferences from encrypted storage first only when authenticated
+            if (password && authState === 'authenticated') {
                 try {
                     const encryptedData = await decryptAppData(password);
                     if (encryptedData && encryptedData.preferences) {
@@ -707,7 +707,7 @@ function App() {
                 );
             }
         })();
-    }, [password]); // Re-run when password changes
+    }, [password, authState]); // Re-run when password or auth changes
 
     // Save custom query
     const handleSaveCustomQuery = async () => {
