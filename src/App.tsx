@@ -788,7 +788,7 @@ function App() {
                     will be securely encrypted before storage.
                 </p>
 
-                <form onSubmit={handleTokenSubmit} className="space-y-4" autoComplete="on">
+                <form onSubmit={handleTokenSubmit} className="space-y-4" autoComplete="on" name="github-token-form">
                     <input
                         id="githubToken"
                         name="github-token"
@@ -803,6 +803,11 @@ function App() {
                         autoCorrect="off"
                         spellCheck={false}
                         data-1p-ignore="false"
+                        data-lpignore="false"
+                        data-bwignore="false"
+                        data-form-type="password"
+                        aria-describedby={tokenError ? 'token-error' : undefined}
+                        {...(tokenError ? { 'aria-invalid': 'true' } : {})}
                     />
                     <button
                         type="submit"
@@ -817,6 +822,8 @@ function App() {
                     <div
                         className="mt-4 flex items-center error-message text-sm rounded px-4 py-3"
                         role="alert"
+                        id="token-error"
+                        aria-live="assertive"
                     >
                         <svg
                             className="w-5 h-5 mr-2 flex-shrink-0"
@@ -876,11 +883,11 @@ function App() {
                     </div>
                 </div>
 
-                <form onSubmit={handlePasswordSetup} className="space-y-4" autoComplete="on">
+                <form onSubmit={handlePasswordSetup} className="space-y-4" autoComplete="on" name="password-setup-form">
                     <div>
                         <div className="flex justify-between items-center mb-1">
                             <label
-                                htmlFor="password"
+                                htmlFor="newPassword"
                                 className="text-sm text-gray-600 dark:text-gray-300 font-medium"
                             >
                                 Password
@@ -899,7 +906,7 @@ function App() {
                         </div>
 
                         {showPasswordHelp && (
-                            <div className="text-xs text-gray-600 dark:text-gray-300 mb-2 p-2 bg-gray-100 dark:bg-gray-700 rounded">
+                            <div className="text-xs text-gray-600 dark:text-gray-300 mb-2 p-2 bg-gray-100 dark:bg-gray-700 rounded" id="password-help">
                                 <ul className="list-disc pl-4 space-y-1">
                                     <li>At least 8 characters long</li>
                                     <li>
@@ -924,6 +931,11 @@ function App() {
                             autoCorrect="off"
                             spellCheck={false}
                             data-1p-ignore="false"
+                            data-lpignore="false"
+                            data-bwignore="false"
+                            data-form-type="password"
+                            {...(passwordError ? { 'aria-invalid': 'true' } : {})}
+                            aria-describedby={`${showPasswordHelp ? 'password-help' : ''}${showPasswordHelp && passwordError ? ' ' : ''}${passwordError ? 'password-error' : ''}` || undefined}
                             minLength={8}
                             required
                         />
@@ -950,6 +962,11 @@ function App() {
                             autoCorrect="off"
                             spellCheck={false}
                             data-1p-ignore="false"
+                            data-lpignore="false"
+                            data-bwignore="false"
+                            data-form-type="password"
+                            {...(passwordError ? { 'aria-invalid': 'true' } : {})}
+                            aria-describedby={`${showPasswordHelp ? 'password-help' : ''}${showPasswordHelp && passwordError ? ' ' : ''}${passwordError ? 'password-error' : ''}` || undefined}
                             required
                         />
                     </div>
@@ -987,6 +1004,8 @@ function App() {
                     <div
                         className="mt-4 flex items-center error-message text-sm rounded px-4 py-3"
                         role="alert"
+                        id="password-error"
+                        aria-live="assertive"
                     >
                         <svg
                             className="w-5 h-5 mr-2 flex-shrink-0"
@@ -1032,7 +1051,7 @@ function App() {
                     your pull requests.
                 </p>
 
-                <form onSubmit={handlePasswordEntry} className="space-y-4" autoComplete="on">
+                <form onSubmit={handlePasswordEntry} className="space-y-4" autoComplete="on" name="password-entry-form">
                     <input
                         id="currentPassword"
                         name="current-password"
@@ -1047,6 +1066,11 @@ function App() {
                         autoCorrect="off"
                         spellCheck={false}
                         data-1p-ignore="false"
+                        data-lpignore="false"
+                        data-bwignore="false"
+                        data-form-type="password"
+                        aria-describedby={passwordError ? 'password-error' : undefined}
+                        {...(passwordError ? { 'aria-invalid': 'true' } : {})}
                         required
                     />
 
