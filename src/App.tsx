@@ -153,12 +153,17 @@ function App() {
                 }
             }
             
-            // Fallback to unencrypted storage
-            const data = await browser.storage.local.get(['pullRequests']);
-            console.log('Loaded pull requests from unencrypted storage:', data.pullRequests);
-            if (data.pullRequests) {
-                setPullRequests(data.pullRequests as PullRequest[]);
-                setFilteredPRs(data.pullRequests as PullRequest[]);
+            // Fallback to unencrypted storage only if encryption is not set up
+            const enc = await hasEncryptionSetup();
+            if (!enc) {
+                const data = await browser.storage.local.get(['pullRequests']);
+                console.log('Loaded pull requests from unencrypted storage:', data.pullRequests);
+                if (data.pullRequests) {
+                    setPullRequests(data.pullRequests as PullRequest[]);
+                    setFilteredPRs(data.pullRequests as PullRequest[]);
+                }
+            } else {
+                console.log('Encryption is set up; skipping unencrypted PR load');
             }
         } catch (error) {
             console.error('Error loading pull requests:', error);
@@ -231,13 +236,16 @@ function App() {
                         }
                     } catch (error) {
                         console.log('Failed to load encrypted data, falling back to unencrypted:', error);
-                        // Fallback to unencrypted storage
-                        const data = await browser.storage.local.get([
-                            'pullRequests',
-                        ]);
-                        if (data.pullRequests) {
-                            setPullRequests(data.pullRequests as PullRequest[]);
-                            setFilteredPRs(data.pullRequests as PullRequest[]);
+                        // Fallback to unencrypted storage only if encryption is not set up
+                        const enc = await hasEncryptionSetup();
+                        if (!enc) {
+                            const data = await browser.storage.local.get([
+                                'pullRequests',
+                            ]);
+                            if (data.pullRequests) {
+                                setPullRequests(data.pullRequests as PullRequest[]);
+                                setFilteredPRs(data.pullRequests as PullRequest[]);
+                            }
                         }
                     }
 
@@ -275,10 +283,13 @@ function App() {
                 }
 
                 // Load PRs if we have a token (they'll be shown after password entry)
-                const data = await browser.storage.local.get(['pullRequests']);
-                if (data.pullRequests) {
-                    setPullRequests(data.pullRequests as PullRequest[]);
-                    setFilteredPRs(data.pullRequests as PullRequest[]);
+                const enc = await hasEncryptionSetup();
+                if (!enc) {
+                    const data = await browser.storage.local.get(['pullRequests']);
+                    if (data.pullRequests) {
+                        setPullRequests(data.pullRequests as PullRequest[]);
+                        setFilteredPRs(data.pullRequests as PullRequest[]);
+                    }
                 }
 
                 setIsLoading(false);
