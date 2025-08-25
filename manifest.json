@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "PR Tracker",
-    "version": "1.0.5",
+    "version": "1.0.6",
     "description": "Track and manage your GitHub pull requests",
     "permissions": [
         "storage",
