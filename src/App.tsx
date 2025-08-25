@@ -249,18 +249,15 @@ function App() {
                         }
                     }
 
-                    // Trigger a refresh and wait for it to complete
+                    // Trigger a throttled background refresh; UI will update via listener when ready
                     console.log('Triggering background PR refresh...');
                     await browser.runtime.sendMessage({
                         type: 'CHECK_PRS',
                         password: rememberedPasswordResponse.password,
                     });
                     
-                    // Wait for background refresh to complete and then load fresh data
-                    setTimeout(async () => {
-                        await loadPullRequests();
-                        setIsLoading(false);
-                    }, 3000);
+                    // We already loaded cached data; mark done
+                    setIsLoading(false);
 
                     return;
                 }
