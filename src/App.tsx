@@ -520,19 +520,46 @@ function App() {
                 remember: rememberPassword,
             });
 
-            // Trigger PR check with the password
+            // Set authenticated state  
+            setAuthState('authenticated');
+
+            // Load cached PRs directly with password (bypass authState check)
+            try {
+                const appData = await decryptAppData(password);
+                if (appData && appData.pullRequests) {
+                    console.log('Loaded pull requests from encrypted storage after password setup:', appData.pullRequests);
+                    setPullRequests(appData.pullRequests as PullRequest[]);
+                    setFilteredPRs(appData.pullRequests as PullRequest[]);
+                    
+                    // Load preferences from encrypted storage
+                    if (appData.preferences) {
+                        if (typeof appData.preferences.notificationsEnabled === 'boolean') {
+                            setNotificationsEnabled(appData.preferences.notificationsEnabled);
+                        }
+                        if (appData.preferences.customQuery) {
+                            setCustomQuery(appData.preferences.customQuery);
+                            setCustomQueryInput(appData.preferences.customQuery);
+                            setIsCustomQueryActive(true);
+                        }
+                        if (appData.preferences.filters) {
+                            setFilterState(appData.preferences.filters);
+                        }
+                        if (appData.preferences.sort) {
+                            setSortOption(appData.preferences.sort);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.log('No cached encrypted data available on password setup:', error);
+            }
+
+            // Trigger a throttled background refresh; UI will update via listener when ready
             await browser.runtime.sendMessage({
                 type: 'CHECK_PRS',
                 password,
             });
 
-            setAuthState('authenticated');
-
-            // Wait for PRs to load
-            setTimeout(async () => {
-                await loadPullRequests();
-                setIsLoading(false);
-            }, 1500);
+            setIsLoading(false);
         } catch (error) {
             console.error('Error setting up password:', error);
             setPasswordError('Error setting up encryption. Please try again.');
@@ -566,19 +593,46 @@ function App() {
                 remember: rememberPassword,
             });
 
-            // Trigger PR check with the password
+            // Set authenticated state
+            setAuthState('authenticated');
+
+            // Load cached PRs directly with password (bypass authState check)
+            try {
+                const appData = await decryptAppData(password);
+                if (appData && appData.pullRequests) {
+                    console.log('Loaded pull requests from encrypted storage after password entry');
+                    setPullRequests(appData.pullRequests as PullRequest[]);
+                    setFilteredPRs(appData.pullRequests as PullRequest[]);
+                    
+                    // Load preferences from encrypted storage
+                    if (appData.preferences) {
+                        if (typeof appData.preferences.notificationsEnabled === 'boolean') {
+                            setNotificationsEnabled(appData.preferences.notificationsEnabled);
+                        }
+                        if (appData.preferences.customQuery) {
+                            setCustomQuery(appData.preferences.customQuery);
+                            setCustomQueryInput(appData.preferences.customQuery);
+                            setIsCustomQueryActive(true);
+                        }
+                        if (appData.preferences.filters) {
+                            setFilterState(appData.preferences.filters);
+                        }
+                        if (appData.preferences.sort) {
+                            setSortOption(appData.preferences.sort);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.log('No cached encrypted data available on password entry:', error);
+            }
+
+            // Trigger a throttled background refresh; UI will update via listener
             await browser.runtime.sendMessage({
                 type: 'CHECK_PRS',
                 password,
             });
 
-            setAuthState('authenticated');
-
-            // Wait for PRs to load
-            setTimeout(async () => {
-                await loadPullRequests();
-                setIsLoading(false);
-            }, 1500);
+            setIsLoading(false);
         } catch (error) {
             console.error('Error validating password:', error);
             setPasswordError('Error validating password. Please try again.');
