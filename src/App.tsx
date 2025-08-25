@@ -24,6 +24,7 @@ import {
     hasEncryptionSetup,
     clearSecureStorage,
     decryptAppData,
+    encryptAppData,
 } from './services/secureStorage';
 import {
     getStoredTheme,
@@ -688,24 +689,69 @@ function App() {
         }
     };
 
-    const handleFilterChange = (filters: FilterState) => {
+    const handleFilterChange = async (filters: FilterState) => {
         setFilterState(filters);
         // Save to unencrypted storage for backward compatibility
-        browser.storage.local.set({ 'prtracker-filters': filters });
+        await browser.storage.local.set({ 'prtracker-filters': filters });
+        
+        // Also update encrypted storage if authenticated
+        if (password && authState === 'authenticated') {
+            try {
+                const appData = await decryptAppData(password);
+                if (appData) {
+                    appData.preferences = appData.preferences || {};
+                    appData.preferences.filters = filters;
+                    await encryptAppData(appData, password);
+                }
+            } catch (error) {
+                console.log('Failed to update filters in encrypted storage:', error);
+            }
+        }
+        
         setFilteredPRs(applyFiltersAndSort(filters, pullRequests, sortOption));
     };
 
-    const handleSortChange = (sort: SortOption) => {
+    const handleSortChange = async (sort: SortOption) => {
         setSortOption(sort);
         // Save to unencrypted storage for backward compatibility
-        browser.storage.local.set({ 'prtracker-sort': sort });
+        await browser.storage.local.set({ 'prtracker-sort': sort });
+        
+        // Also update encrypted storage if authenticated
+        if (password && authState === 'authenticated') {
+            try {
+                const appData = await decryptAppData(password);
+                if (appData) {
+                    appData.preferences = appData.preferences || {};
+                    appData.preferences.sort = sort;
+                    await encryptAppData(appData, password);
+                }
+            } catch (error) {
+                console.log('Failed to update sort in encrypted storage:', error);
+            }
+        }
+        
         setFilteredPRs(applyFiltersAndSort(filterState, pullRequests, sort));
     };
 
-    const handleResetFilters = () => {
+    const handleResetFilters = async () => {
         setFilterState(DEFAULT_FILTERS);
         // Save to unencrypted storage for backward compatibility
-        browser.storage.local.set({ 'prtracker-filters': DEFAULT_FILTERS });
+        await browser.storage.local.set({ 'prtracker-filters': DEFAULT_FILTERS });
+        
+        // Also update encrypted storage if authenticated
+        if (password && authState === 'authenticated') {
+            try {
+                const appData = await decryptAppData(password);
+                if (appData) {
+                    appData.preferences = appData.preferences || {};
+                    appData.preferences.filters = DEFAULT_FILTERS;
+                    await encryptAppData(appData, password);
+                }
+            } catch (error) {
+                console.log('Failed to update filters in encrypted storage:', error);
+            }
+        }
+        
         handleFilterChange(DEFAULT_FILTERS);
     };
 

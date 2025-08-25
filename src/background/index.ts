@@ -491,7 +491,7 @@ async function checkPullRequests(
                 }
 
                 const prUrl = item.pull_request.url as string;
-                console.log(`Fetching details for PR: ${prUrl}`);
+                console.log(`Fetching details for the PR`);
 
                 const [prData, reviewStatus, ciStatus] = await Promise.all([
                     fetch(prUrl, {
@@ -504,9 +504,7 @@ async function checkPullRequests(
                     getCIStatus(prUrl, token),
                 ]);
 
-                console.log(
-                    `Successfully fetched details for PR: ${prData.title}`
-                );
+                console.log(`Successfully fetched details for the PR`);
                 return {
                     ...prData,
                     review_status: reviewStatus,
@@ -586,7 +584,7 @@ async function checkPullRequests(
         console.log(`Final count of unique PRs: ${count}`);
         await setBadgeText(count > 0 ? count.toString() : '');
 
-        console.log('Saving PRs to storage:', uniquePRs);
+        console.log('Saving PRs to storage');
 
         // Get current app preferences to include in encrypted storage
         const currentPrefs = await browser.storage.local.get([
