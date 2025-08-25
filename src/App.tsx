@@ -303,7 +303,7 @@ function App() {
         const storageListener = (
             changes: Record<string, browser.Storage.StorageChange>
         ) => {
-            console.log('Storage changed:', changes);
+            console.log('Storage changed');
             if (changes.pullRequests) {
                 setPullRequests(
                     (changes.pullRequests.newValue as PullRequest[]) || []
