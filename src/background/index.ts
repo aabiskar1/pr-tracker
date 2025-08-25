@@ -352,7 +352,6 @@ async function checkPullRequests(
         }
 
         const user = await userResponse.json();
-        console.log(`Fetched user info for ${user.login}`);
 
         // --- Custom Query Support ---
         let customQuery = customQueryFromMsg;
@@ -384,7 +383,6 @@ async function checkPullRequests(
         let prItems: any[] = [];
         if (customQuery && customQuery.trim()) {
             // Use the custom query for a single search
-            console.log('Using custom search query:', customQuery);
             const customResp = await fetch(
                 `https://api.github.com/search/issues?q=${encodeURIComponent(customQuery)}&per_page=100`,
                 {
@@ -418,9 +416,6 @@ async function checkPullRequests(
             // Default: Fetch both authored and review-requested PRs
             const searchQuery = `is:open is:pr author:${user.login} archived:false`;
             const assignedQuery = `is:open is:pr review-requested:${user.login} archived:false`;
-            console.log(
-                `Searching for PRs with queries: \n  - Authored: ${searchQuery}\n  - Review requested: ${assignedQuery}`
-            );
             const [authoredResponse, reviewResponse] = await Promise.all([
                 fetch(
                     `https://api.github.com/search/issues?q=${encodeURIComponent(searchQuery)}&per_page=100`,
@@ -524,9 +519,6 @@ async function checkPullRequests(
                 )
             )
         ).filter(Boolean);
-        console.log(
-            `Successfully fetched details for ${detailedPRs.length} PRs`
-        );
 
         // Combine and deduplicate PRs
         const allPRs = detailedPRs;

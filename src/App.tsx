@@ -126,7 +126,7 @@ function App() {
                 try {
                     const appData = await decryptAppData(password);
                     if (appData && appData.pullRequests) {
-                        console.log('Loaded pull requests from encrypted storage:', appData.pullRequests);
+                        console.log('Loaded pull requests from encrypted storage');
                         setPullRequests(appData.pullRequests as PullRequest[]);
                         setFilteredPRs(appData.pullRequests as PullRequest[]);
                         
@@ -158,7 +158,7 @@ function App() {
             const enc = await hasEncryptionSetup();
             if (!enc) {
                 const data = await browser.storage.local.get(['pullRequests']);
-                console.log('Loaded pull requests from unencrypted storage:', data.pullRequests);
+                console.log('Loaded pull requests from unencrypted storage');
                 if (data.pullRequests) {
                     setPullRequests(data.pullRequests as PullRequest[]);
                     setFilteredPRs(data.pullRequests as PullRequest[]);
@@ -525,7 +525,7 @@ function App() {
             try {
                 const appData = await decryptAppData(password);
                 if (appData && appData.pullRequests) {
-                    console.log('Loaded pull requests from encrypted storage after password setup:', appData.pullRequests);
+                    console.log('Loaded pull requests from encrypted storage after password setup');
                     setPullRequests(appData.pullRequests as PullRequest[]);
                     setFilteredPRs(appData.pullRequests as PullRequest[]);
                     
@@ -598,7 +598,6 @@ function App() {
             try {
                 const appData = await decryptAppData(password);
                 if (appData && appData.pullRequests) {
-                    console.log('Loaded pull requests from encrypted storage after password entry');
                     setPullRequests(appData.pullRequests as PullRequest[]);
                     setFilteredPRs(appData.pullRequests as PullRequest[]);
                     
