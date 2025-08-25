@@ -1,7 +1,7 @@
 import browser from 'webextension-polyfill';
 
 /**
- * Secure storage service for handling sensitive data like GitHub tokens
+ * Enhanced secure storage service for handling ALL sensitive data
  * Uses the Web Crypto API to encrypt data before storing it
  * Combines extension ID with a user password for enhanced security
  */
@@ -11,6 +11,10 @@ const SALT_KEY = 'prtracker_salt';
 const TOKEN_KEY = 'encryptedGithubToken';
 const IV_KEY = 'prtracker_iv';
 const TEST_KEY = 'encryptionTestVector';
+
+// New constants for encrypted app data
+const ENCRYPTED_DATA_KEY = 'encryptedAppData';
+const DATA_IV_KEY = 'appDataIv';
 
 // Generate a random initialization vector for AES-GCM
 const generateIV = (): Uint8Array => {
@@ -57,7 +61,7 @@ const getEncryptionKey = async (userPassword: string): Promise<CryptoKey> => {
     return crypto.subtle.deriveKey(
         {
             name: 'PBKDF2',
-            salt: saltArray,
+            salt: saltArray as BufferSource,
             iterations: 100000, // High iteration count for security
             hash: 'SHA-256',
         },
@@ -83,7 +87,7 @@ export const setupEncryption = async (password: string): Promise<boolean> => {
         const encryptedData = await crypto.subtle.encrypt(
             {
                 name: 'AES-GCM',
-                iv,
+                iv: iv as BufferSource,
             },
             key,
             testData
@@ -121,13 +125,13 @@ export const validatePassword = async (password: string): Promise<boolean> => {
 
         // Convert back to Uint8Array
         const encryptedData = new Uint8Array(testVector.data);
-        const iv = new Uint8Array(testVector.iv);
+        const iv = new Uint8Array(testVector.iv).slice() as Uint8Array;
 
         // Try to decrypt
         const decryptedData = await crypto.subtle.decrypt(
             {
                 name: 'AES-GCM',
-                iv,
+                iv: iv as BufferSource,
             },
             key,
             encryptedData
@@ -141,6 +145,86 @@ export const validatePassword = async (password: string): Promise<boolean> => {
     } catch (error) {
         // Decryption failure means wrong password
         return false;
+    }
+};
+
+// Encrypt and store all application data
+export const encryptAppData = async (
+    data: Record<string, any>,
+    password: string
+): Promise<void> => {
+    try {
+        const key = await getEncryptionKey(password);
+        const iv = generateIV();
+
+        // Serialize the data to JSON
+        const dataString = JSON.stringify(data);
+        const encoder = new TextEncoder();
+        const dataBytes = encoder.encode(dataString);
+
+        // Encrypt
+        const encryptedData = await crypto.subtle.encrypt(
+            {
+                name: 'AES-GCM',
+                iv: iv as BufferSource,
+            },
+            key,
+            dataBytes
+        );
+
+        // Convert to arrays for storage
+        const encryptedArray = Array.from(new Uint8Array(encryptedData));
+        const ivArray = Array.from(iv);
+
+        // Store both encrypted data and IV
+        await browser.storage.local.set({
+            [ENCRYPTED_DATA_KEY]: encryptedArray,
+            [DATA_IV_KEY]: ivArray,
+        });
+
+        console.log('App data encrypted and stored securely');
+    } catch (error) {
+        console.error('Error encrypting app data:', error);
+        throw new Error('Failed to securely store app data');
+    }
+};
+
+// Decrypt and retrieve all application data
+export const decryptAppData = async (
+    password: string
+): Promise<Record<string, any> | null> => {
+    try {
+        const { [ENCRYPTED_DATA_KEY]: encryptedArray, [DATA_IV_KEY]: ivArray } =
+            await browser.storage.local.get([ENCRYPTED_DATA_KEY, DATA_IV_KEY]);
+
+        if (!encryptedArray || !ivArray) {
+            console.log('No encrypted app data found');
+            return {};
+        }
+
+        const key = await getEncryptionKey(password);
+
+        // Convert back to Uint8Array
+        const encryptedData = new Uint8Array(encryptedArray);
+        const iv = new Uint8Array(ivArray);
+
+        // Decrypt
+        const decryptedData = await crypto.subtle.decrypt(
+            {
+                name: 'AES-GCM',
+                iv: iv as BufferSource,
+            },
+            key,
+            encryptedData
+        );
+
+        // Convert back to string and parse JSON
+        const decoder = new TextDecoder();
+        const dataString = decoder.decode(decryptedData);
+        return JSON.parse(dataString);
+    } catch (error) {
+        console.error('Error decrypting app data:', error);
+        return null;
     }
 };
 
@@ -161,7 +245,7 @@ export const encryptToken = async (
         const encryptedData = await crypto.subtle.encrypt(
             {
                 name: 'AES-GCM',
-                iv,
+                iv: iv as BufferSource,
             },
             key,
             tokenData
@@ -214,7 +298,7 @@ export const decryptToken = async (
         const decryptedData = await crypto.subtle.decrypt(
             {
                 name: 'AES-GCM',
-                iv,
+                iv: iv as BufferSource,
             },
             key,
             encryptedData
@@ -251,6 +335,13 @@ export const removeToken = async (): Promise<void> => {
 
 // Clear all secure storage (for complete reset)
 export const clearSecureStorage = async (): Promise<void> => {
-    await browser.storage.local.remove([TOKEN_KEY, IV_KEY, TEST_KEY, SALT_KEY]);
+    await browser.storage.local.remove([
+        TOKEN_KEY,
+        IV_KEY,
+        TEST_KEY,
+        SALT_KEY,
+        ENCRYPTED_DATA_KEY,
+        DATA_IV_KEY,
+    ]);
     console.log('All secure storage cleared');
 };

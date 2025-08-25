@@ -13,6 +13,9 @@ import {
     FaShieldAlt,
     FaQuestionCircle,
     FaClock,
+    FaSync,
+    FaSignOutAlt,
+    FaSearch,
 } from 'react-icons/fa';
 import {
     encryptToken,
@@ -20,6 +23,8 @@ import {
     hasStoredToken,
     hasEncryptionSetup,
     clearSecureStorage,
+    decryptAppData,
+    encryptAppData,
 } from './services/secureStorage';
 import {
     getStoredTheme,
@@ -99,16 +104,74 @@ function App() {
     const [notificationsEnabled, setNotificationsEnabled] =
         useState<boolean>(true);
 
+    // Update a data attribute on <html> so CSS can size the popup per-screen (helps Firefox)
+    useEffect(() => {
+        const screen = isLoading
+            ? 'loading'
+            : authState === 'authenticated'
+              ? 'prlist'
+              : 'auth';
+        document.documentElement.setAttribute('data-screen', screen);
+        return () => {
+            // Do not clear to avoid flicker; next render will overwrite
+        };
+    }, [isLoading, authState]);
+
     // Load PRs from storage
     const loadPullRequests = async () => {
-        const data = await browser.storage.local.get(['pullRequests']);
-        console.log('Loaded pull requests from storage:', data.pullRequests);
-        if (data.pullRequests) {
-            setPullRequests(data.pullRequests as PullRequest[]);
-            setFilteredPRs(data.pullRequests as PullRequest[]);
+        console.log('Loading pull requests from storage...');
+        try {
+            // First try to load from encrypted storage only when authenticated
+            if (password && authState === 'authenticated') {
+                try {
+                    const appData = await decryptAppData(password);
+                    if (appData && appData.pullRequests) {
+                        console.log('Loaded pull requests from encrypted storage');
+                        setPullRequests(appData.pullRequests as PullRequest[]);
+                        setFilteredPRs(appData.pullRequests as PullRequest[]);
+                        
+                        // Load preferences from encrypted storage
+                        if (appData.preferences) {
+                            if (typeof appData.preferences.notificationsEnabled === 'boolean') {
+                                setNotificationsEnabled(appData.preferences.notificationsEnabled);
+                            }
+                            if (appData.preferences.customQuery) {
+                                setCustomQuery(appData.preferences.customQuery);
+                                setCustomQueryInput(appData.preferences.customQuery);
+                                setIsCustomQueryActive(true);
+                            }
+                            if (appData.preferences.filters) {
+                                setFilterState(appData.preferences.filters);
+                            }
+                            if (appData.preferences.sort) {
+                                setSortOption(appData.preferences.sort);
+                            }
+                        }
+                        return;
+                    }
+                } catch (error) {
+                    console.log('Failed to load from encrypted storage, falling back to unencrypted:', error);
+                }
+            }
+            
+            // Fallback to unencrypted storage only if encryption is not set up
+            const enc = await hasEncryptionSetup();
+            if (!enc) {
+                const data = await browser.storage.local.get(['pullRequests']);
+                console.log('Loaded pull requests from unencrypted storage');
+                if (data.pullRequests) {
+                    setPullRequests(data.pullRequests as PullRequest[]);
+                    setFilteredPRs(data.pullRequests as PullRequest[]);
+                }
+            } else {
+                console.log('Encryption is set up; skipping unencrypted PR load');
+            }
+        } catch (error) {
+            console.error('Error loading pull requests:', error);
         }
     };
 
+    // Run app initialization only once on mount (avoid re-running on password changes)
     useEffect(() => {
         // THEME: Load and apply theme preference
         let mediaQuery: MediaQueryList | null = null;
@@ -145,22 +208,58 @@ function App() {
                     setPassword(rememberedPasswordResponse.password);
                     // Auto-authenticate
                     setAuthState('authenticated');
-                    // Load PRs
-                    const data = await browser.storage.local.get([
-                        'pullRequests',
-                    ]);
-                    if (data.pullRequests) {
-                        setPullRequests(data.pullRequests as PullRequest[]);
-                        setFilteredPRs(data.pullRequests as PullRequest[]);
+                    
+                    // Try to load from encrypted storage first
+                    try {
+                        const appData = await decryptAppData(rememberedPasswordResponse.password);
+                        if (appData && appData.pullRequests) {
+                            console.log('Loaded pull requests from encrypted storage');
+                            setPullRequests(appData.pullRequests as PullRequest[]);
+                            setFilteredPRs(appData.pullRequests as PullRequest[]);
+                            
+                            // Load preferences from encrypted storage
+                            if (appData.preferences) {
+                                if (typeof appData.preferences.notificationsEnabled === 'boolean') {
+                                    setNotificationsEnabled(appData.preferences.notificationsEnabled);
+                                }
+                                if (appData.preferences.customQuery) {
+                                    setCustomQuery(appData.preferences.customQuery);
+                                    setCustomQueryInput(appData.preferences.customQuery);
+                                    setIsCustomQueryActive(true);
+                                }
+                                if (appData.preferences.filters) {
+                                    setFilterState(appData.preferences.filters);
+                                }
+                                if (appData.preferences.sort) {
+                                    setSortOption(appData.preferences.sort);
+                                }
+                            }
+                        }
+                    } catch (error) {
+                        console.log('Failed to load encrypted data, falling back to unencrypted:', error);
+                        // Fallback to unencrypted storage only if encryption is not set up
+                        const enc = await hasEncryptionSetup();
+                        if (!enc) {
+                            const data = await browser.storage.local.get([
+                                'pullRequests',
+                            ]);
+                            if (data.pullRequests) {
+                                setPullRequests(data.pullRequests as PullRequest[]);
+                                setFilteredPRs(data.pullRequests as PullRequest[]);
+                            }
+                        }
                     }
 
-                    // Trigger a refresh
-                    browser.runtime.sendMessage({
+                    // Trigger a throttled background refresh; UI will update via listener when ready
+                    console.log('Triggering background PR refresh...');
+                    await browser.runtime.sendMessage({
                         type: 'CHECK_PRS',
                         password: rememberedPasswordResponse.password,
                     });
-
+                    
+                    // We already loaded cached data; mark done
                     setIsLoading(false);
+
                     return;
                 }
 
@@ -182,10 +281,13 @@ function App() {
                 }
 
                 // Load PRs if we have a token (they'll be shown after password entry)
-                const data = await browser.storage.local.get(['pullRequests']);
-                if (data.pullRequests) {
-                    setPullRequests(data.pullRequests as PullRequest[]);
-                    setFilteredPRs(data.pullRequests as PullRequest[]);
+                const enc = await hasEncryptionSetup();
+                if (!enc) {
+                    const data = await browser.storage.local.get(['pullRequests']);
+                    if (data.pullRequests) {
+                        setPullRequests(data.pullRequests as PullRequest[]);
+                        setFilteredPRs(data.pullRequests as PullRequest[]);
+                    }
                 }
 
                 setIsLoading(false);
@@ -201,7 +303,7 @@ function App() {
         const storageListener = (
             changes: Record<string, browser.Storage.StorageChange>
         ) => {
-            console.log('Storage changed:', changes);
+            console.log('Storage changed');
             if (changes.pullRequests) {
                 setPullRequests(
                     (changes.pullRequests.newValue as PullRequest[]) || []
@@ -220,21 +322,6 @@ function App() {
             browser.storage.onChanged.addListener(storageListener);
         }
 
-        // Load filter state and sort option from browser.storage.local on mount
-        (async () => {
-            const data = await browser.storage.local.get([
-                'prtracker-filters',
-                'prtracker-sort',
-            ]);
-            let loadedFilters = data['prtracker-filters'] || DEFAULT_FILTERS;
-            let loadedSort = data['prtracker-sort'] || 'newest';
-            setFilterState(loadedFilters);
-            setSortOption(loadedSort);
-            setFilteredPRs(
-                applyFiltersAndSort(loadedFilters, pullRequests, loadedSort)
-            );
-        })();
-
         return () => {
             if (
                 browser.storage &&
@@ -247,6 +334,40 @@ function App() {
                 mediaQuery.removeEventListener('change', handler);
         };
     }, []);
+
+        // Load filter state and sort option when app mounts or password becomes available
+    useEffect(() => {
+        (async () => {
+            // Try to get from encrypted storage first only when authenticated
+            if (password && authState === 'authenticated') {
+                try {
+                    const encryptedData = await decryptAppData(password);
+                    if (encryptedData && encryptedData.preferences) {
+                        const loadedFilters = encryptedData.preferences.filters || DEFAULT_FILTERS;
+                        const loadedSort = encryptedData.preferences.sort || 'newest';
+                        setFilterState(loadedFilters);
+                        setSortOption(loadedSort);
+                        return; // Don't load from unencrypted if we successfully loaded from encrypted
+                    }
+                } catch (error) {
+                    console.log(
+                        'Failed to load filters/sort from encrypted storage, falling back to unencrypted:',
+                        error
+                    );
+                }
+            }
+
+            // Fallback to unencrypted storage
+            const data = await browser.storage.local.get([
+                'prtracker-filters',
+                'prtracker-sort',
+            ]);
+            const loadedFilters = data['prtracker-filters'] || DEFAULT_FILTERS;
+            const loadedSort = data['prtracker-sort'] || 'newest';
+            setFilterState(loadedFilters);
+            setSortOption(loadedSort);
+        })();
+    }, [password, authState]);
 
     // Helper to apply filters and sort
     const applyFiltersAndSort = (
@@ -397,19 +518,46 @@ function App() {
                 remember: rememberPassword,
             });
 
-            // Trigger PR check with the password
+            // Set authenticated state  
+            setAuthState('authenticated');
+
+            // Load cached PRs directly with password (bypass authState check)
+            try {
+                const appData = await decryptAppData(password);
+                if (appData && appData.pullRequests) {
+                    console.log('Loaded pull requests from encrypted storage after password setup');
+                    setPullRequests(appData.pullRequests as PullRequest[]);
+                    setFilteredPRs(appData.pullRequests as PullRequest[]);
+                    
+                    // Load preferences from encrypted storage
+                    if (appData.preferences) {
+                        if (typeof appData.preferences.notificationsEnabled === 'boolean') {
+                            setNotificationsEnabled(appData.preferences.notificationsEnabled);
+                        }
+                        if (appData.preferences.customQuery) {
+                            setCustomQuery(appData.preferences.customQuery);
+                            setCustomQueryInput(appData.preferences.customQuery);
+                            setIsCustomQueryActive(true);
+                        }
+                        if (appData.preferences.filters) {
+                            setFilterState(appData.preferences.filters);
+                        }
+                        if (appData.preferences.sort) {
+                            setSortOption(appData.preferences.sort);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.log('No cached encrypted data available on password setup:', error);
+            }
+
+            // Trigger a throttled background refresh; UI will update via listener when ready
             await browser.runtime.sendMessage({
                 type: 'CHECK_PRS',
                 password,
             });
 
-            setAuthState('authenticated');
-
-            // Wait for PRs to load
-            setTimeout(async () => {
-                await loadPullRequests();
-                setIsLoading(false);
-            }, 2000);
+            setIsLoading(false);
         } catch (error) {
             console.error('Error setting up password:', error);
             setPasswordError('Error setting up encryption. Please try again.');
@@ -443,19 +591,45 @@ function App() {
                 remember: rememberPassword,
             });
 
-            // Trigger PR check with the password
+            // Set authenticated state
+            setAuthState('authenticated');
+
+            // Load cached PRs directly with password (bypass authState check)
+            try {
+                const appData = await decryptAppData(password);
+                if (appData && appData.pullRequests) {
+                    setPullRequests(appData.pullRequests as PullRequest[]);
+                    setFilteredPRs(appData.pullRequests as PullRequest[]);
+                    
+                    // Load preferences from encrypted storage
+                    if (appData.preferences) {
+                        if (typeof appData.preferences.notificationsEnabled === 'boolean') {
+                            setNotificationsEnabled(appData.preferences.notificationsEnabled);
+                        }
+                        if (appData.preferences.customQuery) {
+                            setCustomQuery(appData.preferences.customQuery);
+                            setCustomQueryInput(appData.preferences.customQuery);
+                            setIsCustomQueryActive(true);
+                        }
+                        if (appData.preferences.filters) {
+                            setFilterState(appData.preferences.filters);
+                        }
+                        if (appData.preferences.sort) {
+                            setSortOption(appData.preferences.sort);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.log('No cached encrypted data available on password entry:', error);
+            }
+
+            // Trigger a throttled background refresh; UI will update via listener
             await browser.runtime.sendMessage({
                 type: 'CHECK_PRS',
                 password,
             });
 
-            setAuthState('authenticated');
-
-            // Wait for PRs to load
-            setTimeout(async () => {
-                await loadPullRequests();
-                setIsLoading(false);
-            }, 2000);
+            setIsLoading(false);
         } catch (error) {
             console.error('Error validating password:', error);
             setPasswordError('Error validating password. Please try again.');
@@ -514,21 +688,69 @@ function App() {
         }
     };
 
-    const handleFilterChange = (filters: FilterState) => {
+    const handleFilterChange = async (filters: FilterState) => {
         setFilterState(filters);
-        browser.storage.local.set({ 'prtracker-filters': filters });
+        // Save to unencrypted storage for backward compatibility
+        await browser.storage.local.set({ 'prtracker-filters': filters });
+        
+        // Also update encrypted storage if authenticated
+        if (password && authState === 'authenticated') {
+            try {
+                const appData = await decryptAppData(password);
+                if (appData) {
+                    appData.preferences = appData.preferences || {};
+                    appData.preferences.filters = filters;
+                    await encryptAppData(appData, password);
+                }
+            } catch (error) {
+                console.log('Failed to update filters in encrypted storage:', error);
+            }
+        }
+        
         setFilteredPRs(applyFiltersAndSort(filters, pullRequests, sortOption));
     };
 
-    const handleSortChange = (sort: SortOption) => {
+    const handleSortChange = async (sort: SortOption) => {
         setSortOption(sort);
-        browser.storage.local.set({ 'prtracker-sort': sort });
+        // Save to unencrypted storage for backward compatibility
+        await browser.storage.local.set({ 'prtracker-sort': sort });
+        
+        // Also update encrypted storage if authenticated
+        if (password && authState === 'authenticated') {
+            try {
+                const appData = await decryptAppData(password);
+                if (appData) {
+                    appData.preferences = appData.preferences || {};
+                    appData.preferences.sort = sort;
+                    await encryptAppData(appData, password);
+                }
+            } catch (error) {
+                console.log('Failed to update sort in encrypted storage:', error);
+            }
+        }
+        
         setFilteredPRs(applyFiltersAndSort(filterState, pullRequests, sort));
     };
 
-    const handleResetFilters = () => {
+    const handleResetFilters = async () => {
         setFilterState(DEFAULT_FILTERS);
-        browser.storage.local.set({ 'prtracker-filters': DEFAULT_FILTERS });
+        // Save to unencrypted storage for backward compatibility
+        await browser.storage.local.set({ 'prtracker-filters': DEFAULT_FILTERS });
+        
+        // Also update encrypted storage if authenticated
+        if (password && authState === 'authenticated') {
+            try {
+                const appData = await decryptAppData(password);
+                if (appData) {
+                    appData.preferences = appData.preferences || {};
+                    appData.preferences.filters = DEFAULT_FILTERS;
+                    await encryptAppData(appData, password);
+                }
+            } catch (error) {
+                console.log('Failed to update filters in encrypted storage:', error);
+            }
+        }
+        
         handleFilterChange(DEFAULT_FILTERS);
     };
 
@@ -549,9 +771,31 @@ function App() {
         applyTheme(newTheme);
     };
 
-    // Load custom query on mount
+    // Load custom query on mount or when authenticated
     useEffect(() => {
         (async () => {
+            // Try to get preferences from encrypted storage first only when authenticated
+            if (password && authState === 'authenticated') {
+                try {
+                    const encryptedData = await decryptAppData(password);
+                    if (encryptedData && encryptedData.preferences) {
+                        // Load from encrypted storage
+                        if (encryptedData.preferences.customQuery) {
+                            setCustomQuery(encryptedData.preferences.customQuery);
+                            setCustomQueryInput(encryptedData.preferences.customQuery);
+                            setIsCustomQueryActive(true);
+                        }
+                        if (typeof encryptedData.preferences.notificationsEnabled === 'boolean') {
+                            setNotificationsEnabled(encryptedData.preferences.notificationsEnabled);
+                        }
+                        return; // Don't load from unencrypted if we successfully loaded from encrypted
+                    }
+                } catch (error) {
+                    console.log('Failed to load preferences from encrypted storage, falling back to unencrypted:', error);
+                }
+            }
+            
+            // Fallback to unencrypted storage
             const data = await browser.storage.local.get([
                 'prtracker-custom-query',
             ]);
@@ -560,11 +804,21 @@ function App() {
                 setCustomQueryInput(data['prtracker-custom-query']);
                 setIsCustomQueryActive(true);
             }
+            // Load notifications preference
+            const notif = await browser.storage.local.get([
+                'prtracker-notifications-enabled',
+            ]);
+            if (typeof notif['prtracker-notifications-enabled'] === 'boolean') {
+                setNotificationsEnabled(
+                    notif['prtracker-notifications-enabled'] as boolean
+                );
+            }
         })();
-    }, []);
+    }, [password, authState]); // Re-run when password or auth changes
 
     // Save custom query
     const handleSaveCustomQuery = async () => {
+        // Save to unencrypted storage for backward compatibility
         await browser.storage.local.set({
             'prtracker-custom-query': customQueryInput,
         });
@@ -580,11 +834,12 @@ function App() {
         setTimeout(async () => {
             await loadPullRequests();
             setIsLoading(false);
-        }, 2000);
+        }, 1500);
     };
 
     // Reset to default queries
     const handleResetCustomQuery = async () => {
+        // Remove from unencrypted storage for backward compatibility
         await browser.storage.local.remove('prtracker-custom-query');
         setCustomQuery('');
         setCustomQueryInput('');
@@ -599,13 +854,14 @@ function App() {
         setTimeout(async () => {
             await loadPullRequests();
             setIsLoading(false);
-        }, 2000);
+        }, 1500);
     };
 
     // Toggle notifications
     const handleToggleNotifications = async () => {
         const newValue = !notificationsEnabled;
         setNotificationsEnabled(newValue);
+        // Save to unencrypted storage for backward compatibility
         await browser.storage.local.set({
             'prtracker-notifications-enabled': newValue,
         });
@@ -626,7 +882,7 @@ function App() {
 
     if (authState === 'login-needed') {
         return (
-            <div className="w-full max-w-md mx-auto p-6 bg-white dark:bg-gray-800 rounded-xl shadow-md">
+            <div className="screen-auth w-full max-w-md mx-auto p-6 bg-white dark:bg-gray-800 rounded-xl shadow-md">
                 <div className="flex items-center justify-center mb-6">
                     <FaGithub className="text-4xl text-gray-700 dark:text-gray-300 mr-2" />
                     <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
@@ -639,14 +895,26 @@ function App() {
                     will be securely encrypted before storage.
                 </p>
 
-                <form onSubmit={handleTokenSubmit} className="space-y-4">
+                <form onSubmit={handleTokenSubmit} className="space-y-4" autoComplete="on" name="github-token-form">
                     <input
+                        id="githubToken"
+                        name="github-token"
                         type="password"
                         value={token}
                         onChange={(e) => setToken(e.target.value)}
                         placeholder="ghp_..."
                         className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                         aria-label="GitHub personal access token"
+                        autoComplete="new-password"
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        data-1p-ignore="false"
+                        data-lpignore="false"
+                        data-bwignore="false"
+                        data-form-type="password"
+                        aria-describedby={tokenError ? 'token-error' : undefined}
+                        {...(tokenError ? { 'aria-invalid': 'true' } : {})}
                     />
                     <button
                         type="submit"
@@ -661,6 +929,8 @@ function App() {
                     <div
                         className="mt-4 flex items-center error-message text-sm rounded px-4 py-3"
                         role="alert"
+                        id="token-error"
+                        aria-live="assertive"
                     >
                         <svg
                             className="w-5 h-5 mr-2 flex-shrink-0"
@@ -695,7 +965,7 @@ function App() {
 
     if (authState === 'password-setup') {
         return (
-            <div className="w-full max-w-md mx-auto p-6 bg-white dark:bg-gray-800 rounded-xl shadow-md">
+            <div className="screen-auth w-full max-w-md mx-auto p-6 bg-white dark:bg-gray-800 rounded-xl shadow-md">
                 <div className="flex items-center justify-center mb-6">
                     <FaLock className="text-4xl text-gray-700 dark:text-gray-300 mr-2" />
                     <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
@@ -720,11 +990,11 @@ function App() {
                     </div>
                 </div>
 
-                <form onSubmit={handlePasswordSetup} className="space-y-4">
+                <form onSubmit={handlePasswordSetup} className="space-y-4" autoComplete="on" name="password-setup-form">
                     <div>
                         <div className="flex justify-between items-center mb-1">
                             <label
-                                htmlFor="password"
+                                htmlFor="newPassword"
                                 className="text-sm text-gray-600 dark:text-gray-300 font-medium"
                             >
                                 Password
@@ -743,7 +1013,7 @@ function App() {
                         </div>
 
                         {showPasswordHelp && (
-                            <div className="text-xs text-gray-600 dark:text-gray-300 mb-2 p-2 bg-gray-100 dark:bg-gray-700 rounded">
+                            <div className="text-xs text-gray-600 dark:text-gray-300 mb-2 p-2 bg-gray-100 dark:bg-gray-700 rounded" id="password-help">
                                 <ul className="list-disc pl-4 space-y-1">
                                     <li>At least 8 characters long</li>
                                     <li>
@@ -755,13 +1025,24 @@ function App() {
                         )}
 
                         <input
-                            id="password"
+                            id="newPassword"
+                            name="new-password"
                             type="password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                             aria-label="Password"
                             placeholder="Enter password"
+                            autoComplete="new-password"
+                            autoCapitalize="none"
+                            autoCorrect="off"
+                            spellCheck={false}
+                            data-1p-ignore="false"
+                            data-lpignore="false"
+                            data-bwignore="false"
+                            data-form-type="password"
+                            {...(passwordError ? { 'aria-invalid': 'true' } : {})}
+                            aria-describedby={`${showPasswordHelp ? 'password-help' : ''}${showPasswordHelp && passwordError ? ' ' : ''}${passwordError ? 'password-error' : ''}` || undefined}
                             minLength={8}
                             required
                         />
@@ -769,19 +1050,30 @@ function App() {
 
                     <div>
                         <label
-                            htmlFor="confirmPassword"
+                            htmlFor="confirmNewPassword"
                             className="text-sm text-gray-600 dark:text-gray-300 font-medium mb-1 block"
                         >
                             Confirm Password
                         </label>
                         <input
-                            id="confirmPassword"
+                            id="confirmNewPassword"
+                            name="confirm-password"
                             type="password"
                             value={confirmPassword}
                             onChange={(e) => setConfirmPassword(e.target.value)}
                             className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                             aria-label="Confirm Password"
                             placeholder="Confirm password"
+                            autoComplete="new-password"
+                            autoCapitalize="none"
+                            autoCorrect="off"
+                            spellCheck={false}
+                            data-1p-ignore="false"
+                            data-lpignore="false"
+                            data-bwignore="false"
+                            data-form-type="password"
+                            {...(passwordError ? { 'aria-invalid': 'true' } : {})}
+                            aria-describedby={`${showPasswordHelp ? 'password-help' : ''}${showPasswordHelp && passwordError ? ' ' : ''}${passwordError ? 'password-error' : ''}` || undefined}
                             required
                         />
                     </div>
@@ -819,6 +1111,8 @@ function App() {
                     <div
                         className="mt-4 flex items-center error-message text-sm rounded px-4 py-3"
                         role="alert"
+                        id="password-error"
+                        aria-live="assertive"
                     >
                         <svg
                             className="w-5 h-5 mr-2 flex-shrink-0"
@@ -851,7 +1145,7 @@ function App() {
 
     if (authState === 'password-entry') {
         return (
-            <div className="w-full max-w-md mx-auto p-6 bg-white dark:bg-gray-800 rounded-xl shadow-md">
+            <div className="screen-auth w-full max-w-md mx-auto p-6 bg-white dark:bg-gray-800 rounded-xl shadow-md">
                 <div className="flex items-center justify-center mb-6">
                     <FaUnlock className="text-4xl text-gray-700 dark:text-gray-300 mr-2" />
                     <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
@@ -864,14 +1158,26 @@ function App() {
                     your pull requests.
                 </p>
 
-                <form onSubmit={handlePasswordEntry} className="space-y-4">
+                <form onSubmit={handlePasswordEntry} className="space-y-4" autoComplete="on" name="password-entry-form">
                     <input
+                        id="currentPassword"
+                        name="current-password"
                         type="password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         placeholder="Enter your password"
                         className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                         aria-label="Enter your password"
+                        autoComplete="current-password"
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        data-1p-ignore="false"
+                        data-lpignore="false"
+                        data-bwignore="false"
+                        data-form-type="password"
+                        aria-describedby={passwordError ? 'password-error' : undefined}
+                        {...(passwordError ? { 'aria-invalid': 'true' } : {})}
                         required
                     />
 
@@ -936,7 +1242,7 @@ function App() {
     }
 
     return (
-        <div className="w-full max-w-3xl mx-auto p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
+    <div className="screen-prlist w-full max-w-3xl mx-auto p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
             {/* Global error banner for critical errors */}
             {globalError && (
                 <div className="mb-4 flex items-center error-message text-sm rounded px-4 py-3" role="alert">
@@ -953,29 +1259,39 @@ function App() {
                     </button>
                 </div>
             )}
-            <div className="flex items-center justify-between mb-4">
-                <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
+            <div className="flex items-center justify-between mb-4 gap-2">
+                <h2 className="flex items-center gap-2 text-2xl font-bold text-gray-800 dark:text-white">
                     Pull Requests
                 </h2>
-                <div className="flex space-x-2 items-center">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3 justify-end">
                     <ThemeSwitcher
                         theme={theme}
                         onThemeChange={handleThemeChange}
                     />
-                    <button
-                        className={`px-3 py-1 rounded border text-sm transition-colors ${notificationsEnabled ? 'bg-green-100 text-green-800 border-green-300 dark:bg-green-900 dark:text-green-200' : 'bg-gray-200 text-gray-600 border-gray-300 dark:bg-gray-700 dark:text-gray-300'}`}
-                        onClick={handleToggleNotifications}
-                        aria-label={
-                            notificationsEnabled
-                                ? 'Disable notifications'
-                                : 'Enable notifications'
-                        }
-                        type="button"
-                    >
-                        {notificationsEnabled
-                            ? '🔔 Notifications On'
-                            : '🔕 Notifications Off'}
-                    </button>
+                    {/* Notifications toggle */}
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={handleToggleNotifications}
+                            aria-label={
+                                notificationsEnabled
+                                    ? 'Disable notifications'
+                                    : 'Enable notifications'
+                            }
+                            className="theme-toggle-switch relative inline-flex items-center h-6"
+                            data-enabled={notificationsEnabled ? 'true' : 'false'}
+                        >
+                            <span
+                                className={`toggle-track w-11 h-6 rounded-full transition-colors ${notificationsEnabled ? 'bg-green-600' : 'bg-gray-300 dark:bg-gray-600'}`}
+                            />
+                            <span
+                                className={`toggle-thumb absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition-transform transform ${notificationsEnabled ? 'translate-x-5' : 'translate-x-0'}`}
+                            />
+                        </button>
+                        <span className="text-sm text-gray-600 dark:text-gray-300">
+                            {notificationsEnabled ? '🔔 Alert on' : '🔕 Alert off'}
+                        </span>
+                    </div>
                     <button
                         onClick={async () => {
                             setIsLoading(true);
@@ -987,18 +1303,20 @@ function App() {
                             setTimeout(async () => {
                                 await loadPullRequests();
                                 setIsLoading(false);
-                            }, 2000);
+                            }, 1500);
                         }}
-                        className="bg-primary text-white px-3 py-1 rounded-md hover:bg-primary/90 transition-colors"
+                        className="bg-primary text-white px-3 py-1 rounded-md hover:bg-primary/90 transition-colors inline-flex items-center gap-2"
                         aria-label="Refresh Pull Requests"
                     >
+                        <FaSync className={isLoading ? 'animate-spin' : ''} />
                         Refresh
                     </button>
                     <button
                         onClick={handleSignOut}
-                        className="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-3 py-1 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                        className="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-3 py-1 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors inline-flex items-center gap-2"
                         aria-label="Sign Out"
                     >
+                        <FaSignOutAlt />
                         Sign Out
                     </button>
                 </div>
@@ -1020,13 +1338,20 @@ function App() {
             </div>
 
             {/* Search PRs input */}
-            <input
-                type="text"
-                placeholder="Search PRs"
-                className="w-full px-4 py-2 mb-4 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                onChange={handleSearch}
-                aria-label="Search Pull Requests"
-            />
+        <div className="relative mb-4 leading-none">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <FaSearch className="text-gray-400" />
+                </div>
+                <input
+                    type="text"
+                    placeholder="Search pull requests"
+            className="w-full pl-10 pr-3 h-10 leading-none border rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    onChange={handleSearch}
+                    aria-label="Search Pull Requests"
+                    name="search-pull-requests"
+                    autoComplete="off"
+                />
+            </div>
 
             {filteredPRs.length === 0 ? (
                 <div className="text-center py-8">

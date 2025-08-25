@@ -8,7 +8,7 @@ import tailwindcss from '@tailwindcss/vite';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const isFirefox = process.env.BROWSER === 'firefox';
-const versionNumber = '1.0.5';
+const versionNumber = '1.0.6';
 const manifestV2 = {
     manifest_version: 2,
     name: 'PR Tracker',
