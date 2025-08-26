@@ -68,7 +68,6 @@ const initializeRememberedPassword = async () => {
         ]);
 
         if (data.sessionPassword && data.rememberPasswordFlag) {
-            console.log('Restoring remembered password from session storage');
             sessionPassword = data.sessionPassword;
             rememberPassword = true;
 
@@ -80,7 +79,6 @@ const initializeRememberedPassword = async () => {
 
             // If no expiry alarm, set one for 12 hours from now
             if (!hasExpiryAlarm) {
-                console.log('Re-creating password expiry alarm');
                 const expiryTime = Date.now() + 12 * 60 * 60 * 1000;
                 browser.alarms.create(PASSWORD_EXPIRY_ALARM, {
                     when: expiryTime,
@@ -196,7 +194,6 @@ browser.alarms.onAlarm.addListener(async (alarm) => {
             }
         }
     } else if (alarm.name === PASSWORD_EXPIRY_ALARM) {
-        console.log('Password expiry alarm triggered');
         // Clear the session password when expiry alarm triggers
         sessionPassword = null;
         rememberPassword = false;
@@ -289,7 +286,6 @@ async function checkPullRequests(
 
         // Get the securely stored token
         if (!sessionPassword) {
-            console.log('No session password available after checks');
             const errorMsg = 'Session password missing. Please sign in again.';
             await browser.notifications.create({
                 type: 'basic',
@@ -306,7 +302,6 @@ async function checkPullRequests(
 
         const token = await decryptToken(sessionPassword);
         if (!token) {
-            console.log('Failed to decrypt GitHub token');
             const errorMsg =
                 'Failed to decrypt your GitHub token. Please re-authenticate.';
             await browser.notifications.create({
@@ -321,7 +316,6 @@ async function checkPullRequests(
             });
             return;
         }
-        console.log('Token decrypted successfully, fetching PRs');
 
         // Get user info
         const userResponse = await fetch('https://api.github.com/user', {
@@ -486,7 +480,6 @@ async function checkPullRequests(
                 }
 
                 const prUrl = item.pull_request.url as string;
-                console.log(`Fetching details for a PR`);
 
                 const [prData, reviewStatus, ciStatus] = await Promise.all([
                     fetch(prUrl, {
@@ -499,7 +492,6 @@ async function checkPullRequests(
                     getCIStatus(prUrl, token),
                 ]);
 
-                console.log(`Successfully fetched details for a PR`);
                 return {
                     ...prData,
                     review_status: reviewStatus,
@@ -683,9 +675,7 @@ async function checkPullRequests(
 
             // Only send notification if oldPrs is not empty (not first run) and there are new PRs
             if (oldPrs.length > 0 && newPrs.length > 0) {
-                console.log(
-                    `Found ${newPrs.length} new PRs, sending notification`
-                );
+                console.log(`Found new PRs, sending notification`);
                 try {
                     // Create a notification with a unique ID
                     const notificationId = `new-prs-${Date.now()}`;
@@ -700,9 +690,7 @@ async function checkPullRequests(
                     console.error('Failed to send notification:', error);
                 }
             } else {
-                console.log(
-                    `No notification sent - oldPrs.length: ${oldPrs.length}, newPrs.length: ${newPrs.length}`
-                );
+                console.log(`No notification sent`);
             }
         }
 
@@ -1000,8 +988,6 @@ browser.runtime.onMessage.addListener(function (
     _sender: browser.Runtime.MessageSender,
     sendResponse: (response?: boolean | object) => void
 ): true {
-    console.log('Received message in background:', typeof message);
-
     if (!message || typeof message !== 'object') {
         sendResponse(false);
         return true;
@@ -1050,8 +1036,6 @@ browser.runtime.onMessage.addListener(function (
                 browser.alarms.create(PASSWORD_EXPIRY_ALARM, {
                     when: expiryTime,
                 });
-
-                console.log('Password will be remembered for 12 hours');
             } else {
                 rememberPassword = false;
                 // Clear any existing storage and alarm
@@ -1133,7 +1117,6 @@ browser.runtime.onMessage.addListener(function (
     } else if (typedMessage.type === 'POPUP_OPENED') {
         // Popup opened, send current data if we have a session
         if (sessionPassword) {
-            console.log('Popup opened, sending current data...');
             // Send a data update message to refresh the popup
             browser.runtime
                 .sendMessage({
