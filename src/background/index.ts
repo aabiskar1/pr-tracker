@@ -632,6 +632,20 @@ async function checkPullRequests(
             );
         }
 
+        // Notify popup about data update
+        try {
+            await browser.runtime.sendMessage({
+                type: 'DATA_UPDATED',
+                timestamp: Date.now(),
+            });
+            console.log('Sent DATA_UPDATED message to popup');
+        } catch (error) {
+            // Popup might not be open, which is fine
+            console.log(
+                'Could not send DATA_UPDATED message (popup may be closed)'
+            );
+        }
+
         // Handle notifications
         const { 'prtracker-notifications-enabled': notificationsEnabled } =
             await browser.storage.local.get('prtracker-notifications-enabled');
@@ -1058,6 +1072,22 @@ browser.runtime.onMessage.addListener(function (
                 /* no-op */
             });
 
+            // Notify popup about authentication state change
+            browser.runtime
+                .sendMessage({
+                    type: 'AUTH_STATE_CHANGED',
+                    timestamp: Date.now(),
+                })
+                .then(() => {
+                    console.log('Sent AUTH_STATE_CHANGED message to popup');
+                })
+                .catch(() => {
+                    // Popup might not be open, which is fine
+                    console.log(
+                        'Could not send AUTH_STATE_CHANGED message (popup may be closed)'
+                    );
+                });
+
             sendResponse(true);
         } else {
             sendResponse(false);
@@ -1099,6 +1129,21 @@ browser.runtime.onMessage.addListener(function (
         browser.alarms.clear(PASSWORD_EXPIRY_ALARM);
         // Clear refresh alarm
         browser.alarms.clear(ALARM_NAME);
+        sendResponse(true);
+    } else if (typedMessage.type === 'POPUP_OPENED') {
+        // Popup opened, send current data if we have a session
+        if (sessionPassword) {
+            console.log('Popup opened, sending current data...');
+            // Send a data update message to refresh the popup
+            browser.runtime
+                .sendMessage({
+                    type: 'DATA_UPDATED',
+                    timestamp: Date.now(),
+                })
+                .catch(() => {
+                    console.log('Could not send current data to popup');
+                });
+        }
         sendResponse(true);
     } else {
         sendResponse(false);
