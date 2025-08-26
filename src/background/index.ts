@@ -588,7 +588,7 @@ async function checkPullRequests(
         ]);
 
         // Create app data object to encrypt
-        const appData = {
+        const appData: any = {
             pullRequests: uniquePRs,
             lastUpdated: new Date().toISOString(),
             preferences: {
@@ -598,8 +598,23 @@ async function checkPullRequests(
                 filters: currentPrefs['prtracker-filters'],
                 sort: currentPrefs['prtracker-sort'],
             },
-            oldPullRequests: currentPrefs.oldPullRequests || [],
+            // Don't overwrite oldPullRequests here - let the notification logic handle it
+            // This preserves the existing oldPullRequests for proper comparison
         };
+
+        // Try to get existing encrypted data to preserve oldPullRequests
+        try {
+            const existingData = await decryptAppData(sessionPassword);
+            if (existingData && existingData.oldPullRequests) {
+                appData.oldPullRequests = existingData.oldPullRequests;
+            } else {
+                // If no existing oldPullRequests, initialize as empty array for first run
+                appData.oldPullRequests = [];
+            }
+        } catch (error) {
+            // If we can't decrypt existing data, initialize as empty for first run
+            appData.oldPullRequests = [];
+        }
 
         // Encrypt and store all app data
         await encryptAppData(appData, sessionPassword);
@@ -623,18 +638,20 @@ async function checkPullRequests(
         if (notificationsEnabled !== false) {
             // Try to get old PRs from encrypted storage first, then fallback to unencrypted only if encryption not set up
             let oldPrs: PullRequest[] = [];
+            let encryptedData: any = undefined;
             try {
-                const encryptedData = await decryptAppData(sessionPassword);
+                encryptedData = await decryptAppData(sessionPassword);
                 if (encryptedData && encryptedData.oldPullRequests) {
                     oldPrs = encryptedData.oldPullRequests;
                 }
             } catch (error) {
+                console.log(
+                    'Failed to get old PRs from encrypted storage:',
+                    error
+                );
                 try {
                     const encryptionEnabled = await hasEncryptionSetup();
                     if (!encryptionEnabled) {
-                        console.log(
-                            'Failed to get old PRs from encrypted storage, using unencrypted fallback'
-                        );
                         const fallbackData =
                             await browser.storage.local.get('oldPullRequests');
                         oldPrs = fallbackData.oldPullRequests || [];
@@ -644,12 +661,24 @@ async function checkPullRequests(
                 }
             }
 
-            const newPrs = uniquePRs.filter(
-                (pr) => !oldPrs.find((old) => old.id === pr.id)
+            // Debug: log PR IDs for comparison
+            console.log(
+                'Old PR IDs:',
+                oldPrs.map((pr: any) => pr.id)
             );
-            if (newPrs.length > 0) {
+            console.log(
+                'Current PR IDs:',
+                uniquePRs.map((pr: any) => pr.id)
+            );
+
+            // Use a Set for robust comparison
+            const oldPrIds = new Set(oldPrs.map((pr: any) => pr.id));
+            const newPrs = uniquePRs.filter((pr: any) => !oldPrIds.has(pr.id));
+
+            // Only send notification if oldPrs is not empty (not first run) and there are new PRs
+            if (oldPrs.length > 0 && newPrs.length > 0) {
                 console.log(
-                    `Sending notification for ${newPrs.length} new PRs`
+                    `Found ${newPrs.length} new PRs, sending notification`
                 );
                 try {
                     // Create a notification with a unique ID
@@ -660,37 +689,100 @@ async function checkPullRequests(
                         title: 'New Pull Requests',
                         message: `You have ${newPrs.length} new pull request${newPrs.length > 1 ? 's' : ''}!`,
                     });
-                    console.log(
-                        'Notification sent successfully with icon: /icon.png'
-                    );
+                    console.log('Notification sent successfully');
                 } catch (error) {
-                    console.error('Error creating notification:', error);
+                    console.error('Failed to send notification:', error);
                 }
+            } else {
+                console.log(
+                    `No notification sent - oldPrs.length: ${oldPrs.length}, newPrs.length: ${newPrs.length}`
+                );
+            }
+        }
+
+        // Update oldPullRequests in storage AFTER notification logic
+        // This ensures we use the correct old PRs for comparison next time
+        try {
+            // For encrypted storage, ensure we preserve the existing data structure
+            let dataToSave: any;
+            try {
+                dataToSave = await decryptAppData(sessionPassword);
+                if (!dataToSave) {
+                    // Create proper structure if no existing data
+                    dataToSave = {
+                        pullRequests: uniquePRs,
+                        lastUpdated: new Date().toISOString(),
+                        preferences: {
+                            notificationsEnabled:
+                                currentPrefs['prtracker-notifications-enabled'],
+                            customQuery: currentPrefs['prtracker-custom-query'],
+                            filters: currentPrefs['prtracker-filters'],
+                            sort: currentPrefs['prtracker-sort'],
+                        },
+                        oldPullRequests: uniquePRs, // Set to current PRs for next comparison
+                    };
+                } else {
+                    // Update existing data
+                    dataToSave.oldPullRequests = uniquePRs;
+                }
+            } catch (error) {
+                console.log(
+                    'Could not decrypt existing data, creating new structure'
+                );
+                // Create new structure if decryption fails
+                dataToSave = {
+                    pullRequests: uniquePRs,
+                    lastUpdated: new Date().toISOString(),
+                    preferences: {
+                        notificationsEnabled:
+                            currentPrefs['prtracker-notifications-enabled'],
+                        customQuery: currentPrefs['prtracker-custom-query'],
+                        filters: currentPrefs['prtracker-filters'],
+                        sort: currentPrefs['prtracker-sort'],
+                    },
+                    oldPullRequests: uniquePRs,
+                };
             }
 
-            // Update oldPullRequests unencrypted only if encryption not set up
+            await encryptAppData(dataToSave, sessionPassword);
+            console.log('Updated oldPullRequests in encrypted storage');
+
+            // Debug: verify the save worked
             try {
-                const encryptionEnabled = await hasEncryptionSetup();
-                if (!encryptionEnabled) {
-                    await browser.storage.local.set({
-                        oldPullRequests: uniquePRs,
-                    });
-                }
-            } catch (e) {
-                // Skip unencrypted write on error
+                const verifyData = await decryptAppData(sessionPassword);
+                console.log(
+                    'Verified oldPullRequests IDs:',
+                    verifyData && verifyData.oldPullRequests
+                        ? verifyData.oldPullRequests.map((pr: any) => pr.id)
+                        : 'none'
+                );
+            } catch (verifyError) {
+                console.log(
+                    'Failed to verify saved oldPullRequests:',
+                    verifyError
+                );
             }
-        } else {
-            // Still update oldPullRequests for correct diff next time (only if encryption not set up)
-            try {
-                const encryptionEnabled = await hasEncryptionSetup();
-                if (!encryptionEnabled) {
-                    await browser.storage.local.set({
-                        oldPullRequests: uniquePRs,
-                    });
-                }
-            } catch (e) {
-                // Skip unencrypted write on error
+        } catch (error) {
+            console.error(
+                'Failed to update oldPullRequests in encrypted storage:',
+                error
+            );
+        }
+
+        // Also update unencrypted storage if encryption is not set up
+        try {
+            const encryptionEnabled = await hasEncryptionSetup();
+            if (!encryptionEnabled) {
+                await browser.storage.local.set({
+                    oldPullRequests: uniquePRs,
+                });
+                console.log('Updated oldPullRequests in unencrypted storage');
             }
+        } catch (e) {
+            console.error(
+                'Failed to update oldPullRequests in unencrypted storage:',
+                e
+            );
         }
     } catch (error) {
         console.error('Error checking pull requests:', error);
