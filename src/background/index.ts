@@ -623,8 +623,9 @@ async function checkPullRequests(
         if (notificationsEnabled !== false) {
             // Try to get old PRs from encrypted storage first, then fallback to unencrypted only if encryption not set up
             let oldPrs: PullRequest[] = [];
+            let encryptedData: any = undefined;
             try {
-                const encryptedData = await decryptAppData(sessionPassword);
+                encryptedData = await decryptAppData(sessionPassword);
                 if (encryptedData && encryptedData.oldPullRequests) {
                     oldPrs = encryptedData.oldPullRequests;
                 }
@@ -632,9 +633,6 @@ async function checkPullRequests(
                 try {
                     const encryptionEnabled = await hasEncryptionSetup();
                     if (!encryptionEnabled) {
-                        console.log(
-                            'Failed to get old PRs from encrypted storage, using unencrypted fallback'
-                        );
                         const fallbackData =
                             await browser.storage.local.get('oldPullRequests');
                         oldPrs = fallbackData.oldPullRequests || [];
@@ -644,13 +642,22 @@ async function checkPullRequests(
                 }
             }
 
-            const newPrs = uniquePRs.filter(
-                (pr) => !oldPrs.find((old) => old.id === pr.id)
+            // Debug: log PR IDs for comparison
+            console.log(
+                'Old PR IDs:',
+                oldPrs.map((pr: any) => pr.id)
             );
-            if (newPrs.length > 0) {
-                console.log(
-                    `Sending notification for ${newPrs.length} new PRs`
-                );
+            console.log(
+                'Current PR IDs:',
+                uniquePRs.map((pr: any) => pr.id)
+            );
+
+            // Use a Set for robust comparison
+            const oldPrIds = new Set(oldPrs.map((pr: any) => pr.id));
+            const newPrs = uniquePRs.filter((pr: any) => !oldPrIds.has(pr.id));
+
+            // Only send notification if oldPrs is not empty (not first run) and there are new PRs
+            if (oldPrs.length > 0 && newPrs.length > 0) {
                 try {
                     // Create a notification with a unique ID
                     const notificationId = `new-prs-${Date.now()}`;
@@ -660,15 +667,34 @@ async function checkPullRequests(
                         title: 'New Pull Requests',
                         message: `You have ${newPrs.length} new pull request${newPrs.length > 1 ? 's' : ''}!`,
                     });
-                    console.log(
-                        'Notification sent successfully with icon: /icon.png'
-                    );
                 } catch (error) {
-                    console.error('Error creating notification:', error);
+                    // Notification error
                 }
             }
-
-            // Update oldPullRequests unencrypted only if encryption not set up
+            // Always update oldPullRequests in encrypted storage after refresh
+            try {
+                let toSave = encryptedData || {};
+                toSave.oldPullRequests = uniquePRs;
+                await encryptAppData(toSave, sessionPassword);
+                // Debug: read back and log
+                try {
+                    const verifyData = await decryptAppData(sessionPassword);
+                    console.log(
+                        'Saved oldPullRequests (verify):',
+                        verifyData && verifyData.oldPullRequests
+                            ? verifyData.oldPullRequests.map((pr: any) => pr.id)
+                            : 'none'
+                    );
+                } catch (verifyError) {
+                    console.log(
+                        'Failed to verify saved oldPullRequests:',
+                        verifyError
+                    );
+                }
+            } catch (error) {
+                // If unable to update, skip
+            }
+            // Always update oldPullRequests unencrypted only if encryption not set up
             try {
                 const encryptionEnabled = await hasEncryptionSetup();
                 if (!encryptionEnabled) {
