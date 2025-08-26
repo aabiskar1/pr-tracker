@@ -481,12 +481,12 @@ async function checkPullRequests(
                     typeof item.pull_request !== 'object' ||
                     !('url' in item.pull_request)
                 ) {
-                    console.error('Item missing pull_request URL:', item);
+                    console.error('Item missing pull_request URL');
                     return null;
                 }
 
                 const prUrl = item.pull_request.url as string;
-                console.log(`Fetching details for the PR`);
+                console.log(`Fetching details for a PR`);
 
                 const [prData, reviewStatus, ciStatus] = await Promise.all([
                     fetch(prUrl, {
@@ -499,7 +499,7 @@ async function checkPullRequests(
                     getCIStatus(prUrl, token),
                 ]);
 
-                console.log(`Successfully fetched details for the PR`);
+                console.log(`Successfully fetched details for a PR`);
                 return {
                     ...prData,
                     review_status: reviewStatus,
@@ -564,7 +564,7 @@ async function checkPullRequests(
                                 },
                             ];
                         } catch (err) {
-                            console.error('Error processing PR:', err, pr);
+                            console.error('Error processing PR:', err);
                             return null;
                         }
                     })
@@ -661,15 +661,7 @@ async function checkPullRequests(
                 }
             }
 
-            // Debug: log PR IDs for comparison
-            console.log(
-                'Old PR IDs:',
-                oldPrs.map((pr: any) => pr.id)
-            );
-            console.log(
-                'Current PR IDs:',
-                uniquePRs.map((pr: any) => pr.id)
-            );
+            // Compare old and current PRs for new ones
 
             // Use a Set for robust comparison
             const oldPrIds = new Set(oldPrs.map((pr: any) => pr.id));
@@ -750,11 +742,13 @@ async function checkPullRequests(
             // Debug: verify the save worked
             try {
                 const verifyData = await decryptAppData(sessionPassword);
+                const hasOldPRs =
+                    verifyData &&
+                    verifyData.oldPullRequests &&
+                    verifyData.oldPullRequests.length > 0;
                 console.log(
-                    'Verified oldPullRequests IDs:',
-                    verifyData && verifyData.oldPullRequests
-                        ? verifyData.oldPullRequests.map((pr: any) => pr.id)
-                        : 'none'
+                    'Verified oldPullRequests saved:',
+                    hasOldPRs ? 'yes' : 'none'
                 );
             } catch (verifyError) {
                 console.log(
