@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import browser from 'webextension-polyfill';
 import { FilterBar, FilterState, SortOption } from './components/FilterBar';
 import { PullRequestList } from './components/PullRequestList';
@@ -68,11 +68,29 @@ function App() {
     // Global error state for critical errors (network, token, etc)
     const [globalError, setGlobalError] = useState<string>('');
 
-    // Listen for error messages from background script
+    // Create a ref to hold the latest loadPullRequests function
+    const loadPullRequestsRef = useRef<(() => Promise<void>) | null>(null);
+
+    // Listen for messages from background script
     useEffect(() => {
         function handleMessage(message: any) {
             if (message && message.type === 'SHOW_ERROR' && message.message) {
                 setGlobalError(message.message);
+            } else if (message && message.type === 'DATA_UPDATED') {
+                // Background script updated the data, reload it
+                console.log('Received DATA_UPDATED message, refreshing UI...');
+                if (loadPullRequestsRef.current) {
+                    loadPullRequestsRef.current();
+                }
+            } else if (message && message.type === 'AUTH_STATE_CHANGED') {
+                // Authentication state changed, reload data if authenticated
+                console.log('Received AUTH_STATE_CHANGED message, checking auth state...');
+                // Use a small delay to allow state updates to propagate
+                setTimeout(() => {
+                    if (loadPullRequestsRef.current) {
+                        loadPullRequestsRef.current();
+                    }
+                }, 100);
             }
         }
         if (browser.runtime && browser.runtime.onMessage) {
@@ -81,7 +99,7 @@ function App() {
                 browser.runtime.onMessage.removeListener(handleMessage);
             };
         }
-    }, []);
+    }, []); // Remove dependencies to avoid circular updates
     const [token, setToken] = useState<string>('');
     const [password, setPassword] = useState<string>('');
     const [confirmPassword, setConfirmPassword] = useState<string>('');
@@ -170,6 +188,9 @@ function App() {
             console.error('Error loading pull requests:', error);
         }
     };
+
+    // Update the ref with the latest loadPullRequests function
+    loadPullRequestsRef.current = loadPullRequests;
 
     // Run app initialization only once on mount (avoid re-running on password changes)
     useEffect(() => {
@@ -304,6 +325,7 @@ function App() {
             changes: Record<string, browser.Storage.StorageChange>
         ) => {
             console.log('Storage changed');
+            // Listen for unencrypted storage changes (backward compatibility)
             if (changes.pullRequests) {
                 setPullRequests(
                     (changes.pullRequests.newValue as PullRequest[]) || []
@@ -311,6 +333,11 @@ function App() {
                 setFilteredPRs(
                     (changes.pullRequests.newValue as PullRequest[]) || []
                 );
+            }
+            // Listen for encrypted storage changes
+            if (changes.encryptedAppData && password && authState === 'authenticated') {
+                console.log('Encrypted app data changed, reloading...');
+                loadPullRequests();
             }
         };
 
@@ -439,6 +466,21 @@ function App() {
             applyFiltersAndSort(filterState, pullRequests, sortOption)
         );
     }, [pullRequests, filterState, sortOption]);
+
+    // Request current data when popup opens and user is authenticated
+    useEffect(() => {
+        if (authState === 'authenticated' && password) {
+            console.log('Popup authenticated, requesting fresh data...');
+            // Notify background script that popup is open and request fresh data if needed
+            browser.runtime.sendMessage({
+                type: 'POPUP_OPENED',
+                timestamp: Date.now(),
+            }).catch(() => {
+                // Background script might not be ready, which is fine
+                console.log('Could not send POPUP_OPENED message');
+            });
+        }
+    }, [authState, password]);
 
     const validateToken = async (token: string) => {
         try {

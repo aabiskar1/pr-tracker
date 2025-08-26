@@ -68,7 +68,6 @@ const initializeRememberedPassword = async () => {
         ]);
 
         if (data.sessionPassword && data.rememberPasswordFlag) {
-            console.log('Restoring remembered password from session storage');
             sessionPassword = data.sessionPassword;
             rememberPassword = true;
 
@@ -80,7 +79,6 @@ const initializeRememberedPassword = async () => {
 
             // If no expiry alarm, set one for 12 hours from now
             if (!hasExpiryAlarm) {
-                console.log('Re-creating password expiry alarm');
                 const expiryTime = Date.now() + 12 * 60 * 60 * 1000;
                 browser.alarms.create(PASSWORD_EXPIRY_ALARM, {
                     when: expiryTime,
@@ -196,7 +194,6 @@ browser.alarms.onAlarm.addListener(async (alarm) => {
             }
         }
     } else if (alarm.name === PASSWORD_EXPIRY_ALARM) {
-        console.log('Password expiry alarm triggered');
         // Clear the session password when expiry alarm triggers
         sessionPassword = null;
         rememberPassword = false;
@@ -289,7 +286,6 @@ async function checkPullRequests(
 
         // Get the securely stored token
         if (!sessionPassword) {
-            console.log('No session password available after checks');
             const errorMsg = 'Session password missing. Please sign in again.';
             await browser.notifications.create({
                 type: 'basic',
@@ -306,7 +302,6 @@ async function checkPullRequests(
 
         const token = await decryptToken(sessionPassword);
         if (!token) {
-            console.log('Failed to decrypt GitHub token');
             const errorMsg =
                 'Failed to decrypt your GitHub token. Please re-authenticate.';
             await browser.notifications.create({
@@ -321,7 +316,6 @@ async function checkPullRequests(
             });
             return;
         }
-        console.log('Token decrypted successfully, fetching PRs');
 
         // Get user info
         const userResponse = await fetch('https://api.github.com/user', {
@@ -481,12 +475,11 @@ async function checkPullRequests(
                     typeof item.pull_request !== 'object' ||
                     !('url' in item.pull_request)
                 ) {
-                    console.error('Item missing pull_request URL:', item);
+                    console.error('Item missing pull_request URL');
                     return null;
                 }
 
                 const prUrl = item.pull_request.url as string;
-                console.log(`Fetching details for the PR`);
 
                 const [prData, reviewStatus, ciStatus] = await Promise.all([
                     fetch(prUrl, {
@@ -499,7 +492,6 @@ async function checkPullRequests(
                     getCIStatus(prUrl, token),
                 ]);
 
-                console.log(`Successfully fetched details for the PR`);
                 return {
                     ...prData,
                     review_status: reviewStatus,
@@ -564,7 +556,7 @@ async function checkPullRequests(
                                 },
                             ];
                         } catch (err) {
-                            console.error('Error processing PR:', err, pr);
+                            console.error('Error processing PR:', err);
                             return null;
                         }
                     })
@@ -588,7 +580,7 @@ async function checkPullRequests(
         ]);
 
         // Create app data object to encrypt
-        const appData = {
+        const appData: any = {
             pullRequests: uniquePRs,
             lastUpdated: new Date().toISOString(),
             preferences: {
@@ -598,8 +590,23 @@ async function checkPullRequests(
                 filters: currentPrefs['prtracker-filters'],
                 sort: currentPrefs['prtracker-sort'],
             },
-            oldPullRequests: currentPrefs.oldPullRequests || [],
+            // Don't overwrite oldPullRequests here - let the notification logic handle it
+            // This preserves the existing oldPullRequests for proper comparison
         };
+
+        // Try to get existing encrypted data to preserve oldPullRequests
+        try {
+            const existingData = await decryptAppData(sessionPassword);
+            if (existingData && existingData.oldPullRequests) {
+                appData.oldPullRequests = existingData.oldPullRequests;
+            } else {
+                // If no existing oldPullRequests, initialize as empty array for first run
+                appData.oldPullRequests = [];
+            }
+        } catch (error) {
+            // If we can't decrypt existing data, initialize as empty for first run
+            appData.oldPullRequests = [];
+        }
 
         // Encrypt and store all app data
         await encryptAppData(appData, sessionPassword);
@@ -617,24 +624,40 @@ async function checkPullRequests(
             );
         }
 
+        // Notify popup about data update
+        try {
+            await browser.runtime.sendMessage({
+                type: 'DATA_UPDATED',
+                timestamp: Date.now(),
+            });
+            console.log('Sent DATA_UPDATED message to popup');
+        } catch (error) {
+            // Popup might not be open, which is fine
+            console.log(
+                'Could not send DATA_UPDATED message (popup may be closed)'
+            );
+        }
+
         // Handle notifications
         const { 'prtracker-notifications-enabled': notificationsEnabled } =
             await browser.storage.local.get('prtracker-notifications-enabled');
         if (notificationsEnabled !== false) {
             // Try to get old PRs from encrypted storage first, then fallback to unencrypted only if encryption not set up
             let oldPrs: PullRequest[] = [];
+            let encryptedData: any = undefined;
             try {
-                const encryptedData = await decryptAppData(sessionPassword);
+                encryptedData = await decryptAppData(sessionPassword);
                 if (encryptedData && encryptedData.oldPullRequests) {
                     oldPrs = encryptedData.oldPullRequests;
                 }
             } catch (error) {
+                console.log(
+                    'Failed to get old PRs from encrypted storage:',
+                    error
+                );
                 try {
                     const encryptionEnabled = await hasEncryptionSetup();
                     if (!encryptionEnabled) {
-                        console.log(
-                            'Failed to get old PRs from encrypted storage, using unencrypted fallback'
-                        );
                         const fallbackData =
                             await browser.storage.local.get('oldPullRequests');
                         oldPrs = fallbackData.oldPullRequests || [];
@@ -644,13 +667,15 @@ async function checkPullRequests(
                 }
             }
 
-            const newPrs = uniquePRs.filter(
-                (pr) => !oldPrs.find((old) => old.id === pr.id)
-            );
-            if (newPrs.length > 0) {
-                console.log(
-                    `Sending notification for ${newPrs.length} new PRs`
-                );
+            // Compare old and current PRs for new ones
+
+            // Use a Set for robust comparison
+            const oldPrIds = new Set(oldPrs.map((pr: any) => pr.id));
+            const newPrs = uniquePRs.filter((pr: any) => !oldPrIds.has(pr.id));
+
+            // Only send notification if oldPrs is not empty (not first run) and there are new PRs
+            if (oldPrs.length > 0 && newPrs.length > 0) {
+                console.log(`Found new PRs, sending notification`);
                 try {
                     // Create a notification with a unique ID
                     const notificationId = `new-prs-${Date.now()}`;
@@ -660,37 +685,100 @@ async function checkPullRequests(
                         title: 'New Pull Requests',
                         message: `You have ${newPrs.length} new pull request${newPrs.length > 1 ? 's' : ''}!`,
                     });
-                    console.log(
-                        'Notification sent successfully with icon: /icon.png'
-                    );
+                    console.log('Notification sent successfully');
                 } catch (error) {
-                    console.error('Error creating notification:', error);
+                    console.error('Failed to send notification:', error);
                 }
+            } else {
+                console.log(`No notification sent`);
+            }
+        }
+
+        // Update oldPullRequests in storage AFTER notification logic
+        // This ensures we use the correct old PRs for comparison next time
+        try {
+            // For encrypted storage, ensure we preserve the existing data structure
+            let dataToSave: any;
+            try {
+                dataToSave = await decryptAppData(sessionPassword);
+                if (!dataToSave) {
+                    // Create proper structure if no existing data
+                    dataToSave = {
+                        pullRequests: uniquePRs,
+                        lastUpdated: new Date().toISOString(),
+                        preferences: {
+                            notificationsEnabled:
+                                currentPrefs['prtracker-notifications-enabled'],
+                            customQuery: currentPrefs['prtracker-custom-query'],
+                            filters: currentPrefs['prtracker-filters'],
+                            sort: currentPrefs['prtracker-sort'],
+                        },
+                        oldPullRequests: uniquePRs, // Set to current PRs for next comparison
+                    };
+                } else {
+                    // Update existing data
+                    dataToSave.oldPullRequests = uniquePRs;
+                }
+            } catch (error) {
+                console.log(
+                    'Could not decrypt existing data, creating new structure'
+                );
+                // Create new structure if decryption fails
+                dataToSave = {
+                    pullRequests: uniquePRs,
+                    lastUpdated: new Date().toISOString(),
+                    preferences: {
+                        notificationsEnabled:
+                            currentPrefs['prtracker-notifications-enabled'],
+                        customQuery: currentPrefs['prtracker-custom-query'],
+                        filters: currentPrefs['prtracker-filters'],
+                        sort: currentPrefs['prtracker-sort'],
+                    },
+                    oldPullRequests: uniquePRs,
+                };
             }
 
-            // Update oldPullRequests unencrypted only if encryption not set up
+            await encryptAppData(dataToSave, sessionPassword);
+            console.log('Updated oldPullRequests in encrypted storage');
+
+            // Debug: verify the save worked
             try {
-                const encryptionEnabled = await hasEncryptionSetup();
-                if (!encryptionEnabled) {
-                    await browser.storage.local.set({
-                        oldPullRequests: uniquePRs,
-                    });
-                }
-            } catch (e) {
-                // Skip unencrypted write on error
+                const verifyData = await decryptAppData(sessionPassword);
+                const hasOldPRs =
+                    verifyData &&
+                    verifyData.oldPullRequests &&
+                    verifyData.oldPullRequests.length > 0;
+                console.log(
+                    'Verified oldPullRequests saved:',
+                    hasOldPRs ? 'yes' : 'none'
+                );
+            } catch (verifyError) {
+                console.log(
+                    'Failed to verify saved oldPullRequests:',
+                    verifyError
+                );
             }
-        } else {
-            // Still update oldPullRequests for correct diff next time (only if encryption not set up)
-            try {
-                const encryptionEnabled = await hasEncryptionSetup();
-                if (!encryptionEnabled) {
-                    await browser.storage.local.set({
-                        oldPullRequests: uniquePRs,
-                    });
-                }
-            } catch (e) {
-                // Skip unencrypted write on error
+        } catch (error) {
+            console.error(
+                'Failed to update oldPullRequests in encrypted storage:',
+                error
+            );
+        }
+
+        // Also update unencrypted storage if encryption is not set up
+        try {
+            const encryptionEnabled = await hasEncryptionSetup();
+            if (!encryptionEnabled) {
+                await browser.storage.local.set({
+                    oldPullRequests: uniquePRs,
+                });
+                console.log('Updated oldPullRequests in unencrypted storage');
             }
+        } catch (e) {
+            console.error(
+                'Failed to update oldPullRequests in unencrypted storage:',
+                e
+            );
         }
     } catch (error) {
         console.error('Error checking pull requests:', error);
@@ -900,8 +988,6 @@ browser.runtime.onMessage.addListener(function (
     _sender: browser.Runtime.MessageSender,
     sendResponse: (response?: boolean | object) => void
 ): true {
-    console.log('Received message in background:', typeof message);
-
     if (!message || typeof message !== 'object') {
         sendResponse(false);
         return true;
@@ -950,8 +1036,6 @@ browser.runtime.onMessage.addListener(function (
                 browser.alarms.create(PASSWORD_EXPIRY_ALARM, {
                     when: expiryTime,
                 });
-
-                console.log('Password will be remembered for 12 hours');
             } else {
                 rememberPassword = false;
                 // Clear any existing storage and alarm
@@ -971,6 +1055,22 @@ browser.runtime.onMessage.addListener(function (
             seedEncryptedAppDataFromUnencryptedIfNeeded().catch(() => {
                 /* no-op */
             });
+
+            // Notify popup about authentication state change
+            browser.runtime
+                .sendMessage({
+                    type: 'AUTH_STATE_CHANGED',
+                    timestamp: Date.now(),
+                })
+                .then(() => {
+                    console.log('Sent AUTH_STATE_CHANGED message to popup');
+                })
+                .catch(() => {
+                    // Popup might not be open, which is fine
+                    console.log(
+                        'Could not send AUTH_STATE_CHANGED message (popup may be closed)'
+                    );
+                });
 
             sendResponse(true);
         } else {
@@ -1013,6 +1113,20 @@ browser.runtime.onMessage.addListener(function (
         browser.alarms.clear(PASSWORD_EXPIRY_ALARM);
         // Clear refresh alarm
         browser.alarms.clear(ALARM_NAME);
+        sendResponse(true);
+    } else if (typedMessage.type === 'POPUP_OPENED') {
+        // Popup opened, send current data if we have a session
+        if (sessionPassword) {
+            // Send a data update message to refresh the popup
+            browser.runtime
+                .sendMessage({
+                    type: 'DATA_UPDATED',
+                    timestamp: Date.now(),
+                })
+                .catch(() => {
+                    console.log('Could not send current data to popup');
+                });
+        }
         sendResponse(true);
     } else {
         sendResponse(false);
