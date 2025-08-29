@@ -111,11 +111,11 @@ OR
 
 Light Theme:
 
-![Light Theme](./screenshots/light-theme.png)
+![Light Theme](./screenshots/light-mode.jpg)
 
 Dark Theme:
 
-![Dark Theme](./screenshots/dark-theme.png)
+![Dark Theme](./screenshots/dark-mode.jpg)
 
 ## Troubleshooting / FAQ
 
