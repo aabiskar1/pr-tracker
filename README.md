@@ -6,6 +6,8 @@
 
 Chrome webstore link: [PR Tracker for Chrome](https://chromewebstore.google.com/detail/pr-tracker/kfeglmkcicfmegclihokchplngcokgil)
 
+Firefox Add-ons link: [PR Tracker for Firefox](https://addons.mozilla.org/en-US/firefox/addon/pr-tracker/)
+
 A browser extension to help you efficiently track and manage your GitHub pull requests. The extension provides status updates, filtering capabilities, and visual indicators for PR age, review status, and CI/build status.
 
 ## Features
