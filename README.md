@@ -1,7 +1,7 @@
 # PR Tracker - GitHub Pull Request Management Extension
 
 <p align="center">
-  <img src="./screenshots/light-theme.png" alt="PR Tracker Light Theme Screenshot" width="600" />
+  <img src="./screenshots/light-theme.jpg" alt="PR Tracker Light Theme Screenshot" width="600" />
 </p>
 
 Chrome webstore link: [PR Tracker for Chrome](https://chromewebstore.google.com/detail/pr-tracker/kfeglmkcicfmegclihokchplngcokgil)
@@ -168,11 +168,11 @@ npm run test:extension:chrome:debug
 
 Light Theme:
 
-![Light Theme](./screenshots/light-theme.png)
+![Light Theme](./screenshots/light-mode.jpg)
 
 Dark Theme:
 
-![Dark Theme](./screenshots/dark-theme.png)
+![Dark Theme](./screenshots/dark-mode.jpg)
 
 ## Troubleshooting / FAQ
 
