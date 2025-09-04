@@ -59,6 +59,186 @@ const REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes in milliseconds
 // Add a flag to prevent multiple simultaneous PR checks
 let isCheckingPRs: boolean = false;
 
+// Notification throttling to prevent spam
+const notificationThrottle = new Map<string, number>();
+const NOTIFICATION_THROTTLE_MS = 30000; // 30 seconds
+
+// Additional throttling for new PR notifications specifically
+let lastNewPRNotificationTime = 0;
+
+// Helper function to check if notifications are enabled
+async function areNotificationsEnabled(): Promise<boolean> {
+    const { 'prtracker-notifications-enabled': notificationsEnabled } =
+        await browser.storage.local.get('prtracker-notifications-enabled');
+    return notificationsEnabled !== false; // Default to true if not set
+}
+
+// Helper function to create notifications that respects user preferences
+async function createNotification(
+    id: string | undefined,
+    options: {
+        type: 'basic';
+        iconUrl: string;
+        title: string;
+        message: string;
+    },
+    forceShow: boolean = false
+): Promise<void> {
+    try {
+        // For error notifications, respect the notification toggle unless forceShow is true
+        if (!forceShow && !(await areNotificationsEnabled())) {
+            console.log(
+                'Notifications disabled, skipping notification:',
+                options.title
+            );
+            return;
+        }
+
+        // Implement throttling to prevent spam
+        const throttleKey =
+            options.title === 'New Pull Requests'
+                ? 'New Pull Requests' // Use consistent key for new PR notifications regardless of count
+                : `${options.title}:${options.message}`;
+        const now = Date.now();
+        const lastShown = notificationThrottle.get(throttleKey) || 0;
+
+        if (now - lastShown < NOTIFICATION_THROTTLE_MS) {
+            console.log('Notification throttled:', options.title);
+            return;
+        }
+
+        // Update throttle timestamp
+        notificationThrottle.set(throttleKey, now);
+
+        // Clean up old entries to prevent memory leaks
+        for (const [key, timestamp] of notificationThrottle.entries()) {
+            if (now - timestamp > NOTIFICATION_THROTTLE_MS * 2) {
+                notificationThrottle.delete(key);
+            }
+        }
+
+        if (id) {
+            await browser.notifications.create(id, options);
+        } else {
+            await browser.notifications.create(options);
+        }
+    } catch (error) {
+        console.error('Failed to create notification:', error);
+    }
+}
+
+// Enhanced error handling with rate limit detection
+function analyzeHttpError(response: Response): {
+    message: string;
+    isRateLimit: boolean;
+    isAuth: boolean;
+} {
+    const status = response.status;
+    const rateLimitRemaining = response.headers.get('X-RateLimit-Remaining');
+    const rateLimitReset = response.headers.get('X-RateLimit-Reset');
+
+    // Check for rate limiting
+    if (status === 403 && rateLimitRemaining === '0') {
+        const resetTime = rateLimitReset
+            ? new Date(parseInt(rateLimitReset) * 1000)
+            : null;
+        const resetTimeStr = resetTime
+            ? ` (resets at ${resetTime.toLocaleTimeString()})`
+            : '';
+        return {
+            message: `GitHub API rate limit exceeded${resetTimeStr}. Please wait before trying again.`,
+            isRateLimit: true,
+            isAuth: false,
+        };
+    }
+
+    if (status === 429) {
+        return {
+            message:
+                'GitHub API rate limit exceeded. Please wait before trying again.',
+            isRateLimit: true,
+            isAuth: false,
+        };
+    }
+
+    // Check for authentication issues
+    if (status === 401) {
+        return {
+            message:
+                'Authentication failed. Your GitHub token may be invalid or expired. If you keep seeing this error, logout and reset to setup a new token.',
+            isRateLimit: false,
+            isAuth: true,
+        };
+    }
+
+    if (status === 403) {
+        return {
+            message:
+                'Access forbidden. Your GitHub token may not have the required permissions (repo scope needed). If you keep seeing this error, logout and reset to setup a new token.',
+            isRateLimit: false,
+            isAuth: true,
+        };
+    }
+
+    // Other HTTP errors
+    if (status >= 500) {
+        return {
+            message: `GitHub servers are experiencing issues (${status}). Please try again later.`,
+            isRateLimit: false,
+            isAuth: false,
+        };
+    }
+
+    if (status >= 400) {
+        return {
+            message: `Request failed with status ${status}. Please check your network connection and try again.`,
+            isRateLimit: false,
+            isAuth: false,
+        };
+    }
+
+    return {
+        message: `Unexpected error occurred (${status}). Please try again.`,
+        isRateLimit: false,
+        isAuth: false,
+    };
+}
+
+// Helper function to handle API errors consistently
+async function handleApiError(
+    response: Response,
+    context: string = 'API request'
+): Promise<void> {
+    const errorInfo = analyzeHttpError(response);
+    console.error(
+        `${context} failed with status: ${response.status}`,
+        errorInfo
+    );
+
+    // Remove token if it's an authentication issue
+    if (errorInfo.isAuth) {
+        await removeToken();
+    }
+
+    // Show notification (respects user preference unless it's a critical auth error)
+    await createNotification(
+        undefined,
+        {
+            type: 'basic',
+            iconUrl: '/icon.png',
+            title: 'PR Tracker Error',
+            message: errorInfo.message,
+        },
+        errorInfo.isAuth
+    ); // Force show auth errors even if notifications are disabled
+
+    // Send message to popup
+    browser.runtime.sendMessage({
+        type: 'SHOW_ERROR',
+        message: errorInfo.message,
+    });
+}
+
 // Initialize the remembered password state when the service worker starts
 const initializeRememberedPassword = async () => {
     try {
@@ -241,6 +421,13 @@ async function checkPullRequests(
         return;
     }
 
+    // Additional rate limiting: prevent too frequent checks (except manual refreshes)
+    if (!isManualRefresh && Date.now() - lastRefreshTime < 10000) {
+        // 10 seconds minimum between auto checks
+        console.log('PR check rate limited - too soon since last check');
+        return;
+    }
+
     isCheckingPRs = true;
 
     try {
@@ -256,12 +443,16 @@ async function checkPullRequests(
                 // Notify user about missing session
                 const errorMsg =
                     'Session expired or password missing. Please sign in again.';
-                await browser.notifications.create({
-                    type: 'basic',
-                    iconUrl: '/icon.png',
-                    title: 'PR Tracker Error',
-                    message: errorMsg,
-                });
+                await createNotification(
+                    undefined,
+                    {
+                        type: 'basic',
+                        iconUrl: '/icon.png',
+                        title: 'PR Tracker Error',
+                        message: errorMsg,
+                    },
+                    true
+                ); // Force show session errors
                 browser.runtime.sendMessage({
                     type: 'SHOW_ERROR',
                     message: errorMsg,
@@ -287,12 +478,16 @@ async function checkPullRequests(
         // Get the securely stored token
         if (!sessionPassword) {
             const errorMsg = 'Session password missing. Please sign in again.';
-            await browser.notifications.create({
-                type: 'basic',
-                iconUrl: '/icon.png',
-                title: 'PR Tracker Error',
-                message: errorMsg,
-            });
+            await createNotification(
+                undefined,
+                {
+                    type: 'basic',
+                    iconUrl: '/icon.png',
+                    title: 'PR Tracker Error',
+                    message: errorMsg,
+                },
+                true
+            ); // Force show session errors
             browser.runtime.sendMessage({
                 type: 'SHOW_ERROR',
                 message: errorMsg,
@@ -303,13 +498,17 @@ async function checkPullRequests(
         const token = await decryptToken(sessionPassword);
         if (!token) {
             const errorMsg =
-                'Failed to decrypt your GitHub token. Please re-authenticate.';
-            await browser.notifications.create({
-                type: 'basic',
-                iconUrl: '/icon.png',
-                title: 'PR Tracker Error',
-                message: errorMsg,
-            });
+                'Failed to decrypt your GitHub token. Please re-authenticate. If you keep seeing this error, logout and reset to setup a new token.';
+            await createNotification(
+                undefined,
+                {
+                    type: 'basic',
+                    iconUrl: '/icon.png',
+                    title: 'PR Tracker Error',
+                    message: errorMsg,
+                },
+                true
+            ); // Force show auth errors
             browser.runtime.sendMessage({
                 type: 'SHOW_ERROR',
                 message: errorMsg,
@@ -328,20 +527,7 @@ async function checkPullRequests(
             console.error(
                 `User info fetch failed with status: ${userResponse.status}`
             );
-            if (userResponse.status === 401) {
-                await removeToken();
-            }
-            const errorMsg = `Failed to get user info: ${userResponse.status}. Please check your GitHub token.`;
-            await browser.notifications.create({
-                type: 'basic',
-                iconUrl: '/icon.png',
-                title: 'PR Tracker Error',
-                message: errorMsg,
-            });
-            browser.runtime.sendMessage({
-                type: 'SHOW_ERROR',
-                message: errorMsg,
-            });
+            await handleApiError(userResponse, 'User info fetch');
             throw new Error(`Failed to get user info: ${userResponse.status}`);
         }
 
@@ -390,18 +576,7 @@ async function checkPullRequests(
                 console.error(
                     `Custom PR search failed. Status: ${customResp.status}`
                 );
-                if (customResp.status === 401) await removeToken();
-                const errorMsg = `Failed to fetch PRs: ${customResp.status}. Please check your GitHub token or network.`;
-                await browser.notifications.create({
-                    type: 'basic',
-                    iconUrl: '/icon.png',
-                    title: 'PR Tracker Error',
-                    message: errorMsg,
-                });
-                browser.runtime.sendMessage({
-                    type: 'SHOW_ERROR',
-                    message: errorMsg,
-                });
+                await handleApiError(customResp, 'Custom PR search');
                 throw new Error(`Failed to fetch PRs: ${customResp.status}`);
             }
             const customData = await customResp.json();
@@ -434,23 +609,16 @@ async function checkPullRequests(
                 console.error(
                     `PR search failed. Authored status: ${authoredResponse.status}, Review status: ${reviewResponse.status}`
                 );
-                if (
-                    authoredResponse.status === 401 ||
-                    reviewResponse.status === 401
-                ) {
-                    await removeToken();
-                }
-                const errorMsg = `Failed to fetch PRs: ${authoredResponse.status}, ${reviewResponse.status}. Please check your GitHub token or network.`;
-                await browser.notifications.create({
-                    type: 'basic',
-                    iconUrl: '/icon.png',
-                    title: 'PR Tracker Error',
-                    message: errorMsg,
-                });
-                browser.runtime.sendMessage({
-                    type: 'SHOW_ERROR',
-                    message: errorMsg,
-                });
+
+                // Handle the first failing response
+                const failedResponse = !authoredResponse.ok
+                    ? authoredResponse
+                    : reviewResponse;
+                const context = !authoredResponse.ok
+                    ? 'Authored PR search'
+                    : 'Review PR search';
+                await handleApiError(failedResponse, context);
+
                 throw new Error(
                     `Failed to fetch PRs: ${authoredResponse.status}, ${reviewResponse.status}`
                 );
@@ -638,60 +806,64 @@ async function checkPullRequests(
             );
         }
 
-        // Handle notifications
-        const { 'prtracker-notifications-enabled': notificationsEnabled } =
-            await browser.storage.local.get('prtracker-notifications-enabled');
-        if (notificationsEnabled !== false) {
-            // Try to get old PRs from encrypted storage first, then fallback to unencrypted only if encryption not set up
-            let oldPrs: PullRequest[] = [];
-            let encryptedData: any = undefined;
+        // Handle notifications - check for new PRs
+        // Try to get old PRs from encrypted storage first, then fallback to unencrypted only if encryption not set up
+        let oldPrs: PullRequest[] = [];
+        let encryptedData: any = undefined;
+        try {
+            encryptedData = await decryptAppData(sessionPassword);
+            if (encryptedData && encryptedData.oldPullRequests) {
+                oldPrs = encryptedData.oldPullRequests;
+            }
+        } catch (error) {
+            console.log('Failed to get old PRs from encrypted storage:', error);
             try {
-                encryptedData = await decryptAppData(sessionPassword);
-                if (encryptedData && encryptedData.oldPullRequests) {
-                    oldPrs = encryptedData.oldPullRequests;
+                const encryptionEnabled = await hasEncryptionSetup();
+                if (!encryptionEnabled) {
+                    const fallbackData =
+                        await browser.storage.local.get('oldPullRequests');
+                    oldPrs = fallbackData.oldPullRequests || [];
                 }
-            } catch (error) {
+            } catch (e) {
+                // If we cannot determine, prefer not to use unencrypted fallback
+            }
+        }
+
+        // Compare old and current PRs for new ones
+        // Use a Set for robust comparison
+        const oldPrIds = new Set(oldPrs.map((pr: any) => pr.id));
+        const newPrs = uniquePRs.filter((pr: any) => !oldPrIds.has(pr.id));
+
+        // Only send notification if oldPrs is not empty (not first run) and there are new PRs
+        if (oldPrs.length > 0 && newPrs.length > 0) {
+            console.log(`Found new PRs, sending notification`);
+
+            // Additional throttling for new PR notifications to prevent rapid-fire notifications
+            const now = Date.now();
+            if (now - lastNewPRNotificationTime < NOTIFICATION_THROTTLE_MS) {
                 console.log(
-                    'Failed to get old PRs from encrypted storage:',
-                    error
+                    'New PR notification throttled due to recent notification'
                 );
-                try {
-                    const encryptionEnabled = await hasEncryptionSetup();
-                    if (!encryptionEnabled) {
-                        const fallbackData =
-                            await browser.storage.local.get('oldPullRequests');
-                        oldPrs = fallbackData.oldPullRequests || [];
-                    }
-                } catch (e) {
-                    // If we cannot determine, prefer not to use unencrypted fallback
-                }
+                return;
             }
 
-            // Compare old and current PRs for new ones
+            try {
+                // Use undefined for ID to enable throttling based on title+message
+                await createNotification(undefined, {
+                    type: 'basic',
+                    iconUrl: '/icon.png', // This works in both Chrome and Firefox
+                    title: 'New Pull Requests',
+                    message: `You have ${newPrs.length} new pull request${newPrs.length > 1 ? 's' : ''}!`,
+                }); // Don't force - respect user preference for new PR notifications
 
-            // Use a Set for robust comparison
-            const oldPrIds = new Set(oldPrs.map((pr: any) => pr.id));
-            const newPrs = uniquePRs.filter((pr: any) => !oldPrIds.has(pr.id));
-
-            // Only send notification if oldPrs is not empty (not first run) and there are new PRs
-            if (oldPrs.length > 0 && newPrs.length > 0) {
-                console.log(`Found new PRs, sending notification`);
-                try {
-                    // Create a notification with a unique ID
-                    const notificationId = `new-prs-${Date.now()}`;
-                    await browser.notifications.create(notificationId, {
-                        type: 'basic',
-                        iconUrl: '/icon.png', // This works in both Chrome and Firefox
-                        title: 'New Pull Requests',
-                        message: `You have ${newPrs.length} new pull request${newPrs.length > 1 ? 's' : ''}!`,
-                    });
-                    console.log('Notification sent successfully');
-                } catch (error) {
-                    console.error('Failed to send notification:', error);
-                }
-            } else {
-                console.log(`No notification sent`);
+                // Update the timestamp after successful notification
+                lastNewPRNotificationTime = now;
+                console.log('Notification sent successfully');
+            } catch (error) {
+                console.error('Failed to send notification:', error);
             }
+        } else {
+            console.log(`No notification sent`);
         }
 
         // Update oldPullRequests in storage AFTER notification logic
@@ -783,21 +955,29 @@ async function checkPullRequests(
     } catch (error) {
         console.error('Error checking pull requests:', error);
         let message = 'Unknown error occurred while checking pull requests.';
+        let forceShow = false;
+
         if (error instanceof Error) {
             if (error.message.includes('401')) {
                 message =
-                    'Authentication failed. Please check your GitHub token.';
+                    'Authentication failed. Please check your GitHub token. If you keep seeing this error, logout and reset to setup a new token.';
                 await removeToken();
+                forceShow = true; // Force show auth errors
             } else {
                 message = error.message;
             }
         }
-        await browser.notifications.create({
-            type: 'basic',
-            iconUrl: '/icon.png',
-            title: 'PR Tracker Error',
-            message,
-        });
+
+        await createNotification(
+            undefined,
+            {
+                type: 'basic',
+                iconUrl: '/icon.png',
+                title: 'PR Tracker Error',
+                message,
+            },
+            forceShow
+        );
         browser.runtime.sendMessage({ type: 'SHOW_ERROR', message });
     } finally {
         // Always reset the flag to allow future PR checks
@@ -819,15 +999,7 @@ async function getReviewStatus(
 
         if (!response.ok) {
             console.error(`Failed to fetch review status: ${response.status}`);
-            if (response.status === 401) {
-                await browser.notifications.create({
-                    type: 'basic',
-                    iconUrl: '/icon.png',
-                    title: 'PR Tracker Error',
-                    message:
-                        'Failed to fetch review status. Please check your GitHub token.',
-                });
-            }
+            await handleApiError(response, 'Review status fetch');
             return 'pending';
         }
 
@@ -857,12 +1029,12 @@ async function getReviewStatus(
         console.error('Error fetching review status:', error);
         const errorMsg =
             'Error fetching review status. Please check your network connection.';
-        await browser.notifications.create({
+        await createNotification(undefined, {
             type: 'basic',
             iconUrl: '/icon.png',
             title: 'PR Tracker Error',
             message: errorMsg,
-        });
+        }); // Don't force - respect user preference for network errors
         browser.runtime.sendMessage({ type: 'SHOW_ERROR', message: errorMsg });
         return 'pending';
     }
@@ -882,15 +1054,7 @@ async function getCIStatus(
         });
         if (!response.ok) {
             console.error(`Failed to fetch CI status: ${response.status}`);
-            if (response.status === 401) {
-                await browser.notifications.create({
-                    type: 'basic',
-                    iconUrl: '/icon.png',
-                    title: 'PR Tracker Error',
-                    message:
-                        'Failed to fetch CI status. Please check your GitHub token.',
-                });
-            }
+            await handleApiError(response, 'CI status fetch');
             return 'pending';
         }
 
@@ -971,12 +1135,12 @@ async function getCIStatus(
         console.error('Error fetching CI status:', error);
         const errorMsg =
             'Error fetching CI status. Please check your network connection.';
-        await browser.notifications.create({
+        await createNotification(undefined, {
             type: 'basic',
             iconUrl: '/icon.png',
             title: 'PR Tracker Error',
             message: errorMsg,
-        });
+        }); // Don't force - respect user preference for network errors
         browser.runtime.sendMessage({ type: 'SHOW_ERROR', message: errorMsg });
         return 'pending';
     }

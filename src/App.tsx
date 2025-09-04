@@ -907,6 +907,20 @@ function App() {
         await browser.storage.local.set({
             'prtracker-notifications-enabled': newValue,
         });
+        
+        // Also update encrypted storage if authenticated
+        if (password && authState === 'authenticated') {
+            try {
+                const appData = await decryptAppData(password);
+                if (appData) {
+                    appData.preferences = appData.preferences || {};
+                    appData.preferences.notificationsEnabled = newValue;
+                    await encryptAppData(appData, password);
+                }
+            } catch (error) {
+                console.log('Failed to update notifications setting in encrypted storage:', error);
+            }
+        }
     };
 
     if (isLoading) {
