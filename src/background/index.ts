@@ -1297,38 +1297,18 @@ browser.runtime.onMessage.addListener(function (
                 });
         }
         sendResponse(true);
-    } else if (typedMessage.type === 'TEST_NOTIFICATION') {
-        // Force a test notification irrespective of PR logic
-        createNotification(
-            undefined,
-            {
-                type: 'basic',
-                iconUrl: NOTIFICATION_ICON,
-                title: 'PR Tracker Test',
-                message: 'This is a test notification trigger.',
-            },
-            true
-        )
-            .then(() => {
-                console.log('[Notif] Test notification requested');
-                sendResponse(true);
-            })
-            .catch((e) => {
-                console.error('[Notif] Test notification failed', e);
-                sendResponse(false);
-            });
     } else if (typedMessage.type === 'ENABLE_FIRST_RUN_NOTIFICATION') {
         browser.storage.local
             .set({ 'prtracker-notify-on-first-run': true })
             .then(() => {
-                console.log('[Notif] First-run notification enabled');
+                // preference enabled
                 sendResponse(true);
             });
     } else if (typedMessage.type === 'DISABLE_FIRST_RUN_NOTIFICATION') {
         browser.storage.local
             .set({ 'prtracker-notify-on-first-run': false })
             .then(() => {
-                console.log('[Notif] First-run notification disabled');
+                // preference disabled
                 sendResponse(true);
             });
     } else {
