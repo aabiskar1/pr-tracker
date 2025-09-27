@@ -13,7 +13,8 @@
         "format": "prettier --write .",
         "lint": "eslint .",
         "prepare": "husky install",
-        "preview": "vite preview"
+        "preview": "vite preview",
+        "test:extension": "npm run build:chrome && vitest run --reporter=verbose"
     },
     "prettier": {
         "bracketSpacing": true,
@@ -30,10 +31,12 @@
         "@samrum/vite-plugin-web-extension": "^5.1.1",
         "@tailwindcss/vite": "^4.1.10",
         "@types/chrome": "^0.0.307",
+        "@types/puppeteer": "^5.4.7",
         "@types/react": "^19.0.10",
         "@types/react-dom": "^19.0.4",
         "@types/webextension-polyfill": "^0.10.5",
         "@vitejs/plugin-react": "^4.6.0",
+        "@vitest/ui": "^3.2.4",
         "cross-env": "^7.0.3",
         "dotenv": "^16.5.0",
         "eslint": "^9.21.0",
@@ -43,12 +46,15 @@
         "husky": "^9.1.7",
         "lint-staged": "^15.5.1",
         "prettier": "^3.5.3",
+        "puppeteer": "^24.22.3",
         "react": "^19.1.0",
         "react-dom": "^19.1.0",
         "sort-package-json": "^3.0.0",
         "tailwindcss": "^4.1.10",
         "typescript": "~5.7.2",
         "typescript-eslint": "^8.24.1",
-        "vite": "^6.3.5"
+        "vite": "^6.3.5",
+        "vitest": "^3.2.4",
+        "vitest-puppeteer": "^11.0.3"
     }
 }
