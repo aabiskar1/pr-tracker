@@ -1,4 +1,3 @@
-// tests/extension.test.ts
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { Page } from 'puppeteer';
 import {
