@@ -14,7 +14,8 @@
         "lint": "eslint .",
         "prepare": "husky install",
         "preview": "vite preview",
-        "test:extension": "npm run build:chrome && vitest run --reporter=verbose"
+        "test": "npm run build:chrome && vitest run --reporter=verbose",
+        "test:headless": "cross-env CI=true npm run test"
     },
     "prettier": {
         "bracketSpacing": true,

@@ -12,7 +12,7 @@ const extensionPath = path.join(__dirname, 'dist-chrome');
 
 export const puppeteerConfig = {
   launch: {
-    headless: isCI ? false : false, // Extensions don't work in headless mode
+    headless: isCI ? true : false,
     pipe: true,
     args: [
       `--disable-extensions-except=${extensionPath}`,
