@@ -133,10 +133,9 @@ To run end-to-end (E2E) tests for the PR Tracker extension, follow these steps:
 ### Prerequisites
 
 - Node.js 20 or later
-- Chrome and/or Firefox installed
+- Chrome installed
 - Extension built for the respective browsers:
     - Run `npm run build:chrome` for Chrome testing
-    - Run `npm run build:firefox` for Firefox testing
 
 ### Setting Up Authentication for Testing
 
@@ -165,13 +164,13 @@ The extension requires a GitHub personal access token for authentication. To sim
 Test the extension UI components:
 
 ```bash
-npm run test:extension:chrome
+npm run test
 ```
 
-#### Debug Mode
+#### Headless Mode
 
-To run tests with a visible browser window (not headless):
+To run tests in a headless mode:
 
 ```bash
-npm run test:extension:chrome:debug
+npm run test:headless
 ```
