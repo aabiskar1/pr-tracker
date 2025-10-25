@@ -744,37 +744,47 @@ async function checkPullRequests(
 
         console.log('Saving PRs to storage');
 
-        // Get current app preferences to include in encrypted storage
-        const currentPrefs = await browser.storage.local.get([
-            'prtracker-notifications-enabled',
-            'prtracker-custom-query',
-            'prtracker-filters',
-            'prtracker-sort',
-            'oldPullRequests',
-        ]);
-
-        // Create app data object to encrypt
-        const appData: any = {
-            pullRequests: uniquePRs,
-            lastUpdated: new Date().toISOString(),
-            preferences: {
+        // Get current app preferences - try encrypted first, then fallback to unencrypted
+        let preferences: any = {};
+        try {
+            const existingData = await decryptAppData(sessionPassword);
+            if (existingData && existingData.preferences) {
+                // Use existing encrypted preferences to avoid overwriting with stale unencrypted data
+                preferences = existingData.preferences;
+            }
+        } catch (error) {
+            console.log(
+                'Failed to load existing preferences from encrypted storage, using unencrypted fallback'
+            );
+            // Fallback to unencrypted storage only if encrypted data is not available
+            const currentPrefs = await browser.storage.local.get([
+                'prtracker-notifications-enabled',
+                'prtracker-custom-query',
+                'prtracker-filters',
+                'prtracker-sort',
+            ]);
+            preferences = {
                 notificationsEnabled:
                     currentPrefs['prtracker-notifications-enabled'],
                 customQuery: currentPrefs['prtracker-custom-query'],
                 filters: currentPrefs['prtracker-filters'],
                 sort: currentPrefs['prtracker-sort'],
-            },
-            // Don't overwrite oldPullRequests here - let the notification logic handle it
-            // This preserves the existing oldPullRequests for proper comparison
+            };
+        }
+
+        // Create app data object to encrypt
+        const appData: any = {
+            pullRequests: uniquePRs,
+            lastUpdated: new Date().toISOString(),
+            preferences: preferences,
         };
 
-        // Try to get existing encrypted data to preserve oldPullRequests
+        // Try to preserve oldPullRequests
         try {
             const existingData = await decryptAppData(sessionPassword);
             if (existingData && existingData.oldPullRequests) {
                 appData.oldPullRequests = existingData.oldPullRequests;
             } else {
-                // If no existing oldPullRequests, initialize as empty array for first run
                 appData.oldPullRequests = [];
             }
         } catch (error) {
@@ -893,13 +903,7 @@ async function checkPullRequests(
                     dataToSave = {
                         pullRequests: uniquePRs,
                         lastUpdated: new Date().toISOString(),
-                        preferences: {
-                            notificationsEnabled:
-                                currentPrefs['prtracker-notifications-enabled'],
-                            customQuery: currentPrefs['prtracker-custom-query'],
-                            filters: currentPrefs['prtracker-filters'],
-                            sort: currentPrefs['prtracker-sort'],
-                        },
+                        preferences: preferences,
                         oldPullRequests: uniquePRs, // Set to current PRs for next comparison
                     };
                 } else {
@@ -914,13 +918,7 @@ async function checkPullRequests(
                 dataToSave = {
                     pullRequests: uniquePRs,
                     lastUpdated: new Date().toISOString(),
-                    preferences: {
-                        notificationsEnabled:
-                            currentPrefs['prtracker-notifications-enabled'],
-                        customQuery: currentPrefs['prtracker-custom-query'],
-                        filters: currentPrefs['prtracker-filters'],
-                        sort: currentPrefs['prtracker-sort'],
-                    },
+                    preferences: preferences,
                     oldPullRequests: uniquePRs,
                 };
             }

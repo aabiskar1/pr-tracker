@@ -866,6 +866,21 @@ function App() {
         });
         setCustomQuery(customQueryInput);
         setIsCustomQueryActive(true);
+        
+        // Also update encrypted storage if authenticated
+        if (password && authState === 'authenticated') {
+            try {
+                const appData = await decryptAppData(password);
+                if (appData) {
+                    appData.preferences = appData.preferences || {};
+                    appData.preferences.customQuery = customQueryInput;
+                    await encryptAppData(appData, password);
+                }
+            } catch (error) {
+                console.log('Failed to update custom query in encrypted storage:', error);
+            }
+        }
+        
         setIsLoading(true);
         await browser.runtime.sendMessage({
             type: 'CHECK_PRS',
@@ -886,6 +901,22 @@ function App() {
         setCustomQuery('');
         setCustomQueryInput('');
         setIsCustomQueryActive(false);
+        
+        // Also update encrypted storage if authenticated - clear the custom query to revert to defaults
+        if (password && authState === 'authenticated') {
+            try {
+                const appData = await decryptAppData(password);
+                if (appData) {
+                    appData.preferences = appData.preferences || {};
+                    // Remove or set to empty string to trigger default queries
+                    delete appData.preferences.customQuery;
+                    await encryptAppData(appData, password);
+                }
+            } catch (error) {
+                console.log('Failed to clear custom query in encrypted storage:', error);
+            }
+        }
+        
         setIsLoading(true);
         await browser.runtime.sendMessage({
             type: 'CHECK_PRS',
