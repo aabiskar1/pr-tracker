@@ -903,13 +903,7 @@ async function checkPullRequests(
                     dataToSave = {
                         pullRequests: uniquePRs,
                         lastUpdated: new Date().toISOString(),
-                        preferences: {
-                            notificationsEnabled:
-                                currentPrefs['prtracker-notifications-enabled'],
-                            customQuery: currentPrefs['prtracker-custom-query'],
-                            filters: currentPrefs['prtracker-filters'],
-                            sort: currentPrefs['prtracker-sort'],
-                        },
+                        preferences: preferences,
                         oldPullRequests: uniquePRs, // Set to current PRs for next comparison
                     };
                 } else {
@@ -924,13 +918,7 @@ async function checkPullRequests(
                 dataToSave = {
                     pullRequests: uniquePRs,
                     lastUpdated: new Date().toISOString(),
-                    preferences: {
-                        notificationsEnabled:
-                            currentPrefs['prtracker-notifications-enabled'],
-                        customQuery: currentPrefs['prtracker-custom-query'],
-                        filters: currentPrefs['prtracker-filters'],
-                        sort: currentPrefs['prtracker-sort'],
-                    },
+                    preferences: preferences,
                     oldPullRequests: uniquePRs,
                 };
             }
