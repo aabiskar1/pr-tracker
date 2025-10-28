@@ -139,50 +139,31 @@ function App() {
     const loadPullRequests = async () => {
         console.log('Loading pull requests from storage...');
         try {
-            // First try to load from encrypted storage only when authenticated
             if (password && authState === 'authenticated') {
-                try {
-                    const appData = await decryptAppData(password);
-                    if (appData && appData.pullRequests) {
-                        console.log('Loaded pull requests from encrypted storage');
-                        setPullRequests(appData.pullRequests as PullRequest[]);
-                        setFilteredPRs(appData.pullRequests as PullRequest[]);
-                        
-                        // Load preferences from encrypted storage
-                        if (appData.preferences) {
-                            if (typeof appData.preferences.notificationsEnabled === 'boolean') {
-                                setNotificationsEnabled(appData.preferences.notificationsEnabled);
-                            }
-                            if (appData.preferences.customQuery) {
-                                setCustomQuery(appData.preferences.customQuery);
-                                setCustomQueryInput(appData.preferences.customQuery);
-                                setIsCustomQueryActive(true);
-                            }
-                            if (appData.preferences.filters) {
-                                setFilterState(appData.preferences.filters);
-                            }
-                            if (appData.preferences.sort) {
-                                setSortOption(appData.preferences.sort);
-                            }
+                const appData = await decryptAppData(password);
+                if (appData && appData.pullRequests) {
+                    console.log('Loaded pull requests from encrypted storage');
+                    setPullRequests(appData.pullRequests as PullRequest[]);
+                    setFilteredPRs(appData.pullRequests as PullRequest[]);
+                    
+                    // Load preferences from encrypted storage
+                    if (appData.preferences) {
+                        if (typeof appData.preferences.notificationsEnabled === 'boolean') {
+                            setNotificationsEnabled(appData.preferences.notificationsEnabled);
                         }
-                        return;
+                        if (appData.preferences.customQuery) {
+                            setCustomQuery(appData.preferences.customQuery);
+                            setCustomQueryInput(appData.preferences.customQuery);
+                            setIsCustomQueryActive(true);
+                        }
+                        if (appData.preferences.filters) {
+                            setFilterState(appData.preferences.filters);
+                        }
+                        if (appData.preferences.sort) {
+                            setSortOption(appData.preferences.sort);
+                        }
                     }
-                } catch (error) {
-                    console.log('Failed to load from encrypted storage, falling back to unencrypted:', error);
                 }
-            }
-            
-            // Fallback to unencrypted storage only if encryption is not set up
-            const enc = await hasEncryptionSetup();
-            if (!enc) {
-                const data = await browser.storage.local.get(['pullRequests']);
-                console.log('Loaded pull requests from unencrypted storage');
-                if (data.pullRequests) {
-                    setPullRequests(data.pullRequests as PullRequest[]);
-                    setFilteredPRs(data.pullRequests as PullRequest[]);
-                }
-            } else {
-                console.log('Encryption is set up; skipping unencrypted PR load');
             }
         } catch (error) {
             console.error('Error loading pull requests:', error);
@@ -256,22 +237,9 @@ function App() {
                                 }
                             }
                         }
-                    } catch (error) {
-                        console.log('Failed to load encrypted data, falling back to unencrypted:', error);
-                        // Fallback to unencrypted storage only if encryption is not set up
-                        const enc = await hasEncryptionSetup();
-                        if (!enc) {
-                            const data = await browser.storage.local.get([
-                                'pullRequests',
-                            ]);
-                            if (data.pullRequests) {
-                                setPullRequests(data.pullRequests as PullRequest[]);
-                                setFilteredPRs(data.pullRequests as PullRequest[]);
-                            }
-                        }
-                    }
-
-                    // Trigger a throttled background refresh; UI will update via listener when ready
+                } catch (error) {
+                    console.log('Failed to load encrypted data:', error);
+                }                    // Trigger a throttled background refresh; UI will update via listener when ready
                     console.log('Triggering background PR refresh...');
                     await browser.runtime.sendMessage({
                         type: 'CHECK_PRS',
@@ -301,16 +269,6 @@ function App() {
                     setAuthState('password-entry');
                 }
 
-                // Load PRs if we have a token (they'll be shown after password entry)
-                const enc = await hasEncryptionSetup();
-                if (!enc) {
-                    const data = await browser.storage.local.get(['pullRequests']);
-                    if (data.pullRequests) {
-                        setPullRequests(data.pullRequests as PullRequest[]);
-                        setFilteredPRs(data.pullRequests as PullRequest[]);
-                    }
-                }
-
                 setIsLoading(false);
             } catch (error) {
                 console.error('Error initializing app:', error);
@@ -325,15 +283,6 @@ function App() {
             changes: Record<string, browser.Storage.StorageChange>
         ) => {
             console.log('Storage changed');
-            // Listen for unencrypted storage changes (backward compatibility)
-            if (changes.pullRequests) {
-                setPullRequests(
-                    (changes.pullRequests.newValue as PullRequest[]) || []
-                );
-                setFilteredPRs(
-                    (changes.pullRequests.newValue as PullRequest[]) || []
-                );
-            }
             // Listen for encrypted storage changes
             if (changes.encryptedAppData && password && authState === 'authenticated') {
                 console.log('Encrypted app data changed, reloading...');
@@ -365,7 +314,6 @@ function App() {
         // Load filter state and sort option when app mounts or password becomes available
     useEffect(() => {
         (async () => {
-            // Try to get from encrypted storage first only when authenticated
             if (password && authState === 'authenticated') {
                 try {
                     const encryptedData = await decryptAppData(password);
@@ -374,25 +322,11 @@ function App() {
                         const loadedSort = encryptedData.preferences.sort || 'newest';
                         setFilterState(loadedFilters);
                         setSortOption(loadedSort);
-                        return; // Don't load from unencrypted if we successfully loaded from encrypted
                     }
                 } catch (error) {
-                    console.log(
-                        'Failed to load filters/sort from encrypted storage, falling back to unencrypted:',
-                        error
-                    );
+                    console.log('Failed to load filters/sort from encrypted storage:', error);
                 }
             }
-
-            // Fallback to unencrypted storage
-            const data = await browser.storage.local.get([
-                'prtracker-filters',
-                'prtracker-sort',
-            ]);
-            const loadedFilters = data['prtracker-filters'] || DEFAULT_FILTERS;
-            const loadedSort = data['prtracker-sort'] || 'newest';
-            setFilterState(loadedFilters);
-            setSortOption(loadedSort);
         })();
     }, [password, authState]);
 
@@ -732,10 +666,7 @@ function App() {
 
     const handleFilterChange = async (filters: FilterState) => {
         setFilterState(filters);
-        // Save to unencrypted storage for backward compatibility
-        await browser.storage.local.set({ 'prtracker-filters': filters });
         
-        // Also update encrypted storage if authenticated
         if (password && authState === 'authenticated') {
             try {
                 const appData = await decryptAppData(password);
@@ -745,7 +676,7 @@ function App() {
                     await encryptAppData(appData, password);
                 }
             } catch (error) {
-                console.log('Failed to update filters in encrypted storage:', error);
+                console.error('Failed to update filters in encrypted storage:', error);
             }
         }
         
@@ -754,10 +685,7 @@ function App() {
 
     const handleSortChange = async (sort: SortOption) => {
         setSortOption(sort);
-        // Save to unencrypted storage for backward compatibility
-        await browser.storage.local.set({ 'prtracker-sort': sort });
         
-        // Also update encrypted storage if authenticated
         if (password && authState === 'authenticated') {
             try {
                 const appData = await decryptAppData(password);
@@ -767,7 +695,7 @@ function App() {
                     await encryptAppData(appData, password);
                 }
             } catch (error) {
-                console.log('Failed to update sort in encrypted storage:', error);
+                console.error('Failed to update sort in encrypted storage:', error);
             }
         }
         
@@ -776,10 +704,7 @@ function App() {
 
     const handleResetFilters = async () => {
         setFilterState(DEFAULT_FILTERS);
-        // Save to unencrypted storage for backward compatibility
-        await browser.storage.local.set({ 'prtracker-filters': DEFAULT_FILTERS });
         
-        // Also update encrypted storage if authenticated
         if (password && authState === 'authenticated') {
             try {
                 const appData = await decryptAppData(password);
@@ -789,7 +714,7 @@ function App() {
                     await encryptAppData(appData, password);
                 }
             } catch (error) {
-                console.log('Failed to update filters in encrypted storage:', error);
+                console.error('Failed to update filters in encrypted storage:', error);
             }
         }
         
@@ -816,12 +741,10 @@ function App() {
     // Load custom query on mount or when authenticated
     useEffect(() => {
         (async () => {
-            // Try to get preferences from encrypted storage first only when authenticated
             if (password && authState === 'authenticated') {
                 try {
                     const encryptedData = await decryptAppData(password);
                     if (encryptedData && encryptedData.preferences) {
-                        // Load from encrypted storage
                         if (encryptedData.preferences.customQuery) {
                             setCustomQuery(encryptedData.preferences.customQuery);
                             setCustomQueryInput(encryptedData.preferences.customQuery);
@@ -830,44 +753,19 @@ function App() {
                         if (typeof encryptedData.preferences.notificationsEnabled === 'boolean') {
                             setNotificationsEnabled(encryptedData.preferences.notificationsEnabled);
                         }
-                        return; // Don't load from unencrypted if we successfully loaded from encrypted
                     }
                 } catch (error) {
-                    console.log('Failed to load preferences from encrypted storage, falling back to unencrypted:', error);
+                    console.log('Failed to load preferences from encrypted storage:', error);
                 }
-            }
-            
-            // Fallback to unencrypted storage
-            const data = await browser.storage.local.get([
-                'prtracker-custom-query',
-            ]);
-            if (data['prtracker-custom-query']) {
-                setCustomQuery(data['prtracker-custom-query']);
-                setCustomQueryInput(data['prtracker-custom-query']);
-                setIsCustomQueryActive(true);
-            }
-            // Load notifications preference
-            const notif = await browser.storage.local.get([
-                'prtracker-notifications-enabled',
-            ]);
-            if (typeof notif['prtracker-notifications-enabled'] === 'boolean') {
-                setNotificationsEnabled(
-                    notif['prtracker-notifications-enabled'] as boolean
-                );
             }
         })();
     }, [password, authState]); // Re-run when password or auth changes
 
     // Save custom query
     const handleSaveCustomQuery = async () => {
-        // Save to unencrypted storage for backward compatibility
-        await browser.storage.local.set({
-            'prtracker-custom-query': customQueryInput,
-        });
         setCustomQuery(customQueryInput);
         setIsCustomQueryActive(true);
         
-        // Also update encrypted storage if authenticated
         if (password && authState === 'authenticated') {
             try {
                 const appData = await decryptAppData(password);
@@ -877,7 +775,7 @@ function App() {
                     await encryptAppData(appData, password);
                 }
             } catch (error) {
-                console.log('Failed to update custom query in encrypted storage:', error);
+                console.error('Failed to update custom query in encrypted storage:', error);
             }
         }
         
@@ -896,24 +794,20 @@ function App() {
 
     // Reset to default queries
     const handleResetCustomQuery = async () => {
-        // Remove from unencrypted storage for backward compatibility
-        await browser.storage.local.remove('prtracker-custom-query');
         setCustomQuery('');
         setCustomQueryInput('');
         setIsCustomQueryActive(false);
         
-        // Also update encrypted storage if authenticated - clear the custom query to revert to defaults
         if (password && authState === 'authenticated') {
             try {
                 const appData = await decryptAppData(password);
                 if (appData) {
                     appData.preferences = appData.preferences || {};
-                    // Remove or set to empty string to trigger default queries
                     delete appData.preferences.customQuery;
                     await encryptAppData(appData, password);
                 }
             } catch (error) {
-                console.log('Failed to clear custom query in encrypted storage:', error);
+                console.error('Failed to clear custom query in encrypted storage:', error);
             }
         }
         
@@ -934,12 +828,7 @@ function App() {
     const handleToggleNotifications = async () => {
         const newValue = !notificationsEnabled;
         setNotificationsEnabled(newValue);
-        // Save to unencrypted storage for backward compatibility
-        await browser.storage.local.set({
-            'prtracker-notifications-enabled': newValue,
-        });
         
-        // Also update encrypted storage if authenticated
         if (password && authState === 'authenticated') {
             try {
                 const appData = await decryptAppData(password);
@@ -947,9 +836,18 @@ function App() {
                     appData.preferences = appData.preferences || {};
                     appData.preferences.notificationsEnabled = newValue;
                     await encryptAppData(appData, password);
+                    console.log('Notification preference saved to encrypted storage');
+                } else {
+                    // If no encrypted data yet, create it
+                    await encryptAppData({
+                        pullRequests: [],
+                        lastUpdated: new Date().toISOString(),
+                        preferences: { notificationsEnabled: newValue },
+                        oldPullRequests: [],
+                    }, password);
                 }
             } catch (error) {
-                console.log('Failed to update notifications setting in encrypted storage:', error);
+                console.error('Failed to update notifications setting in encrypted storage:', error);
             }
         }
     };

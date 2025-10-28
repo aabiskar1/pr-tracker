@@ -4,7 +4,6 @@ import {
     decryptToken,
     encryptAppData,
     decryptAppData,
-    hasEncryptionSetup,
 } from '../services/secureStorage';
 
 // Central notification icon (use packaged icon path, not root-relative)
@@ -71,9 +70,26 @@ let lastNewPRNotificationTime = 0;
 
 // Helper function to check if notifications are enabled
 async function areNotificationsEnabled(): Promise<boolean> {
-    const { 'prtracker-notifications-enabled': notificationsEnabled } =
-        await browser.storage.local.get('prtracker-notifications-enabled');
-    return notificationsEnabled !== false; // default true
+    if (!sessionPassword) {
+        return true; // default true
+    }
+
+    try {
+        const appData = await decryptAppData(sessionPassword);
+        if (
+            appData &&
+            appData.preferences &&
+            typeof appData.preferences.notificationsEnabled === 'boolean'
+        ) {
+            return appData.preferences.notificationsEnabled;
+        }
+    } catch (error) {
+        console.log(
+            'Failed to get notification preference from encrypted storage'
+        );
+    }
+
+    return true; // default true
 }
 
 // Centralized notification creator with throttling
@@ -262,69 +278,6 @@ const initializeRememberedPassword = async () => {
     }
 };
 
-// If encryption is enabled but encrypted PRs are not yet present, seed
-// encrypted app data from any existing unencrypted cache. This avoids
-// a temporary empty UI if the user is offline right after enabling encryption.
-async function seedEncryptedAppDataFromUnencryptedIfNeeded() {
-    try {
-        const encryptionEnabled = await hasEncryptionSetup();
-        if (!encryptionEnabled) return;
-        if (!sessionPassword) return;
-
-        // If we already have encrypted PRs, nothing to do
-        try {
-            const existing = await decryptAppData(sessionPassword);
-            if (
-                existing &&
-                Array.isArray(existing.pullRequests) &&
-                existing.pullRequests.length > 0
-            ) {
-                return;
-            }
-        } catch {
-            // Decryption failed; we'll try to seed from unencrypted below
-        }
-
-        // Read any unencrypted cached PRs
-        const unenc = await browser.storage.local.get([
-            'pullRequests',
-            'oldPullRequests',
-            'prtracker-notifications-enabled',
-            'prtracker-custom-query',
-            'prtracker-filters',
-            'prtracker-sort',
-        ]);
-
-        const cached = (unenc.pullRequests as unknown[]) || [];
-        if (!Array.isArray(cached) || cached.length === 0) {
-            return;
-        }
-
-        // Seed minimal app data with cached PRs and known preferences
-        const appData = {
-            pullRequests: cached,
-            lastUpdated: new Date().toISOString(),
-            preferences: {
-                notificationsEnabled: unenc['prtracker-notifications-enabled'],
-                customQuery: unenc['prtracker-custom-query'],
-                filters: unenc['prtracker-filters'],
-                sort: unenc['prtracker-sort'],
-            },
-            oldPullRequests: unenc.oldPullRequests || [],
-        };
-
-        await encryptAppData(appData, sessionPassword);
-        console.log(
-            'Seeded encrypted app data from existing unencrypted cache'
-        );
-    } catch (e) {
-        console.warn(
-            'Failed to seed encrypted app data from unencrypted cache:',
-            e
-        );
-    }
-}
-
 // Initialize the extension
 browser.runtime.onInstalled.addListener(async () => {
     console.log('PR Tracker extension installed');
@@ -453,7 +406,7 @@ async function checkPullRequests(
                     undefined,
                     {
                         type: 'basic',
-                        iconUrl: '/icon.png',
+                        iconUrl: NOTIFICATION_ICON,
                         title: 'PR Tracker Error',
                         message: errorMsg,
                     },
@@ -468,8 +421,6 @@ async function checkPullRequests(
         }
 
         // Continue only if enough time has passed since last refresh
-        // Before proceeding, ensure encrypted cache is seeded from any prior unencrypted cache
-        await seedEncryptedAppDataFromUnencryptedIfNeeded();
         if (!isManualRefresh) {
             const refreshResult = shouldRefresh();
             if (!refreshResult.shouldRefresh) {
@@ -488,7 +439,7 @@ async function checkPullRequests(
                 undefined,
                 {
                     type: 'basic',
-                    iconUrl: '/icon.png',
+                    iconUrl: NOTIFICATION_ICON,
                     title: 'PR Tracker Error',
                     message: errorMsg,
                 },
@@ -503,23 +454,10 @@ async function checkPullRequests(
 
         const token = await decryptToken(sessionPassword);
         if (!token) {
-            const errorMsg =
-                'Failed to decrypt your GitHub token. Please re-authenticate. If you keep seeing this error, logout and reset to setup a new token.';
-            await createNotification(
-                undefined,
-                {
-                    type: 'basic',
-                    iconUrl: '/icon.png',
-                    title: 'PR Tracker Error',
-                    message: errorMsg,
-                },
-                true
-            ); // Force show auth errors
-            browser.runtime.sendMessage({
-                type: 'SHOW_ERROR',
-                message: errorMsg,
-            });
-            return;
+            console.log(
+                'Could not decrypt token - session may not be established yet'
+            );
+            return; // Silently return without showing error - user will authenticate when they open the popup
         }
 
         // Get user info
@@ -542,7 +480,6 @@ async function checkPullRequests(
         // --- Custom Query Support ---
         let customQuery = customQueryFromMsg;
         if (typeof customQuery === 'undefined') {
-            // Try to get from encrypted storage first, then fallback to unencrypted
             try {
                 const encryptedData = await decryptAppData(sessionPassword);
                 if (
@@ -554,15 +491,8 @@ async function checkPullRequests(
                 }
             } catch (error) {
                 console.log(
-                    'Failed to get custom query from encrypted storage, using unencrypted fallback'
+                    'Failed to get custom query from encrypted storage'
                 );
-                // Fallback to unencrypted storage
-                const data = await browser.storage.local.get([
-                    'prtracker-custom-query',
-                ]);
-                if (data['prtracker-custom-query']) {
-                    customQuery = data['prtracker-custom-query'];
-                }
             }
         }
 
@@ -744,32 +674,17 @@ async function checkPullRequests(
 
         console.log('Saving PRs to storage');
 
-        // Get current app preferences - try encrypted first, then fallback to unencrypted
+        // Get current app preferences from encrypted storage
         let preferences: any = {};
         try {
             const existingData = await decryptAppData(sessionPassword);
             if (existingData && existingData.preferences) {
-                // Use existing encrypted preferences to avoid overwriting with stale unencrypted data
                 preferences = existingData.preferences;
             }
         } catch (error) {
             console.log(
-                'Failed to load existing preferences from encrypted storage, using unencrypted fallback'
+                'Failed to load existing preferences from encrypted storage'
             );
-            // Fallback to unencrypted storage only if encrypted data is not available
-            const currentPrefs = await browser.storage.local.get([
-                'prtracker-notifications-enabled',
-                'prtracker-custom-query',
-                'prtracker-filters',
-                'prtracker-sort',
-            ]);
-            preferences = {
-                notificationsEnabled:
-                    currentPrefs['prtracker-notifications-enabled'],
-                customQuery: currentPrefs['prtracker-custom-query'],
-                filters: currentPrefs['prtracker-filters'],
-                sort: currentPrefs['prtracker-sort'],
-            };
         }
 
         // Create app data object to encrypt
@@ -795,19 +710,6 @@ async function checkPullRequests(
         // Encrypt and store all app data
         await encryptAppData(appData, sessionPassword);
 
-        // Also store unencrypted for backward compatibility only if encryption is not set up
-        try {
-            const encryptionEnabled = await hasEncryptionSetup();
-            if (!encryptionEnabled) {
-                await browser.storage.local.set({ pullRequests: uniquePRs });
-            }
-        } catch (e) {
-            // In case of any issue determining encryption, do not write unencrypted
-            console.warn(
-                'Could not verify encryption setup; skipping unencrypted PR write'
-            );
-        }
-
         // Notify popup about data update
         try {
             await browser.runtime.sendMessage({
@@ -823,26 +725,14 @@ async function checkPullRequests(
         }
 
         // Handle notifications - check for new PRs
-        // Try to get old PRs from encrypted storage first, then fallback to unencrypted only if encryption not set up
         let oldPrs: PullRequest[] = [];
-        let encryptedData: any = undefined;
         try {
-            encryptedData = await decryptAppData(sessionPassword);
+            const encryptedData = await decryptAppData(sessionPassword);
             if (encryptedData && encryptedData.oldPullRequests) {
                 oldPrs = encryptedData.oldPullRequests;
             }
         } catch (error) {
             console.log('Failed to get old PRs from encrypted storage:', error);
-            try {
-                const encryptionEnabled = await hasEncryptionSetup();
-                if (!encryptionEnabled) {
-                    const fallbackData =
-                        await browser.storage.local.get('oldPullRequests');
-                    oldPrs = fallbackData.oldPullRequests || [];
-                }
-            } catch (e) {
-                // If we cannot determine, prefer not to use unencrypted fallback
-            }
         }
 
         // Compare old and current PRs for new ones
@@ -877,7 +767,7 @@ async function checkPullRequests(
                 // Use undefined for ID to enable throttling based on title+message
                 await createNotification(undefined, {
                     type: 'basic',
-                    iconUrl: '/icon.png', // This works in both Chrome and Firefox
+                    iconUrl: NOTIFICATION_ICON,
                     title: 'New Pull Requests',
                     message: `You have ${newPrs.length} new pull request${newPrs.length > 1 ? 's' : ''}!`,
                 }); // Don't force - respect user preference for new PR notifications
@@ -925,44 +815,10 @@ async function checkPullRequests(
 
             await encryptAppData(dataToSave, sessionPassword);
             console.log('Updated oldPullRequests in encrypted storage');
-
-            // Debug: verify the save worked
-            try {
-                const verifyData = await decryptAppData(sessionPassword);
-                const hasOldPRs =
-                    verifyData &&
-                    verifyData.oldPullRequests &&
-                    verifyData.oldPullRequests.length > 0;
-                console.log(
-                    'Verified oldPullRequests saved:',
-                    hasOldPRs ? 'yes' : 'none'
-                );
-            } catch (verifyError) {
-                console.log(
-                    'Failed to verify saved oldPullRequests:',
-                    verifyError
-                );
-            }
         } catch (error) {
             console.error(
                 'Failed to update oldPullRequests in encrypted storage:',
                 error
-            );
-        }
-
-        // Also update unencrypted storage if encryption is not set up
-        try {
-            const encryptionEnabled = await hasEncryptionSetup();
-            if (!encryptionEnabled) {
-                await browser.storage.local.set({
-                    oldPullRequests: uniquePRs,
-                });
-                console.log('Updated oldPullRequests in unencrypted storage');
-            }
-        } catch (e) {
-            console.error(
-                'Failed to update oldPullRequests in unencrypted storage:',
-                e
             );
         }
     } catch (error) {
@@ -975,7 +831,7 @@ async function checkPullRequests(
             undefined,
             {
                 type: 'basic',
-                iconUrl: '/icon.png',
+                iconUrl: NOTIFICATION_ICON,
                 title: 'PR Tracker Error',
                 message,
             },
@@ -1034,7 +890,7 @@ async function getReviewStatus(
             'Error fetching review status. Please check your network connection.';
         await createNotification(undefined, {
             type: 'basic',
-            iconUrl: '/icon.png',
+            iconUrl: NOTIFICATION_ICON,
             title: 'PR Tracker Error',
             message: errorMsg,
         }); // Don't force - respect user preference for network errors
@@ -1140,7 +996,7 @@ async function getCIStatus(
             'Error fetching CI status. Please check your network connection.';
         await createNotification(undefined, {
             type: 'basic',
-            iconUrl: '/icon.png',
+            iconUrl: NOTIFICATION_ICON,
             title: 'PR Tracker Error',
             message: errorMsg,
         }); // Don't force - respect user preference for network errors
@@ -1216,11 +1072,6 @@ browser.runtime.onMessage.addListener(function (
             // Set up periodic refresh
             browser.alarms.create(ALARM_NAME, {
                 periodInMinutes: CHECK_INTERVAL,
-            });
-
-            // Proactively seed encrypted cache from any existing unencrypted cache
-            seedEncryptedAppDataFromUnencryptedIfNeeded().catch(() => {
-                /* no-op */
             });
 
             // Notify popup about authentication state change
