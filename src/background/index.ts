@@ -218,10 +218,11 @@ async function analyzeHttpError(
 }
 
 // Helper function to handle API errors consistently
+// Returns error info so caller can decide whether to throw
 async function handleApiError(
     response: Response,
     context: string = 'API request'
-): Promise<void> {
+): Promise<{ message: string; isRateLimit: boolean; isAuth: boolean }> {
     const errorInfo = await analyzeHttpError(response);
     console.error(
         `${context} failed with status: ${response.status}`,
@@ -244,6 +245,8 @@ async function handleApiError(
         type: 'SHOW_ERROR',
         message: errorInfo.message,
     });
+
+    return errorInfo;
 }
 
 // Initialize the remembered password state when the service worker starts
@@ -472,7 +475,8 @@ async function checkPullRequests(
                 `User info fetch failed with status: ${userResponse.status}`
             );
             await handleApiError(userResponse, 'User info fetch');
-            throw new Error(`Failed to get user info: ${userResponse.status}`);
+            // Don't throw again if already handled - just return to stop execution
+            return;
         }
 
         const user = await userResponse.json();
@@ -513,7 +517,8 @@ async function checkPullRequests(
                     `Custom PR search failed. Status: ${customResp.status}`
                 );
                 await handleApiError(customResp, 'Custom PR search');
-                throw new Error(`Failed to fetch PRs: ${customResp.status}`);
+                // Error already handled, return early
+                return;
             }
             const customData = await customResp.json();
             prItems = customData.items || [];
@@ -554,10 +559,8 @@ async function checkPullRequests(
                     ? 'Authored PR search'
                     : 'Review PR search';
                 await handleApiError(failedResponse, context);
-
-                throw new Error(
-                    `Failed to fetch PRs: ${authoredResponse.status}, ${reviewResponse.status}`
-                );
+                // Error already handled, return early
+                return;
             }
 
             const authoredData = await authoredResponse.json();
