@@ -331,14 +331,6 @@ export async function injectTestData(password: string = '12345678') {
         // Store encrypted data
         await encryptAppData(appData);
 
-        // Also store unencrypted for backward compatibility
-        await chrome.storage.local.set({
-            pullRequests: testPRs,
-            'prtracker-notifications-enabled': true,
-            'prtracker-filters': appData.preferences.filters,
-            'prtracker-sort': 'newest',
-        });
-
         console.log('✅ Test data injected successfully!');
         console.log(`📊 Added ${testPRs.length} test pull requests`);
         console.log(

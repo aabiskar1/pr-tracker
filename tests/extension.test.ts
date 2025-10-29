@@ -60,9 +60,23 @@ describe('PR Tracker Extension', () => {
                     TEST_PASSWORD
                 );
 
-                await delay(1000);
                 testDataInjected = true;
-                console.log('✅ Test data injected without refresh');
+                console.log('✅ Test data injected');
+
+                // Wait a moment for storage to be written
+                await delay(500);
+
+                // Click the refresh button to load the injected data
+                const refreshButton = await waitForElement(
+                    popupPage,
+                    'button[aria-label="Refresh Pull Requests"]',
+                    5000
+                );
+                if (refreshButton) {
+                    await refreshButton.click();
+                    console.log('✅ Triggered refresh to load injected data');
+                    await delay(2000); // Wait for data to load
+                }
             }
         }
     }
