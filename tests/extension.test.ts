@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, afterAll } from 'vitest';
 import { Page } from 'puppeteer';
 import {
-    getBrowser,
     getExtensionId,
     openExtensionPopup,
     getExtensionInfo,
@@ -11,7 +10,7 @@ import {
 import dotenv from 'dotenv';
 import { validateToken } from './types.js';
 import { delay } from './utils';
-import { injectTestData, testUsers, getRandomReviewers } from './test-data';
+import { injectTestData } from './test-data';
 
 dotenv.config({ path: '.env.test' });
 
@@ -43,7 +42,7 @@ describe('PR Tracker Extension', () => {
                     console.log('Need to authenticate first');
                     await performAuthentication();
                 }
-            } catch (error) {
+            } catch {
                 console.log(
                     'Not authenticated, proceeding with full auth flow'
                 );
@@ -339,7 +338,7 @@ describe('PR Tracker Extension', () => {
                     );
                     break;
                 }
-            } catch (error) {
+            } catch {
                 // Continue to next selector
             }
         }
@@ -402,7 +401,7 @@ describe('PR Tracker Extension', () => {
                     );
                     break;
                 }
-            } catch (error) {
+            } catch {
                 // Continue to next selector
             }
         }
@@ -548,7 +547,6 @@ describe('PR Tracker Extension', () => {
         await waitForElement(popupPage, '.space-y-3', 10000);
 
         // Check for CI status indicators (colors, icons, etc.)
-        const pageContent = await popupPage.content();
 
         // Look for status-related classes or text
         const statusElements = await popupPage.$$(
@@ -575,10 +573,9 @@ describe('PR Tracker Extension', () => {
         await ensureAuthenticatedWithTestData();
         await waitForElement(popupPage, '.space-y-3', 10000);
 
-        const pageContent = await popupPage.content();
-
         // Our test data includes different review statuses
         // Check that they're being displayed somehow
+
         const reviewElements = await popupPage.$$(
             '[class*="review"], [title*="review"], [aria-label*="review"]'
         );
@@ -619,9 +616,8 @@ describe('PR Tracker Extension', () => {
         await ensureAuthenticatedWithTestData();
         await waitForElement(popupPage, '.space-y-3', 10000);
 
-        const pageContent = await popupPage.content();
-
         // Our test data includes PRs with 12 reviewers - should show "..." for overflow
+        const pageContent = await popupPage.content();
         if (pageContent.includes('Fix bug in dashboard components')) {
             // This PR has 12 reviewers, should show ellipsis
             expect(pageContent).toMatch(/\.\.\./);
@@ -641,9 +637,8 @@ describe('PR Tracker Extension', () => {
         await ensureAuthenticatedWithTestData();
         await waitForElement(popupPage, '.space-y-3', 10000);
 
-        const pageContent = await popupPage.content();
-
         // Check for draft indicator
+        const pageContent = await popupPage.content();
         expect(pageContent).toContain('WIP:'); // Our test data includes WIP PRs
 
         // Check for different repositories

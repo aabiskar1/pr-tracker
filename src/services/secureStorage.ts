@@ -142,7 +142,7 @@ export const validatePassword = async (password: string): Promise<boolean> => {
         const decrypted = decoder.decode(decryptedData);
 
         return decrypted === 'PR_TRACKER_VALID';
-    } catch (error) {
+    } catch {
         // Decryption failure means wrong password
         return false;
     }
@@ -150,7 +150,7 @@ export const validatePassword = async (password: string): Promise<boolean> => {
 
 // Encrypt and store all application data
 export const encryptAppData = async (
-    data: Record<string, any>,
+    data: Record<string, unknown>,
     password: string
 ): Promise<void> => {
     try {
@@ -190,16 +190,16 @@ export const encryptAppData = async (
 };
 
 // Decrypt and retrieve all application data
-export const decryptAppData = async (
+export const decryptAppData = async <T = Record<string, unknown>>(
     password: string
-): Promise<Record<string, any> | null> => {
+): Promise<T | null> => {
     try {
         const { [ENCRYPTED_DATA_KEY]: encryptedArray, [DATA_IV_KEY]: ivArray } =
             await browser.storage.local.get([ENCRYPTED_DATA_KEY, DATA_IV_KEY]);
 
         if (!encryptedArray || !ivArray) {
             console.log('No encrypted app data found');
-            return {};
+            return {} as T;
         }
 
         const key = await getEncryptionKey(password);
@@ -307,8 +307,8 @@ export const decryptToken = async (
         // Convert back to string
         const decoder = new TextDecoder();
         return decoder.decode(decryptedData);
-    } catch (error) {
-        console.error('Error decrypting token:', error);
+    } catch {
+        console.error('Error decrypting token');
         return null;
     }
 };

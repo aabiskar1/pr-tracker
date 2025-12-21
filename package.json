@@ -24,6 +24,8 @@
         "trailingComma": "es5"
     },
     "dependencies": {
+        "react": "^19.1.0",
+        "react-dom": "^19.1.0",
         "react-icons": "^5.5.0",
         "webextension-polyfill": "^0.12.0",
         "zod": "^4.1.11"
@@ -49,8 +51,6 @@
         "lint-staged": "^15.5.1",
         "prettier": "^3.5.3",
         "puppeteer": "^24.22.3",
-        "react": "^19.1.0",
-        "react-dom": "^19.1.0",
         "sort-package-json": "^3.0.0",
         "tailwindcss": "^4.1.10",
         "typescript": "~5.7.2",

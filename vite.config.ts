@@ -81,8 +81,9 @@ export default defineConfig({
         react(),
         tailwindcss(),
         webExtension({
-            // @ts-expect-error
+            // @ts-expect-error - Manifest type mismatch between v2 and v3
             manifest: isFirefox ? manifestV2 : manifestV3,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
         }) as any,
     ],
     resolve: {

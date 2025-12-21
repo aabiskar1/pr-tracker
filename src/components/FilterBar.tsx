@@ -35,15 +35,6 @@ export type PRAgeFilter = 'all' | 'today' | 'week' | 'older';
 export type ReviewStatus = 'approved' | 'changes-requested' | 'pending';
 export type CIStatus = 'passing' | 'failing' | 'pending';
 
-// Helper function to get age indicator color - exported so it can be used by PR list components
-export const getAgeColor = (date: string) => {
-    const days =
-        (Date.now() - new Date(date).getTime()) / (1000 * 60 * 60 * 24);
-    if (days < 1) return 'text-green-500';
-    if (days < 7) return 'text-yellow-500';
-    return 'text-red-500';
-};
-
 export function FilterBar({
     filters,
     onFilterChange,
@@ -57,7 +48,7 @@ export function FilterBar({
     isCustomQueryActive,
     customQuery,
 }: FilterBarProps) {
-    const handleFilterChange = (key: keyof FilterState, value: any) => {
+    const handleFilterChange = (key: keyof FilterState, value: boolean | string | ReviewStatus[] | CIStatus[]) => {
         const newFilters = {
             ...filters,
             [key]: value,
@@ -157,68 +148,67 @@ export function FilterBar({
                 <div className="flex items-center gap-4 flex-wrap sm:flex-nowrap min-w-0">
                     {/* Review Status Filter */}
                     <div className="flex items-center gap-2 whitespace-nowrap min-w-0">
-                    <div className="flex items-center gap-1">
-                        <FaUserCheck size={14} className="text-gray-500" />
-                        <span className="text-sm text-gray-600 dark:text-gray-300">
-                            Reviews:
-                        </span>
-                    </div>
+                        <div className="flex items-center gap-1">
+                            <FaUserCheck size={14} className="text-gray-500" />
+                            <span className="text-sm text-gray-600 dark:text-gray-300">
+                                Reviews:
+                            </span>
+                        </div>
                         <div className="inline-flex flex-nowrap items-center gap-2 shrink min-w-0">
-                        {(
-                            [
-                                'approved',
-                                'changes-requested',
-                                'pending',
-                            ] as ReviewStatus[]
-                        ).map((status) => (
-                            <label
-                                key={status}
-                                className="flex items-center gap-1 cursor-pointer"
-                                title={`Show ${status.replace('-', ' ')} PRs`}
-                            >
-                                <input
-                                    type="checkbox"
-                                    className="sr-only"
-                                    checked={filters.reviewStatus.includes(
-                                        status
-                                    )}
-                                    onChange={() => {
-                                        const newStatus =
-                                            filters.reviewStatus.includes(
-                                                status
-                                            )
-                                                ? filters.reviewStatus.filter(
-                                                      (s) => s !== status
-                                                  )
-                                                : [
-                                                      ...filters.reviewStatus,
-                                                      status,
-                                                  ];
-                                        handleFilterChange(
-                                            'reviewStatus',
-                                            newStatus
-                                        );
-                                    }}
-                                />
-                                <div
-                                    className={`px-2 py-1 rounded text-xs ${
-                                        filters.reviewStatus.includes(status)
-                                            ? status === 'approved'
-                                                ? 'badge-approved'
-                                                : status === 'changes-requested'
-                                                  ? 'badge-changes'
-                                                  : 'badge-pending'
-                                            : 'badge-unselected'
-                                    }`}
+                            {(
+                                [
+                                    'approved',
+                                    'changes-requested',
+                                    'pending',
+                                ] as ReviewStatus[]
+                            ).map((status) => (
+                                <label
+                                    key={status}
+                                    className="flex items-center gap-1 cursor-pointer"
+                                    title={`Show ${status.replace('-', ' ')} PRs`}
                                 >
-                                    {status === 'approved'
-                                        ? 'Approved'
-                                        : status === 'changes-requested'
-                                          ? 'Changes'
-                                          : 'Pending'}
-                                </div>
-                            </label>
-                        ))}
+                                    <input
+                                        type="checkbox"
+                                        className="sr-only"
+                                        checked={filters.reviewStatus.includes(
+                                            status
+                                        )}
+                                        onChange={() => {
+                                            const newStatus =
+                                                filters.reviewStatus.includes(
+                                                    status
+                                                )
+                                                    ? filters.reviewStatus.filter(
+                                                        (s) => s !== status
+                                                    )
+                                                    : [
+                                                        ...filters.reviewStatus,
+                                                        status,
+                                                    ];
+                                            handleFilterChange(
+                                                'reviewStatus',
+                                                newStatus
+                                            );
+                                        }}
+                                    />
+                                    <div
+                                        className={`px-2 py-1 rounded text-xs ${filters.reviewStatus.includes(status)
+                                                ? status === 'approved'
+                                                    ? 'badge-approved'
+                                                    : status === 'changes-requested'
+                                                        ? 'badge-changes'
+                                                        : 'badge-pending'
+                                                : 'badge-unselected'
+                                            }`}
+                                    >
+                                        {status === 'approved'
+                                            ? 'Approved'
+                                            : status === 'changes-requested'
+                                                ? 'Changes'
+                                                : 'Pending'}
+                                    </div>
+                                </label>
+                            ))}
                         </div>
                     </div>
                     {/* CI Status Filter */}
@@ -230,54 +220,53 @@ export function FilterBar({
                             </span>
                         </div>
                         <div className="inline-flex flex-nowrap items-center gap-2 shrink min-w-0">
-                        {(['passing', 'failing', 'pending'] as CIStatus[]).map(
-                            (status) => (
-                                <label
-                                    key={status}
-                                    className="flex items-center gap-1 cursor-pointer"
-                                    title={`Show ${status} checks`}
-                                >
-                                    <input
-                                        type="checkbox"
-                                        className="sr-only"
-                                        checked={filters.ciStatus.includes(
-                                            status
-                                        )}
-                                        onChange={() => {
-                                            const newStatus =
-                                                filters.ciStatus.includes(
-                                                    status
-                                                )
-                                                    ? filters.ciStatus.filter(
-                                                          (s) => s !== status
-                                                      )
-                                                    : [
-                                                          ...filters.ciStatus,
-                                                          status,
-                                                      ];
-                                            handleFilterChange(
-                                                'ciStatus',
-                                                newStatus
-                                            );
-                                        }}
-                                    />
-                                    <div
-                                        className={`px-2 py-1 rounded text-xs ${
-                                            filters.ciStatus.includes(status)
-                                                ? status === 'passing'
-                                                    ? 'badge-passing'
-                                                    : status === 'failing'
-                                                      ? 'badge-failing'
-                                                      : 'badge-pending'
-                                                : 'badge-unselected'
-                                        }`}
+                            {(['passing', 'failing', 'pending'] as CIStatus[]).map(
+                                (status) => (
+                                    <label
+                                        key={status}
+                                        className="flex items-center gap-1 cursor-pointer"
+                                        title={`Show ${status} checks`}
                                     >
-                                        {status.charAt(0).toUpperCase() +
-                                            status.slice(1)}
-                                    </div>
-                                </label>
-                            )
-                        )}
+                                        <input
+                                            type="checkbox"
+                                            className="sr-only"
+                                            checked={filters.ciStatus.includes(
+                                                status
+                                            )}
+                                            onChange={() => {
+                                                const newStatus =
+                                                    filters.ciStatus.includes(
+                                                        status
+                                                    )
+                                                        ? filters.ciStatus.filter(
+                                                            (s) => s !== status
+                                                        )
+                                                        : [
+                                                            ...filters.ciStatus,
+                                                            status,
+                                                        ];
+                                                handleFilterChange(
+                                                    'ciStatus',
+                                                    newStatus
+                                                );
+                                            }}
+                                        />
+                                        <div
+                                            className={`px-2 py-1 rounded text-xs ${filters.ciStatus.includes(status)
+                                                    ? status === 'passing'
+                                                        ? 'badge-passing'
+                                                        : status === 'failing'
+                                                            ? 'badge-failing'
+                                                            : 'badge-pending'
+                                                    : 'badge-unselected'
+                                                }`}
+                                        >
+                                            {status.charAt(0).toUpperCase() +
+                                                status.slice(1)}
+                                        </div>
+                                    </label>
+                                )
+                            )}
                         </div>
                     </div>
                 </div>
@@ -317,7 +306,7 @@ export function FilterBar({
                 <div className="flex flex-row items-center gap-2 flex-1 min-w-[220px] min-w-0">
                     <input
                         type="text"
-            className="w-full min-w-[200px] px-3 py-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white text-xs"
+                        className="w-full min-w-[200px] px-3 py-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white text-xs"
                         placeholder="Custom GitHub PR search (e.g. is:open is:pr user:myorg)"
                         value={customQueryInput}
                         onChange={(e) => setCustomQueryInput(e.target.value)}
