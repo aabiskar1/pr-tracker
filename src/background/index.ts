@@ -1,253 +1,8 @@
 // Background script for PR Tracker
 import browser from 'webextension-polyfill';
-import {
-    decryptToken,
-    encryptAppData,
-    decryptAppData,
-} from '../services/secureStorage';
-
-// Central notification icon (use packaged icon path, not root-relative)
-const NOTIFICATION_ICON = 'icons/icon-128.png';
-
-// Add types for GitHub API responses
-type GitHubIssueSearchItem = {
-    pull_request?: {
-        url: string;
-    };
-};
-
-type GitHubReview = {
-    state: string;
-    user: {
-        id: number;
-    };
-};
-
-type GitHubCheckRun = {
-    conclusion: string | null;
-    status: string;
-};
-
-type GitHubChecksResponse = {
-    check_runs: GitHubCheckRun[];
-};
-
-type PullRequest = {
-    id: number;
-    title: string;
-    html_url: string;
-    repository: {
-        name: string;
-    };
-    state: string;
-    draft: boolean;
-    created_at: string;
-    requested_reviewers: { login: string; avatar_url: string }[];
-    review_status?: 'approved' | 'changes-requested' | 'pending';
-    ci_status?: 'passing' | 'failing' | 'pending';
-    author?: { login: string; avatar_url: string };
-};
-
-// (Accidental duplicated fragment removed above)
-// Core scheduling / session constants (restored after patch)
-const ALARM_NAME = 'check-prs';
-const CHECK_INTERVAL = 5; // minutes
-const PASSWORD_EXPIRY_ALARM = 'password-expiry';
-let sessionPassword: string | null = null;
-let rememberPassword: boolean = false;
-let lastRefreshTime: number = 0;
-const REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes in milliseconds
-
-// Add a flag to prevent multiple simultaneous PR checks
-let isCheckingPRs: boolean = false;
-
-// Notification throttling to prevent spam
-const notificationThrottle = new Map<string, number>();
-const NOTIFICATION_THROTTLE_MS = 30000; // 30 seconds
-
-// Additional throttling for new PR notifications specifically
-let lastNewPRNotificationTime = 0;
-
-// Helper function to check if notifications are enabled
-async function areNotificationsEnabled(): Promise<boolean> {
-    if (!sessionPassword) {
-        return true; // default true
-    }
-
-    try {
-        const appData = await decryptAppData(sessionPassword);
-        if (
-            appData &&
-            appData.preferences &&
-            typeof appData.preferences.notificationsEnabled === 'boolean'
-        ) {
-            return appData.preferences.notificationsEnabled;
-        }
-    } catch (error) {
-        console.log(
-            'Failed to get notification preference from encrypted storage'
-        );
-    }
-
-    return true; // default true
-}
-
-// Centralized notification creator with throttling
-async function createNotification(
-    id: string | undefined,
-    options: { type: 'basic'; iconUrl: string; title: string; message: string },
-    forceShow: boolean = false
-): Promise<void> {
-    try {
-        if (!forceShow && !(await areNotificationsEnabled())) {
-            console.log(
-                'Notifications disabled, skipping notification:',
-                options.title
-            );
-            return;
-        }
-
-        const throttleKey =
-            options.title === 'New Pull Requests'
-                ? 'New Pull Requests'
-                : `${options.title}:${options.message}`;
-        const now = Date.now();
-        const lastShown = notificationThrottle.get(throttleKey) || 0;
-        if (now - lastShown < NOTIFICATION_THROTTLE_MS) {
-            console.log('Notification throttled:', options.title);
-            return;
-        }
-        notificationThrottle.set(throttleKey, now);
-        for (const [key, timestamp] of notificationThrottle.entries()) {
-            if (now - timestamp > NOTIFICATION_THROTTLE_MS * 2) {
-                notificationThrottle.delete(key);
-            }
-        }
-
-        const notificationOptions = { ...options, iconUrl: NOTIFICATION_ICON };
-        console.log(
-            'Creating notification',
-            notificationOptions.title,
-            'id=',
-            id || '(auto)'
-        );
-        if (id) {
-            await browser.notifications.create(id, notificationOptions);
-        } else {
-            await browser.notifications.create(notificationOptions);
-        }
-    } catch (error) {
-        console.error('Failed to create notification:', error);
-    }
-}
-
-// Enhanced error handling with richer differentiation between auth, rate limit, and other errors
-async function analyzeHttpError(
-    response: Response
-): Promise<{ message: string; isRateLimit: boolean; isAuth: boolean }> {
-    const status = response.status;
-    const rateLimitRemaining = response.headers.get('X-RateLimit-Remaining');
-    const rateLimitReset = response.headers.get('X-RateLimit-Reset');
-    let body = '';
-    try {
-        body = await response.clone().text();
-    } catch {
-        /* ignore */
-    }
-    const lowerBody = body.toLowerCase();
-
-    const isRateLimit =
-        (status === 403 && rateLimitRemaining === '0') ||
-        status === 429 ||
-        lowerBody.includes('secondary rate limit') ||
-        lowerBody.includes('abuse detection') ||
-        lowerBody.includes('rate limit');
-    if (isRateLimit) {
-        const resetTime = rateLimitReset
-            ? new Date(parseInt(rateLimitReset) * 1000)
-            : null;
-        const resetTimeStr = resetTime
-            ? ` (resets at ${resetTime.toLocaleTimeString()})`
-            : '';
-        return {
-            message: `GitHub API rate limit exceeded${resetTimeStr}. Please wait before trying again.`,
-            isRateLimit: true,
-            isAuth: false,
-        };
-    }
-
-    if (status === 401) {
-        return {
-            message:
-                'Authentication failed (401). Your GitHub token may have been revoked or expired. Re-enter password or reset to provide a new token.',
-            isRateLimit: false,
-            isAuth: true,
-        };
-    }
-
-    if (status === 403) {
-        return {
-            message:
-                'Access forbidden (403). Could be missing repo scope OR a temporary GitHub restriction. Try again later; if persistent, regenerate a token with repo scope.',
-            isRateLimit: false,
-            isAuth: false,
-        };
-    }
-
-    if (status >= 500) {
-        return {
-            message: `GitHub servers are experiencing issues (${status}). Please try again later.`,
-            isRateLimit: false,
-            isAuth: false,
-        };
-    }
-
-    if (status >= 400) {
-        return {
-            message: `Request failed with status ${status}. Please check your network connection and try again.`,
-            isRateLimit: false,
-            isAuth: false,
-        };
-    }
-
-    return {
-        message: `Unexpected error occurred (${status}). Please try again.`,
-        isRateLimit: false,
-        isAuth: false,
-    };
-}
-
-// Helper function to handle API errors consistently
-// Returns error info so caller can decide whether to throw
-async function handleApiError(
-    response: Response,
-    context: string = 'API request'
-): Promise<{ message: string; isRateLimit: boolean; isAuth: boolean }> {
-    const errorInfo = await analyzeHttpError(response);
-    console.error(
-        `${context} failed with status: ${response.status}`,
-        errorInfo
-    );
-
-    // DO NOT automatically delete token; transient 403s / abuse limits were causing user token loss.
-    await createNotification(
-        undefined,
-        {
-            type: 'basic',
-            iconUrl: NOTIFICATION_ICON,
-            title: 'PR Tracker Error',
-            message: errorInfo.message,
-        },
-        errorInfo.isAuth
-    );
-
-    browser.runtime.sendMessage({
-        type: 'SHOW_ERROR',
-        message: errorInfo.message,
-    });
-
-    return errorInfo;
-}
+import { state, constants } from './state';
+import { checkPullRequests } from './prManager';
+import { setupAlarms, createPeriodicAlarm } from './alarms';
 
 // Initialize the remembered password state when the service worker starts
 const initializeRememberedPassword = async () => {
@@ -258,24 +13,23 @@ const initializeRememberedPassword = async () => {
         ]);
 
         if (data.sessionPassword && data.rememberPasswordFlag) {
-            sessionPassword = data.sessionPassword;
-            rememberPassword = true;
+            state.sessionPassword = data.sessionPassword;
+            state.rememberPassword = true;
 
             // Check if the password expiry alarm exists
             const alarms = await browser.alarms.getAll();
             const hasExpiryAlarm = alarms.some(
-                (alarm) => alarm.name === PASSWORD_EXPIRY_ALARM
+                (alarm) => alarm.name === constants.PASSWORD_EXPIRY_ALARM
             );
 
             // If no expiry alarm, set one for 12 hours from now
             if (!hasExpiryAlarm) {
                 const expiryTime = Date.now() + 12 * 60 * 60 * 1000;
-                browser.alarms.create(PASSWORD_EXPIRY_ALARM, {
+                browser.alarms.create(constants.PASSWORD_EXPIRY_ALARM, {
                     when: expiryTime,
                 });
             }
         }
-        // (no-op)
     } catch (error) {
         console.error('Error initializing remembered password:', error);
     }
@@ -285,14 +39,12 @@ const initializeRememberedPassword = async () => {
 browser.runtime.onInstalled.addListener(async () => {
     console.log('PR Tracker extension installed');
     // Set up periodic checks
-    browser.alarms.create(ALARM_NAME, {
-        periodInMinutes: CHECK_INTERVAL,
-    });
+    createPeriodicAlarm();
 
     // Initialize badge
     try {
         await browser.action.setBadgeBackgroundColor({ color: '#0D47A1' });
-    } catch (e) {
+    } catch {
         // Fallback for Firefox manifest v2
         await browser.browserAction.setBadgeBackgroundColor({
             color: '#0D47A1',
@@ -306,712 +58,13 @@ browser.runtime.onInstalled.addListener(async () => {
 // Call initialization on service worker startup
 initializeRememberedPassword();
 
-// Handle alarm
-browser.alarms.onAlarm.addListener(async (alarm) => {
-    if (alarm.name === ALARM_NAME) {
-        console.log('Checking PRs on alarm');
-        // Only refresh if we have the password
-        if (sessionPassword) {
-            await checkPullRequests();
-        } else if (rememberPassword) {
-            // Try to get remembered password from storage
-            const data = await browser.storage.session.get(['sessionPassword']);
-            if (data.sessionPassword) {
-                sessionPassword = data.sessionPassword;
-                await checkPullRequests();
-            }
-        }
-    } else if (alarm.name === PASSWORD_EXPIRY_ALARM) {
-        // Clear the session password when expiry alarm triggers
-        sessionPassword = null;
-        rememberPassword = false;
-        await browser.storage.session.remove([
-            'sessionPassword',
-            'rememberPasswordFlag',
-        ]);
-        // Clear the alarm
-        await browser.alarms.clear(PASSWORD_EXPIRY_ALARM);
-    }
-});
+// Setup alarms
+setupAlarms();
 
-// Helper function to set badge text cross-browser
-async function setBadgeText(text: string) {
-    try {
-        // Try using Manifest V3 API first
-        await browser.action.setBadgeText({ text });
-    } catch (e) {
-        // Fallback to Manifest V2 API for Firefox
-        await browser.browserAction.setBadgeText({ text });
-    }
-}
-
-// Helper function to check if we should refresh
-function shouldRefresh(): { shouldRefresh: boolean; remainingMs: number } {
-    const now = Date.now();
-    const elapsed = now - lastRefreshTime;
-    const remainingMs = REFRESH_INTERVAL - elapsed;
-    if (elapsed >= REFRESH_INTERVAL) {
-        lastRefreshTime = now;
-        return { shouldRefresh: true, remainingMs: 0 };
-    }
-    return { shouldRefresh: false, remainingMs: Math.max(0, remainingMs) };
-}
-
-async function checkPullRequests(
-    isManualRefresh = false,
-    customQueryFromMsg?: string | null
-) {
-    console.log('Starting PR check');
-
-    // Prevent multiple simultaneous checks
-    if (isCheckingPRs && !isManualRefresh) {
-        console.log('PR check already in progress, skipping...');
-        return;
-    }
-
-    // Additional rate limiting: prevent too frequent checks; throttle manual refreshes too
-    if (!isManualRefresh && Date.now() - lastRefreshTime < 10000) {
-        console.log('PR check rate limited - too soon since last AUTO check');
-        return;
-    }
-    if (isManualRefresh) {
-        const now = Date.now();
-        // Initialize lastManualRefresh if not present (module-level var)
-        if (typeof (globalThis as any)._prTrackerLastManual === 'undefined') {
-            (globalThis as any)._prTrackerLastManual = 0;
-        }
-        const since = now - (globalThis as any)._prTrackerLastManual;
-        if (since < 4000) {
-            console.log(
-                `Manual refresh throttled (${since}ms since last manual). Wait briefly before refreshing again.`
-            );
-            return;
-        }
-        (globalThis as any)._prTrackerLastManual = now;
-    }
-
-    isCheckingPRs = true;
-
-    try {
-        // Only proceed if we have the password or can get it from session storage
-        if (!sessionPassword) {
-            const data = await browser.storage.session.get(['sessionPassword']);
-            if (data.sessionPassword) {
-                sessionPassword = data.sessionPassword;
-            } else {
-                console.log(
-                    'No session password available, cannot decrypt token'
-                );
-                // Notify user about missing session
-                const errorMsg =
-                    'Session expired or password missing. Please sign in again.';
-                await createNotification(
-                    undefined,
-                    {
-                        type: 'basic',
-                        iconUrl: NOTIFICATION_ICON,
-                        title: 'PR Tracker Error',
-                        message: errorMsg,
-                    },
-                    true
-                ); // Force show session errors
-                browser.runtime.sendMessage({
-                    type: 'SHOW_ERROR',
-                    message: errorMsg,
-                });
-                return;
-            }
-        }
-
-        // Continue only if enough time has passed since last refresh
-        if (!isManualRefresh) {
-            const refreshResult = shouldRefresh();
-            if (!refreshResult.shouldRefresh) {
-                const seconds = Math.ceil(refreshResult.remainingMs / 1000);
-                console.log(
-                    `Skipping refresh - too soon since last refresh (remaining: ${seconds}s)`
-                );
-                return;
-            }
-        }
-
-        // Get the securely stored token
-        if (!sessionPassword) {
-            const errorMsg = 'Session password missing. Please sign in again.';
-            await createNotification(
-                undefined,
-                {
-                    type: 'basic',
-                    iconUrl: NOTIFICATION_ICON,
-                    title: 'PR Tracker Error',
-                    message: errorMsg,
-                },
-                true
-            ); // Force show session errors
-            browser.runtime.sendMessage({
-                type: 'SHOW_ERROR',
-                message: errorMsg,
-            });
-            return;
-        }
-
-        const token = await decryptToken(sessionPassword);
-        if (!token) {
-            console.log(
-                'Could not decrypt token - session may not be established yet'
-            );
-            return; // Silently return without showing error - user will authenticate when they open the popup
-        }
-
-        // Get user info
-        const userResponse = await fetch('https://api.github.com/user', {
-            headers: {
-                Authorization: `token ${token}`,
-                Accept: 'application/vnd.github.v3+json',
-            },
-        });
-        if (!userResponse.ok) {
-            console.error(
-                `User info fetch failed with status: ${userResponse.status}`
-            );
-            await handleApiError(userResponse, 'User info fetch');
-            // Don't throw again if already handled - just return to stop execution
-            return;
-        }
-
-        const user = await userResponse.json();
-
-        // --- Custom Query Support ---
-        let customQuery = customQueryFromMsg;
-        if (typeof customQuery === 'undefined') {
-            try {
-                const encryptedData = await decryptAppData(sessionPassword);
-                if (
-                    encryptedData &&
-                    encryptedData.preferences &&
-                    encryptedData.preferences.customQuery
-                ) {
-                    customQuery = encryptedData.preferences.customQuery;
-                }
-            } catch (error) {
-                console.log(
-                    'Failed to get custom query from encrypted storage'
-                );
-            }
-        }
-
-        let prItems: any[] = [];
-        if (customQuery && customQuery.trim()) {
-            // Use the custom query for a single search
-            const customResp = await fetch(
-                `https://api.github.com/search/issues?q=${encodeURIComponent(customQuery)}&per_page=100`,
-                {
-                    headers: {
-                        Authorization: `token ${token}`,
-                        Accept: 'application/vnd.github.v3+json',
-                    },
-                }
-            );
-            if (!customResp.ok) {
-                console.error(
-                    `Custom PR search failed. Status: ${customResp.status}`
-                );
-                await handleApiError(customResp, 'Custom PR search');
-                // Error already handled, return early
-                return;
-            }
-            const customData = await customResp.json();
-            prItems = customData.items || [];
-        } else {
-            // Default: Fetch both authored and review-requested PRs
-            const searchQuery = `is:open is:pr author:${user.login} archived:false`;
-            const assignedQuery = `is:open is:pr review-requested:${user.login} archived:false`;
-            const [authoredResponse, reviewResponse] = await Promise.all([
-                fetch(
-                    `https://api.github.com/search/issues?q=${encodeURIComponent(searchQuery)}&per_page=100`,
-                    {
-                        headers: {
-                            Authorization: `token ${token}`,
-                            Accept: 'application/vnd.github.v3+json',
-                        },
-                    }
-                ),
-                fetch(
-                    `https://api.github.com/search/issues?q=${encodeURIComponent(assignedQuery)}&per_page=100`,
-                    {
-                        headers: {
-                            Authorization: `token ${token}`,
-                            Accept: 'application/vnd.github.v3+json',
-                        },
-                    }
-                ),
-            ]);
-            if (!authoredResponse.ok || !reviewResponse.ok) {
-                console.error(
-                    `PR search failed. Authored status: ${authoredResponse.status}, Review status: ${reviewResponse.status}`
-                );
-
-                // Handle the first failing response
-                const failedResponse = !authoredResponse.ok
-                    ? authoredResponse
-                    : reviewResponse;
-                const context = !authoredResponse.ok
-                    ? 'Authored PR search'
-                    : 'Review PR search';
-                await handleApiError(failedResponse, context);
-                // Error already handled, return early
-                return;
-            }
-
-            const authoredData = await authoredResponse.json();
-            const reviewData = await reviewResponse.json();
-            prItems = [
-                ...(authoredData.items || []),
-                ...(reviewData.items || []),
-            ];
-        }
-
-        // Get full PR details
-        const getPRDetails = async (
-            item: GitHubIssueSearchItem,
-            token: string
-        ) => {
-            try {
-                if (
-                    !item.pull_request ||
-                    typeof item.pull_request !== 'object' ||
-                    !('url' in item.pull_request)
-                ) {
-                    console.error('Item missing pull_request URL');
-                    return null;
-                }
-
-                const prUrl = item.pull_request.url as string;
-
-                const [prData, reviewStatus, ciStatus] = await Promise.all([
-                    fetch(prUrl, {
-                        headers: {
-                            Authorization: `token ${token}`,
-                            Accept: 'application/vnd.github.v3+json',
-                        },
-                    }).then((r) => r.json()),
-                    getReviewStatus(prUrl, token),
-                    getCIStatus(prUrl, token),
-                ]);
-
-                return {
-                    ...prData,
-                    review_status: reviewStatus,
-                    ci_status: ciStatus,
-                };
-            } catch (error) {
-                console.error('Error fetching PR details:', error);
-                return null;
-            }
-        };
-
-        console.log('Fetching detailed PR information...');
-        const detailedPRs = (
-            await Promise.all(
-                prItems.map((item: GitHubIssueSearchItem) =>
-                    getPRDetails(item, token)
-                )
-            )
-        ).filter(Boolean);
-
-        // Combine and deduplicate PRs
-        const allPRs = detailedPRs;
-
-        // Map each PR to our simplified format, handling potential undefined properties safely
-        const uniquePRs = Array.from(
-            new Map(
-                allPRs
-                    .map((pr) => {
-                        try {
-                            // Create a safe repo name, handling the case where base.repo might be undefined
-                            const repoName =
-                                pr.base && pr.base.repo && pr.base.repo.name
-                                    ? pr.base.repo.name
-                                    : pr.repository && pr.repository.name
-                                      ? pr.repository.name
-                                      : pr.html_url.split('/')[4]; // Extract from URL as fallback
-
-                            return [
-                                pr.id,
-                                {
-                                    id: pr.id,
-                                    title: pr.title || 'Untitled PR',
-                                    html_url: pr.html_url,
-                                    repository: {
-                                        name: repoName,
-                                    },
-                                    state: pr.state || 'open',
-                                    draft: pr.draft || false,
-                                    created_at:
-                                        pr.created_at ||
-                                        new Date().toISOString(),
-                                    requested_reviewers:
-                                        pr.requested_reviewers || [],
-                                    review_status: pr.review_status,
-                                    ci_status: pr.ci_status,
-                                    author: pr.user
-                                        ? {
-                                              login: pr.user.login,
-                                              avatar_url: pr.user.avatar_url,
-                                          }
-                                        : undefined,
-                                },
-                            ];
-                        } catch (err) {
-                            console.error('Error processing PR:', err);
-                            return null;
-                        }
-                    })
-                    .filter(Boolean) as [number, PullRequest][]
-            ).values()
-        );
-
-        const count = uniquePRs.length;
-        console.log(`Final count of unique PRs: ${count}`);
-        await setBadgeText(count > 0 ? count.toString() : '');
-
-        console.log('Saving PRs to storage');
-
-        // Get current app preferences from encrypted storage
-        let preferences: any = {};
-        try {
-            const existingData = await decryptAppData(sessionPassword);
-            if (existingData && existingData.preferences) {
-                preferences = existingData.preferences;
-            }
-        } catch (error) {
-            console.log(
-                'Failed to load existing preferences from encrypted storage'
-            );
-        }
-
-        // Create app data object to encrypt
-        const appData: any = {
-            pullRequests: uniquePRs,
-            lastUpdated: new Date().toISOString(),
-            preferences: preferences,
-        };
-
-        // Try to preserve oldPullRequests
-        try {
-            const existingData = await decryptAppData(sessionPassword);
-            if (existingData && existingData.oldPullRequests) {
-                appData.oldPullRequests = existingData.oldPullRequests;
-            } else {
-                appData.oldPullRequests = [];
-            }
-        } catch (error) {
-            // If we can't decrypt existing data, initialize as empty for first run
-            appData.oldPullRequests = [];
-        }
-
-        // Encrypt and store all app data
-        await encryptAppData(appData, sessionPassword);
-
-        // Notify popup about data update
-        try {
-            await browser.runtime.sendMessage({
-                type: 'DATA_UPDATED',
-                timestamp: Date.now(),
-            });
-            console.log('Sent DATA_UPDATED message to popup');
-        } catch (error) {
-            // Popup might not be open, which is fine
-            console.log(
-                'Could not send DATA_UPDATED message (popup may be closed)'
-            );
-        }
-
-        // Handle notifications - check for new PRs
-        let oldPrs: PullRequest[] = [];
-        try {
-            const encryptedData = await decryptAppData(sessionPassword);
-            if (encryptedData && encryptedData.oldPullRequests) {
-                oldPrs = encryptedData.oldPullRequests;
-            }
-        } catch (error) {
-            console.log('Failed to get old PRs from encrypted storage:', error);
-        }
-
-        // Compare old and current PRs for new ones
-        const oldPrIds = new Set(oldPrs.map((pr: any) => pr.id));
-        const newPrs = uniquePRs.filter((pr: any) => !oldPrIds.has(pr.id));
-        // (debug logging removed)
-
-        // Determine whether to notify on first run if enabled
-        let notifyOnFirstRun = false;
-        if (oldPrs.length === 0 && newPrs.length === uniquePRs.length) {
-            // Check preference flag (default false)
-            const pref = await browser.storage.local.get(
-                'prtracker-notify-on-first-run'
-            );
-            notifyOnFirstRun = pref['prtracker-notify-on-first-run'] === true;
-        }
-
-        const shouldNotify =
-            ((oldPrs.length > 0 && newPrs.length > 0) || notifyOnFirstRun) &&
-            newPrs.length > 0;
-
-        if (shouldNotify) {
-            // Send new PR notification
-
-            // Additional throttling for new PR notifications to prevent rapid-fire notifications
-            const now = Date.now();
-            if (now - lastNewPRNotificationTime < NOTIFICATION_THROTTLE_MS) {
-                return;
-            }
-
-            try {
-                // Use undefined for ID to enable throttling based on title+message
-                await createNotification(undefined, {
-                    type: 'basic',
-                    iconUrl: NOTIFICATION_ICON,
-                    title: 'New Pull Requests',
-                    message: `You have ${newPrs.length} new pull request${newPrs.length > 1 ? 's' : ''}!`,
-                }); // Don't force - respect user preference for new PR notifications
-
-                // Update the timestamp after successful notification
-                lastNewPRNotificationTime = now;
-            } catch (error) {
-                console.error('Failed to send notification:', error);
-            }
-        } else {
-            // No notification (either first run or no new PRs)
-        }
-
-        // Update oldPullRequests in storage AFTER notification logic
-        // This ensures we use the correct old PRs for comparison next time
-        try {
-            // For encrypted storage, ensure we preserve the existing data structure
-            let dataToSave: any;
-            try {
-                dataToSave = await decryptAppData(sessionPassword);
-                if (!dataToSave) {
-                    // Create proper structure if no existing data
-                    dataToSave = {
-                        pullRequests: uniquePRs,
-                        lastUpdated: new Date().toISOString(),
-                        preferences: preferences,
-                        oldPullRequests: uniquePRs, // Set to current PRs for next comparison
-                    };
-                } else {
-                    // Update existing data
-                    dataToSave.oldPullRequests = uniquePRs;
-                }
-            } catch (error) {
-                console.log(
-                    'Could not decrypt existing data, creating new structure'
-                );
-                // Create new structure if decryption fails
-                dataToSave = {
-                    pullRequests: uniquePRs,
-                    lastUpdated: new Date().toISOString(),
-                    preferences: preferences,
-                    oldPullRequests: uniquePRs,
-                };
-            }
-
-            await encryptAppData(dataToSave, sessionPassword);
-            console.log('Updated oldPullRequests in encrypted storage');
-        } catch (error) {
-            console.error(
-                'Failed to update oldPullRequests in encrypted storage:',
-                error
-            );
-        }
-    } catch (error) {
-        console.error('Error checking pull requests:', error);
-        const message =
-            error instanceof Error
-                ? error.message
-                : 'Unknown error occurred while checking pull requests.';
-        await createNotification(
-            undefined,
-            {
-                type: 'basic',
-                iconUrl: NOTIFICATION_ICON,
-                title: 'PR Tracker Error',
-                message,
-            },
-            false
-        );
-        browser.runtime.sendMessage({ type: 'SHOW_ERROR', message });
-    } finally {
-        // Always reset the flag to allow future PR checks
-        isCheckingPRs = false;
-    }
-}
-
-async function getReviewStatus(
-    prUrl: string,
-    token: string
-): Promise<'approved' | 'changes-requested' | 'pending'> {
-    try {
-        const response = await fetch(`${prUrl}/reviews`, {
-            headers: {
-                Authorization: `token ${token}`,
-                Accept: 'application/vnd.github.v3+json',
-            },
-        });
-
-        if (!response.ok) {
-            console.error(`Failed to fetch review status: ${response.status}`);
-            await handleApiError(response, 'Review status fetch');
-            return 'pending';
-        }
-
-        const reviews = await response.json();
-
-        // Get the latest review from each reviewer
-        const latestReviews = new Map();
-        reviews.forEach((review: GitHubReview) => {
-            if (review.state && review.user) {
-                latestReviews.set(review.user.id, review.state);
-            }
-        });
-
-        const reviewStates = Array.from(latestReviews.values());
-
-        if (reviewStates.includes('CHANGES_REQUESTED')) {
-            return 'changes-requested';
-        }
-        if (
-            reviewStates.length > 0 &&
-            reviewStates.every((state) => state === 'APPROVED')
-        ) {
-            return 'approved';
-        }
-        return 'pending';
-    } catch (error) {
-        console.error('Error fetching review status:', error);
-        const errorMsg =
-            'Error fetching review status. Please check your network connection.';
-        await createNotification(undefined, {
-            type: 'basic',
-            iconUrl: NOTIFICATION_ICON,
-            title: 'PR Tracker Error',
-            message: errorMsg,
-        }); // Don't force - respect user preference for network errors
-        browser.runtime.sendMessage({ type: 'SHOW_ERROR', message: errorMsg });
-        return 'pending';
-    }
-}
-
-async function getCIStatus(
-    prUrl: string,
-    token: string
-): Promise<'passing' | 'failing' | 'pending'> {
-    try {
-        // The commits endpoint includes the combined status and check runs
-        const response = await fetch(`${prUrl}/commits`, {
-            headers: {
-                Authorization: `token ${token}`,
-                Accept: 'application/vnd.github.v3+json',
-            },
-        });
-        if (!response.ok) {
-            console.error(`Failed to fetch CI status: ${response.status}`);
-            await handleApiError(response, 'CI status fetch');
-            return 'pending';
-        }
-
-        const commits = await response.json();
-        if (commits.length === 0) {
-            return 'pending';
-        }
-
-        const lastCommit = commits[commits.length - 1];
-        const statusUrl = lastCommit.url + '/status';
-        const checksUrl = lastCommit.url + '/check-runs';
-
-        const [statusResponse, checksResponse] = await Promise.all([
-            fetch(statusUrl, {
-                headers: {
-                    Authorization: `token ${token}`,
-                    Accept: 'application/vnd.github.v3+json',
-                },
-            }),
-            fetch(checksUrl, {
-                headers: {
-                    Authorization: `token ${token}`,
-                    Accept: 'application/vnd.github.v3+json',
-                },
-            }),
-        ]);
-
-        const status = await statusResponse.json();
-        const checks = (await checksResponse.json()) as GitHubChecksResponse;
-
-        // No checks? Return pending
-        if (checks.check_runs.length === 0) {
-            return 'pending';
-        }
-
-        // Define failing and passing conclusion states
-        const failingConclusions = [
-            'failure',
-            'cancelled',
-            'timed_out',
-            'action_required',
-        ];
-
-        // Check if any checks are explicitly failing
-        const hasFailingChecks = checks.check_runs.some(
-            (run) =>
-                run.conclusion &&
-                failingConclusions.includes(run.conclusion.toLowerCase())
-        );
-
-        if (status.state === 'failure' || hasFailingChecks) {
-            return 'failing';
-        }
-
-        // Check for passing status
-        // More permissive check: if status is success OR
-        // all checks are completed AND none are failing
-        if (
-            status.state === 'success' ||
-            (checks.check_runs.every((run) => run.status === 'completed') &&
-                !hasFailingChecks)
-        ) {
-            return 'passing';
-        }
-
-        // If any check is in progress, consider the whole thing pending
-        if (
-            checks.check_runs.some(
-                (run) => run.status === 'in_progress' || run.status === 'queued'
-            )
-        ) {
-            return 'pending';
-        }
-
-        // Default case - if we get here, consider it pending
-        return 'pending';
-    } catch (error) {
-        console.error('Error fetching CI status:', error);
-        const errorMsg =
-            'Error fetching CI status. Please check your network connection.';
-        await createNotification(undefined, {
-            type: 'basic',
-            iconUrl: NOTIFICATION_ICON,
-            title: 'PR Tracker Error',
-            message: errorMsg,
-        }); // Don't force - respect user preference for network errors
-        browser.runtime.sendMessage({ type: 'SHOW_ERROR', message: errorMsg });
-        return 'pending';
-    }
-}
-
-// Patch the message handler to pass customQueryFromMsg
+// Message Handler
 browser.runtime.onMessage.addListener(function (
     message: unknown,
-    _sender: browser.Runtime.MessageSender,
+    _sender: unknown,
     sendResponse: (response?: boolean | object) => void
 ): true {
     if (!message || typeof message !== 'object') {
@@ -1019,12 +72,13 @@ browser.runtime.onMessage.addListener(function (
         return true;
     }
     const typedMessage = message as Record<string, unknown>;
+
     if (typedMessage.type === 'CHECK_PRS') {
         if (
             typedMessage.password &&
             typeof typedMessage.password === 'string'
         ) {
-            sessionPassword = typedMessage.password;
+            state.sessionPassword = typedMessage.password;
         }
         const isManualRefresh = typedMessage.manual === true;
         const customQueryFromMsg =
@@ -1045,11 +99,11 @@ browser.runtime.onMessage.addListener(function (
             typeof typedMessage.password === 'string'
         ) {
             // Store the password in memory
-            sessionPassword = typedMessage.password;
+            state.sessionPassword = typedMessage.password;
 
             // Handle remember option
             if (typedMessage.remember === true) {
-                rememberPassword = true;
+                state.rememberPassword = true;
 
                 // Store BOTH password and flag in session storage
                 browser.storage.session.set({
@@ -1059,23 +113,21 @@ browser.runtime.onMessage.addListener(function (
 
                 // Set up expiration alarm for 12 hours from now
                 const expiryTime = Date.now() + 12 * 60 * 60 * 1000; // 12 hours in milliseconds
-                browser.alarms.create(PASSWORD_EXPIRY_ALARM, {
+                browser.alarms.create(constants.PASSWORD_EXPIRY_ALARM, {
                     when: expiryTime,
                 });
             } else {
-                rememberPassword = false;
+                state.rememberPassword = false;
                 // Clear any existing storage and alarm
                 browser.storage.session.remove([
                     'sessionPassword',
                     'rememberPasswordFlag',
                 ]);
-                browser.alarms.clear(PASSWORD_EXPIRY_ALARM);
+                browser.alarms.clear(constants.PASSWORD_EXPIRY_ALARM);
             }
 
             // Set up periodic refresh
-            browser.alarms.create(ALARM_NAME, {
-                periodInMinutes: CHECK_INTERVAL,
-            });
+            createPeriodicAlarm();
 
             // Notify popup about authentication state change
             browser.runtime
@@ -1098,10 +150,10 @@ browser.runtime.onMessage.addListener(function (
             sendResponse(false);
         }
     } else if (typedMessage.type === 'GET_REMEMBERED_PASSWORD') {
-        if (sessionPassword && rememberPassword) {
+        if (state.sessionPassword && state.rememberPassword) {
             sendResponse({
                 hasRememberedPassword: true,
-                password: sessionPassword,
+                password: state.sessionPassword,
             });
         } else {
             // Try to get from session storage
@@ -1109,8 +161,8 @@ browser.runtime.onMessage.addListener(function (
                 .get(['sessionPassword', 'rememberPasswordFlag'])
                 .then((data) => {
                     if (data.sessionPassword && data.rememberPasswordFlag) {
-                        sessionPassword = data.sessionPassword;
-                        rememberPassword = true;
+                        state.sessionPassword = data.sessionPassword;
+                        state.rememberPassword = true;
                         sendResponse({
                             hasRememberedPassword: true,
                             password: data.sessionPassword,
@@ -1123,21 +175,21 @@ browser.runtime.onMessage.addListener(function (
                 });
         }
     } else if (typedMessage.type === 'CLEAR_SESSION') {
-        sessionPassword = null;
-        rememberPassword = false;
+        state.sessionPassword = null;
+        state.rememberPassword = false;
         // Clear session storage
         browser.storage.session.remove([
             'sessionPassword',
             'rememberPasswordFlag',
         ]);
         // Clear any expiry alarm
-        browser.alarms.clear(PASSWORD_EXPIRY_ALARM);
+        browser.alarms.clear(constants.PASSWORD_EXPIRY_ALARM);
         // Clear refresh alarm
-        browser.alarms.clear(ALARM_NAME);
+        browser.alarms.clear(constants.ALARM_NAME);
         sendResponse(true);
     } else if (typedMessage.type === 'POPUP_OPENED') {
         // Popup opened, send current data if we have a session
-        if (sessionPassword) {
+        if (state.sessionPassword) {
             // Send a data update message to refresh the popup
             browser.runtime
                 .sendMessage({

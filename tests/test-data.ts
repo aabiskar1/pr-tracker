@@ -282,7 +282,7 @@ export async function injectTestData(password: string = '12345678') {
         }
 
         // Encrypt and store app data
-        async function encryptAppData(data: any) {
+        async function encryptAppData(data: unknown) {
             const key = await getEncryptionKey(password);
             const iv = generateIV();
             const dataString = JSON.stringify(data);
