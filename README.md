@@ -167,7 +167,8 @@ npm run test:unit
 
 #### End-to-End (E2E) Tests
 
-Run full integration tests using Puppeteer to verify the core extension features:
+Run full integration tests using Puppeteer to verify the core extension features.
+**Note:** You must run `npm run build:all` (or equivalent) _before_ running E2E tests.
 
 ```bash
 npm run test:e2e
