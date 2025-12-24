@@ -1,15 +1,12 @@
 {
-    "files": [],
-    "references": [
-        {
-            "path": "./.wxt/tsconfig.json"
-        }
-    ],
+    "extends": "./.wxt/tsconfig.json",
     "compilerOptions": {
         "baseUrl": ".",
         "paths": {
             "@/*": ["./*"]
         },
         "jsx": "react-jsx"
-    }
+    },
+    "include": ["entrypoints/**/*", "src/**/*", ".wxt/types/**/*.ts"],
+    "exclude": ["node_modules", ".output", ".wxt"]
 }
