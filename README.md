@@ -13,14 +13,12 @@ A browser extension to help you efficiently track and manage your GitHub pull re
 ## Features
 
 - **PR Status Tracking**:
-
     - Visual indicators for PR age and staleness
     - Review status (approved, changes requested, pending)
     - CI/build status indicators
     - Draft PR indicators
 
 - **Advanced Filtering**:
-
     - Filter by PR age (today, this week, older)
     - Filter by review status
     - Filter by CI status
@@ -28,7 +26,6 @@ A browser extension to help you efficiently track and manage your GitHub pull re
     - Full text search across PR titles and repositories
 
 - **Smart Sorting Options**:
-
     - Sort by newest/oldest
     - Sort by urgency (based on reviewer count)
     - Sort by staleness (prioritizing unreviewed PRs)
@@ -63,10 +60,9 @@ OR
     ```
 
 3. Build the extension:
-
-    - For Chrome:
+    - For Chrome (default):
         ```bash
-        npm run build:chrome
+        npm run build
         ```
     - For Firefox:
         ```bash
@@ -74,19 +70,17 @@ OR
         ```
 
 4. Load the extension:
-
     - Chrome:
-
         1. Open `chrome://extensions/`
         2. Enable "Developer mode"
         3. Click "Load unpacked"
-        4. Select the `dist-chrome` directory
+        4. Select the `.output/chrome-mv3` directory
 
     - Firefox:
         1. Open `about:debugging`
         2. Click "This Firefox"
         3. Click "Load Temporary Add-on"
-        4. Select any file from the `dist-firefox` directory
+        4. Select any file from the `.output/firefox-mv2` directory
 
 ## Usage
 
