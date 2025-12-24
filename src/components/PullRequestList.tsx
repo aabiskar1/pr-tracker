@@ -49,21 +49,23 @@ export const PullRequestList: FC<PullRequestListProps> = ({ pullRequests }) => {
                 {pullRequests.map((pr) => (
                     <li
                         key={pr.id}
-                        className={`rounded-lg border pr-card-accent dark:border-gray-700 hover:shadow-md transition-shadow overflow-hidden ${pr.draft
+                        className={`rounded-lg border pr-card-accent dark:border-gray-700 hover:shadow-md transition-shadow overflow-hidden ${
+                            pr.draft
                                 ? 'bg-gray-50 dark:bg-gray-900/30'
                                 : 'bg-white dark:bg-gray-700'
-                            } ${pr.ci_status === 'failing'
+                        } ${
+                            pr.ci_status === 'failing'
                                 ? 'border-l-red-500'
                                 : pr.ci_status === 'pending'
-                                    ? 'border-l-yellow-500'
-                                    : pr.ci_status === 'passing'
+                                  ? 'border-l-yellow-500'
+                                  : pr.ci_status === 'passing'
+                                    ? 'border-l-green-500'
+                                    : pr.review_status === 'changes-requested'
+                                      ? 'border-l-red-500'
+                                      : pr.review_status === 'approved'
                                         ? 'border-l-green-500'
-                                        : pr.review_status === 'changes-requested'
-                                            ? 'border-l-red-500'
-                                            : pr.review_status === 'approved'
-                                                ? 'border-l-green-500'
-                                                : 'border-l-gray-300 dark:border-l-gray-600'
-                            }`}
+                                        : 'border-l-gray-300 dark:border-l-gray-600'
+                        }`}
                     >
                         <a
                             href={pr.html_url}
@@ -100,12 +102,13 @@ export const PullRequestList: FC<PullRequestListProps> = ({ pullRequests }) => {
                                     {/* CI Status Indicator */}
                                     {pr.ci_status && (
                                         <div
-                                            className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs ${pr.ci_status === 'passing'
+                                            className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs ${
+                                                pr.ci_status === 'passing'
                                                     ? 'badge-passing'
                                                     : pr.ci_status === 'failing'
-                                                        ? 'badge-failing'
-                                                        : 'badge-pending'
-                                                }`}
+                                                      ? 'badge-failing'
+                                                      : 'badge-pending'
+                                            }`}
                                         >
                                             <FaCodeBranch
                                                 size={12}
@@ -130,13 +133,14 @@ export const PullRequestList: FC<PullRequestListProps> = ({ pullRequests }) => {
                                     {/* Review Status */}
                                     {pr.review_status && (
                                         <div
-                                            className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs ${pr.review_status === 'approved'
+                                            className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs ${
+                                                pr.review_status === 'approved'
                                                     ? 'badge-approved'
                                                     : pr.review_status ===
                                                         'changes-requested'
-                                                        ? 'badge-changes'
-                                                        : 'badge-pending'
-                                                }`}
+                                                      ? 'badge-changes'
+                                                      : 'badge-pending'
+                                            }`}
                                         >
                                             <FaUserCheck
                                                 size={12}
@@ -146,7 +150,7 @@ export const PullRequestList: FC<PullRequestListProps> = ({ pullRequests }) => {
                                             {pr.review_status === 'approved' ? (
                                                 <FaCheck size={12} />
                                             ) : pr.review_status ===
-                                                'changes-requested' ? (
+                                              'changes-requested' ? (
                                                 <FaTimes size={12} />
                                             ) : (
                                                 <FaHourglassHalf size={12} />
@@ -156,8 +160,8 @@ export const PullRequestList: FC<PullRequestListProps> = ({ pullRequests }) => {
                                                     ? 'Approved'
                                                     : pr.review_status ===
                                                         'changes-requested'
-                                                        ? 'Changes'
-                                                        : 'Pending'}
+                                                      ? 'Changes'
+                                                      : 'Pending'}
                                             </span>
                                         </div>
                                     )}
@@ -168,25 +172,29 @@ export const PullRequestList: FC<PullRequestListProps> = ({ pullRequests }) => {
                                 <div className="mt-3 flex items-center justify-between">
                                     <div className="flex items-center">
                                         <div className="flex -space-x-1 mr-2">
-                                            {pr.requested_reviewers.slice(0, 10).map(
-                                                (reviewer) => (
+                                            {pr.requested_reviewers
+                                                .slice(0, 10)
+                                                .map((reviewer) => (
                                                     <img
                                                         key={reviewer.login}
-                                                        src={reviewer.avatar_url}
+                                                        src={
+                                                            reviewer.avatar_url
+                                                        }
                                                         alt={reviewer.login}
                                                         className="w-6 h-6 rounded-full border border-white dark:border-gray-800"
                                                         title={reviewer.login}
                                                     />
-                                                )
-                                            )}
-                                            {pr.requested_reviewers.length > 10 && (
+                                                ))}
+                                            {pr.requested_reviewers.length >
+                                                10 && (
                                                 <div className="w-6 h-6 rounded-full border border-white dark:border-gray-800 bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-xs text-gray-600 dark:text-gray-300 font-medium">
                                                     ...
                                                 </div>
                                             )}
                                         </div>
                                         <span className="text-xs text-gray-500 dark:text-gray-400">
-                                            {pr.requested_reviewers.length} reviewer
+                                            {pr.requested_reviewers.length}{' '}
+                                            reviewer
                                             {pr.requested_reviewers.length !== 1
                                                 ? 's'
                                                 : ''}{' '}
@@ -215,24 +223,25 @@ export const PullRequestList: FC<PullRequestListProps> = ({ pullRequests }) => {
                             )}
 
                             {/* Author Section (when no reviewers) */}
-                            {pr.requested_reviewers.length === 0 && pr.author && (
-                                <div className="mt-3 flex justify-end">
-                                    <div className="flex items-center">
-                                        <span className="text-xs text-gray-500 dark:text-gray-400 mr-2">
-                                            Author:
-                                        </span>
-                                        <img
-                                            src={pr.author.avatar_url}
-                                            alt={pr.author.login}
-                                            className="w-6 h-6 rounded-full border border-white dark:border-gray-800"
-                                            title={pr.author.login}
-                                        />
-                                        <span className="text-xs text-gray-600 dark:text-gray-300 ml-1 font-medium">
-                                            @{pr.author.login}
-                                        </span>
+                            {pr.requested_reviewers.length === 0 &&
+                                pr.author && (
+                                    <div className="mt-3 flex justify-end">
+                                        <div className="flex items-center">
+                                            <span className="text-xs text-gray-500 dark:text-gray-400 mr-2">
+                                                Author:
+                                            </span>
+                                            <img
+                                                src={pr.author.avatar_url}
+                                                alt={pr.author.login}
+                                                className="w-6 h-6 rounded-full border border-white dark:border-gray-800"
+                                                title={pr.author.login}
+                                            />
+                                            <span className="text-xs text-gray-600 dark:text-gray-300 ml-1 font-medium">
+                                                @{pr.author.login}
+                                            </span>
+                                        </div>
                                     </div>
-                                </div>
-                            )}
+                                )}
                         </a>
                     </li>
                 ))}

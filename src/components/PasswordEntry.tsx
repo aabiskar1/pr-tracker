@@ -57,7 +57,9 @@ export const PasswordEntry: React.FC<PasswordEntryProps> = ({
                     data-lpignore="false"
                     data-bwignore="false"
                     data-form-type="password"
-                    aria-describedby={passwordError ? 'password-error' : undefined}
+                    aria-describedby={
+                        passwordError ? 'password-error' : undefined
+                    }
                     {...(passwordError ? { 'aria-invalid': 'true' } : {})}
                     required
                 />

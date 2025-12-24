@@ -53,15 +53,16 @@ function App() {
         refreshPullRequests,
     } = usePullRequests(password, authState);
 
-    const isLoading = isAuthLoading || (authState === 'authenticated' && isPRLoading);
+    const isLoading =
+        isAuthLoading || (authState === 'authenticated' && isPRLoading);
 
     // Update a data attribute on <html> so CSS can size the popup per-screen (helps Firefox)
     useEffect(() => {
         const screen = isLoading
             ? 'loading'
             : authState === 'authenticated'
-                ? 'prlist'
-                : 'auth';
+              ? 'prlist'
+              : 'auth';
         document.documentElement.setAttribute('data-screen', screen);
     }, [isLoading, authState]);
 

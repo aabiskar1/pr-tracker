@@ -47,7 +47,6 @@ body,
 
 /* Firefox-specific styles */
 @supports (-moz-appearance: none) {
-
     /* Firefox: per-screen viewport sizing via data-screen */
     html,
     body,
@@ -146,7 +145,6 @@ body,
 
 /* Chrome-specific fixes to make it look more compact like Firefox */
 @supports (-webkit-appearance: none) and (not (-moz-appearance: none)) {
-
     /* Chrome: per-screen sizing */
     html[data-screen='auth'] body,
     html[data-screen='auth'] #root {
@@ -202,7 +200,6 @@ body,
         width: 100% !important;
         box-sizing: border-box !important;
     }
-
 }
 
 /* Global Compact Styles (Applies to both Chrome and Firefox for consistency) */
@@ -215,7 +212,7 @@ body,
 input[type='text'],
 input[type='password'],
 .filter-bar-container,
-div>.mb-4 {
+div > .mb-4 {
     width: 100% !important;
     max-width: 100% !important;
     box-sizing: border-box !important;
@@ -288,11 +285,11 @@ svg {
 }
 
 /* Make space-y more compact */
-.space-y-3>*+* {
+.space-y-3 > * + * {
     margin-top: 0.5rem !important;
 }
 
-.space-y-4>*+* {
+.space-y-4 > * + * {
     margin-top: 0.75rem !important;
 }
 
