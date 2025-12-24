@@ -16,6 +16,7 @@ dist-firefox
 .env.test
 .env
 .output
+.wxt
 
 # Editor directories and files
 .vscode/*
