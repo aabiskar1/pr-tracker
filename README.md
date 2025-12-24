@@ -60,11 +60,15 @@ OR
     ```
 
 3. Build the extension:
-    - For Chrome (default):
+    - For both browsers (Chrome & Firefox):
+        ```bash
+        npm run build:all
+        ```
+    - For Chrome only (default):
         ```bash
         npm run build
         ```
-    - For Firefox:
+    - For Firefox only:
         ```bash
         npm run build:firefox
         ```
@@ -153,17 +157,25 @@ The extension requires a GitHub personal access token for authentication. To sim
 
 ### Running Tests
 
-#### Basic Extension Tests
+#### Unit Tests
 
-Test the extension UI components:
+Run fast, isolated unit tests (e.g., Alarms, Helpers) via Vitest:
 
 ```bash
-npm run test
+npm run test:unit
+```
+
+#### End-to-End (E2E) Tests
+
+Run full integration tests using Puppeteer to verify the core extension features:
+
+```bash
+npm run test:e2e
 ```
 
 #### Headless Mode
 
-To run tests in a headless mode:
+To run E2E tests in a headless mode (useful for CI environments):
 
 ```bash
 npm run test:headless
