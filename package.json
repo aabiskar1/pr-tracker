@@ -14,8 +14,10 @@
         "postinstall": "wxt prepare",
         "lint": "eslint .",
         "prepare": "husky install",
-        "test": "npm run build && vitest run --reporter=verbose",
-        "test:headless": "cross-env CI=true npm run test",
+        "test": "npm run test:unit",
+        "test:e2e": "npm run build && vitest run --reporter=verbose **/*.e2e.test.ts",
+        "test:headless": "cross-env CI=true npm run test:e2e",
+        "test:unit": "vitest run --reporter=verbose **/*.unit.test.ts",
         "zip": "wxt zip"
     },
     "prettier": {
