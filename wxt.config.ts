@@ -1,12 +1,13 @@
 import { defineConfig } from 'wxt';
 import tailwindcss from '@tailwindcss/vite';
+import packageJson from './package.json';
 
 export default defineConfig({
     modules: ['@wxt-dev/module-react'],
     manifest: {
         name: 'PR Tracker',
         description: 'Track and manage your GitHub pull requests',
-        version: '1.0.11',
+        version: packageJson.version,
         permissions: ['storage', 'notifications', 'alarms'],
         host_permissions: ['https://api.github.com/*'],
         browser_specific_settings: {
