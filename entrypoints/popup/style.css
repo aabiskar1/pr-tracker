@@ -75,14 +75,12 @@ body,
     }
 
     /* PR list screen: larger */
+    /* PR list screen: larger - Matching Chrome dimensions */
     html[data-screen='prlist'] body,
     html[data-screen='prlist'] #root {
-        min-width: 580px !important;
-        /* increased min-width for Firefox */
-        max-width: 650px !important;
-        /* reduced max-width for Firefox */
+        min-width: 640px !important;
+        max-width: 750px !important;
         min-height: 600px !important;
-        /* a bit taller than before */
     }
 
     /* Ensure a visible right-side gutter on the PR list screen (Firefox) */
@@ -116,8 +114,7 @@ body,
         width: 100% !important;
         margin-left: auto !important;
         margin-right: auto !important;
-        padding-left: 1rem !important;
-        padding-right: 1rem !important;
+        padding: 0.5rem 1rem !important;
         box-sizing: border-box !important;
     }
 
@@ -206,207 +203,209 @@ body,
         box-sizing: border-box !important;
     }
 
-    /* Force all text to be left-aligned instead of centered */
-    #root {
-        text-align: left !important;
-    }
+}
 
-    /* Fix for input width and alignment - search filter bar */
-    input[type='text'],
-    input[type='password'],
-    .filter-bar-container,
-    div>.mb-4 {
-        width: 100% !important;
-        max-width: 100% !important;
-        box-sizing: border-box !important;
-    }
+/* Global Compact Styles (Applies to both Chrome and Firefox for consistency) */
+/* Force all text to be left-aligned instead of centered */
+#root {
+    text-align: left !important;
+}
 
-    /* Ensure the FilterBar and PR list have exactly the same width */
-    .filter-bar-container,
-    .space-y-3 {
-        width: calc(100% - 0px) !important;
-        /* allow container padding to take effect */
-        box-sizing: border-box !important;
-    }
+/* Fix for input width and alignment - search filter bar */
+input[type='text'],
+input[type='password'],
+.filter-bar-container,
+div>.mb-4 {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
 
-    /* Reduce spacing between elements */
-    .gap-2 {
-        gap: 0.4rem !important;
-    }
+/* Ensure the FilterBar and PR list have exactly the same width */
+.filter-bar-container,
+.space-y-3 {
+    width: calc(100% - 0px) !important;
+    /* allow container padding to take effect */
+    box-sizing: border-box !important;
+}
 
-    .gap-3 {
-        gap: 0.6rem !important;
-    }
+/* Reduce spacing between elements */
+.gap-2 {
+    gap: 0.4rem !important;
+}
 
-    .gap-4 {
-        gap: 0.7rem !important;
-    }
+.gap-3 {
+    gap: 0.6rem !important;
+}
 
-    /* Reduce padding inside cards */
-    .p-4 {
-        padding: 0.75rem !important;
-    }
+.gap-4 {
+    gap: 0.7rem !important;
+}
 
-    .p-3 {
-        padding: 0.6rem !important;
-    }
+/* Reduce padding inside cards */
+.p-4 {
+    padding: 0.75rem !important;
+}
 
-    /* Badge display */
-    .px-2 {
-        padding-left: 0.35rem !important;
-        padding-right: 0.35rem !important;
-    }
+.p-3 {
+    padding: 0.6rem !important;
+}
 
-    .py-1 {
-        padding-top: 0.125rem !important;
-        padding-bottom: 0.125rem !important;
-    }
+/* Badge display */
+.px-2 {
+    padding-left: 0.35rem !important;
+    padding-right: 0.35rem !important;
+}
 
-    /* Icon alignment */
-    svg {
-        vertical-align: middle;
-        position: relative;
-        top: -0.05em;
-    }
+.py-1 {
+    padding-top: 0.125rem !important;
+    padding-bottom: 0.125rem !important;
+}
 
-    /* Compact font rendering */
-    * {
-        letter-spacing: normal;
-    }
+/* Icon alignment */
+svg {
+    vertical-align: middle;
+    position: relative;
+    top: -0.05em;
+}
 
-    /* Reduce margins but not too much */
-    .mb-4 {
-        margin-bottom: 0.75rem !important;
-    }
+/* Compact font rendering */
+* {
+    letter-spacing: normal;
+}
 
-    .mb-2 {
-        margin-bottom: 0.35rem !important;
-    }
+/* Reduce margins but not too much */
+.mb-4 {
+    margin-bottom: 0.75rem !important;
+}
 
-    .mb-1 {
-        margin-bottom: 0.15rem !important;
-    }
+.mb-2 {
+    margin-bottom: 0.35rem !important;
+}
 
-    /* Make space-y more compact */
-    .space-y-3>*+* {
-        margin-top: 0.5rem !important;
-    }
+.mb-1 {
+    margin-bottom: 0.15rem !important;
+}
 
-    .space-y-4>*+* {
-        margin-top: 0.75rem !important;
-    }
+/* Make space-y more compact */
+.space-y-3>*+* {
+    margin-top: 0.5rem !important;
+}
 
-    /* Fix select elements to be more compact */
-    select {
-        padding-top: 0.15rem !important;
-        padding-bottom: 0.15rem !important;
-        font-size: 0.85rem !important;
-    }
+.space-y-4>*+* {
+    margin-top: 0.75rem !important;
+}
 
-    /* Reduce height of inputs */
-    input[type='text'],
-    input[type='password'] {
-        padding-top: 0.35rem !important;
-        padding-bottom: 0.35rem !important;
-    }
+/* Fix select elements to be more compact */
+select {
+    padding-top: 0.15rem !important;
+    padding-bottom: 0.15rem !important;
+    font-size: 0.85rem !important;
+}
 
-    /* Make PRs more compact */
-    .rounded-lg {
-        border-radius: 0.25rem !important;
-    }
+/* Reduce height of inputs */
+input[type='text'],
+input[type='password'] {
+    padding-top: 0.35rem !important;
+    padding-bottom: 0.35rem !important;
+}
 
-    /* Font sizes */
-    .text-xs {
-        font-size: 0.75rem !important;
-    }
+/* Make PRs more compact */
+.rounded-lg {
+    border-radius: 0.25rem !important;
+}
 
-    .text-sm {
-        font-size: 0.85rem !important;
-    }
+/* Font sizes */
+.text-xs {
+    font-size: 0.75rem !important;
+}
 
-    /* Make the scrollbar small and less visible like Firefox */
-    ::-webkit-scrollbar {
-        width: 6px !important;
-        height: 6px !important;
-    }
+.text-sm {
+    font-size: 0.85rem !important;
+}
 
-    ::-webkit-scrollbar-track {
-        background: transparent !important;
-    }
+/* Make the scrollbar small and less visible like Firefox */
+::-webkit-scrollbar {
+    width: 6px !important;
+    height: 6px !important;
+}
 
-    ::-webkit-scrollbar-thumb {
-        background: rgba(175, 175, 175, 0.2) !important;
-        border-radius: 3px !important;
-    }
+::-webkit-scrollbar-track {
+    background: transparent !important;
+}
 
-    ::-webkit-scrollbar-thumb:hover {
-        background: rgba(175, 175, 175, 0.3) !important;
-    }
+::-webkit-scrollbar-thumb {
+    background: rgba(175, 175, 175, 0.2) !important;
+    border-radius: 3px !important;
+}
 
-    /* Fix badge spacing */
-    .bg-green-100,
-    .bg-red-100,
-    .bg-yellow-100,
-    .bg-gray-100,
-    .bg-green-900,
-    .bg-red-900,
-    .bg-yellow-900,
-    .bg-gray-900 {
-        padding: 0.15rem 0.4rem !important;
-        font-size: 0.75rem !important;
-    }
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(175, 175, 175, 0.3) !important;
+}
 
-    /* Ensure search bar has the correct width */
-    .w-full.px-4.py-2.mb-4 {
-        width: 100% !important;
-        box-sizing: border-box !important;
-    }
+/* Fix badge spacing */
+.bg-green-100,
+.bg-red-100,
+.bg-yellow-100,
+.bg-gray-100,
+.bg-green-900,
+.bg-red-900,
+.bg-yellow-900,
+.bg-gray-900 {
+    padding: 0.15rem 0.4rem !important;
+    font-size: 0.75rem !important;
+}
 
-    /* Fix text alignment */
-    .justify-between,
-    .items-center,
-    h2,
-    p,
-    div {
-        text-align: left !important;
-    }
+/* Ensure search bar has the correct width */
+.w-full.px-4.py-2.mb-4 {
+    width: 100% !important;
+    box-sizing: border-box !important;
+}
 
-    /* Ensure PR containers have correct width */
-    .container.mx-auto {
-        width: 100% !important;
-        box-sizing: border-box !important;
-        padding-left: 0 !important;
-        padding-right: 0 !important;
-    }
+/* Fix text alignment */
+.justify-between,
+.items-center,
+h2,
+p,
+div {
+    text-align: left !important;
+}
 
-    /* Fix for any center-aligned elements that should stay centered */
-    .flex.items-center.justify-center,
-    .text-center,
-    .mx-auto {
-        text-align: center !important;
-    }
+/* Ensure PR containers have correct width */
+.container.mx-auto {
+    width: 100% !important;
+    box-sizing: border-box !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
 
-    /* Increase custom query input width for Chrome to show full placeholder text */
-    .min-w-\[200px\] {
-        min-width: 320px !important;
-    }
+/* Fix for any center-aligned elements that should stay centered */
+.flex.items-center.justify-center,
+.text-center,
+.mx-auto {
+    text-align: center !important;
+}
 
-    /* Remove card-like appearance from auth screens */
-    html[data-screen='auth'] .screen-auth {
-        background: transparent !important;
-        box-shadow: none !important;
-        border-radius: 0 !important;
-        border: none !important;
-    }
+/* Increase custom query input width for Chrome to show full placeholder text */
+.min-w-\[200px\] {
+    min-width: 320px !important;
+}
 
-    /* Fix blue info section text contrast in light mode */
-    html[data-theme='light'] .text-blue-700 {
-        color: #1e40af !important;
-        /* darker blue for better contrast on light blue background */
-    }
+/* Remove card-like appearance from auth screens */
+html[data-screen='auth'] .screen-auth {
+    background: transparent !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    border: none !important;
+}
 
-    html[data-theme='light'] .text-blue-600 {
-        color: #1d4ed8 !important;
-        /* darker blue for better contrast */
-    }
+/* Fix blue info section text contrast in light mode */
+html[data-theme='light'] .text-blue-700 {
+    color: #1e40af !important;
+    /* darker blue for better contrast on light blue background */
+}
+
+html[data-theme='light'] .text-blue-600 {
+    color: #1d4ed8 !important;
+    /* darker blue for better contrast */
 }
