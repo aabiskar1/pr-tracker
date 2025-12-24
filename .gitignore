@@ -15,6 +15,7 @@ dist-chrome
 dist-firefox
 .env.test
 .env
+.output
 
 # Editor directories and files
 .vscode/*

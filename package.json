@@ -4,18 +4,18 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "build": "tsc -b && vite build",
-        "build:all": "npm run build:chrome && npm run build:firefox",
-        "build:chrome": "tsc -b && cross-env BROWSER=chrome vite build",
-        "build:firefox": "tsc -b && cross-env BROWSER=firefox vite build",
+        "build": "wxt build",
+        "build:firefox": "wxt build -b firefox",
         "check-format": "prettier --check .",
-        "dev": "vite",
+        "compile": "tsc --noEmit",
+        "dev": "wxt",
         "format": "prettier --write .",
+        "postinstall": "wxt prepare",
         "lint": "eslint .",
         "prepare": "husky install",
-        "preview": "vite preview",
-        "test": "npm run build:chrome && vitest run --reporter=verbose",
-        "test:headless": "cross-env CI=true npm run test"
+        "test": "npm run build && vitest run --reporter=verbose",
+        "test:headless": "cross-env CI=true npm run test",
+        "zip": "wxt zip"
     },
     "prettier": {
         "bracketSpacing": true,
@@ -32,14 +32,13 @@
     },
     "devDependencies": {
         "@eslint/js": "^9.39.2",
-        "@samrum/vite-plugin-web-extension": "^5.1.1",
         "@tailwindcss/vite": "^4.1.18",
         "@types/chrome": "^0.1.32",
         "@types/react": "^19.2.7",
         "@types/react-dom": "^19.2.3",
         "@types/webextension-polyfill": "^0.12.4",
-        "@vitejs/plugin-react": "^5.1.2",
         "@vitest/ui": "^4.0.16",
+        "@wxt-dev/module-react": "^1.1.5",
         "cross-env": "^10.1.0",
         "dotenv": "^17.2.3",
         "eslint": "^9.39.2",
@@ -56,6 +55,7 @@
         "typescript-eslint": "^8.50.1",
         "vite": "^7.3.0",
         "vitest": "^4.0.16",
-        "vitest-puppeteer": "^11.0.3"
+        "vitest-puppeteer": "^11.0.3",
+        "wxt": "^0.20.13"
     }
 }

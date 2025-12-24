@@ -125,7 +125,7 @@ export const openExtensionPopup = async (id?: string): Promise<Page> => {
     const extensionIdToUse = id || extensionId;
     const popupPage = await browser.newPage();
 
-    await popupPage.goto(`chrome-extension://${extensionIdToUse}/index.html`, {
+    await popupPage.goto(`chrome-extension://${extensionIdToUse}/popup.html`, {
         waitUntil: 'domcontentloaded',
     });
 

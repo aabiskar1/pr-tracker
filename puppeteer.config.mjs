@@ -8,7 +8,7 @@ const isCI = process.env.CI === 'true';
 const isDebug = process.env.DEBUG === 'true';
 
 // Extension path
-const extensionPath = path.join(__dirname, 'dist-chrome');
+const extensionPath = path.join(__dirname, '.output/chrome-mv3');
 
 export const puppeteerConfig = {
   launch: {
