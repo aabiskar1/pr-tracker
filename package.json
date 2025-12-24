@@ -5,11 +5,12 @@
     "type": "module",
     "scripts": {
         "build": "wxt build",
+        "build:all": "npm run build && npm run build:firefox",
         "build:firefox": "wxt build -b firefox",
         "check-format": "prettier --check .",
         "compile": "tsc --noEmit",
         "dev": "wxt",
-        "format": "prettier --write .",
+        "format": "sort-package-json \"package.json\" \"tsconfig*.json\" && prettier --write .",
         "postinstall": "wxt prepare",
         "lint": "eslint .",
         "prepare": "husky install",

@@ -1,5 +1,4 @@
 {
-    "extends": "./.wxt/tsconfig.json",
     "compilerOptions": {
         "baseUrl": ".",
         "paths": {
@@ -7,6 +6,7 @@
         },
         "jsx": "react-jsx"
     },
-    "include": ["entrypoints/**/*", "src/**/*", ".wxt/types/**/*.ts"],
-    "exclude": ["node_modules", ".output", ".wxt"]
+    "exclude": ["node_modules", ".output", ".wxt"],
+    "extends": "./.wxt/tsconfig.json",
+    "include": ["entrypoints/**/*", "src/**/*", ".wxt/types/**/*.ts"]
 }
