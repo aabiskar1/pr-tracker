@@ -1,6 +1,7 @@
 import browser from 'webextension-polyfill';
 import { checkPullRequests } from './prManager';
 import { state, constants } from './state';
+import { SessionStorageSchema } from '../services/storageSchemas';
 
 export function setupAlarms() {
     // Handle alarm
@@ -12,11 +13,12 @@ export function setupAlarms() {
                 await checkPullRequests();
             } else if (state.rememberPassword) {
                 // Try to get remembered password from storage
-                const data = await browser.storage.session.get([
+                const result = await browser.storage.session.get([
                     'sessionPassword',
                 ]);
-                if (data.sessionPassword) {
-                    state.sessionPassword = data.sessionPassword;
+                const parsed = SessionStorageSchema.safeParse(result);
+                if (parsed.success && parsed.data.sessionPassword) {
+                    state.sessionPassword = parsed.data.sessionPassword;
                     await checkPullRequests();
                 }
             }

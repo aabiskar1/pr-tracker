@@ -57,7 +57,7 @@
     max-width: 100% !important;
     min-height: 600px !important; /* taller to show ~3.5+ cards */
     padding-right: 1rem; /* right inner gutter */
-    padding-left: 1rem;  /* left inner gutter for symmetry */
+    padding-left: 1rem; /* left inner gutter for symmetry */
     box-sizing: border-box !important;
 }
 

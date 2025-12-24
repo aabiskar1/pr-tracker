@@ -1,4 +1,10 @@
 import browser from 'webextension-polyfill';
+import {
+    SaltSchema,
+    TestVectorSchema,
+    EncryptedDataSchema,
+    EncryptedTokenSchema,
+} from './storageSchemas';
 
 /**
  * Enhanced secure storage service for handling ALL sensitive data
@@ -24,8 +30,9 @@ const generateIV = (): Uint8Array => {
 // Derive an encryption key from both the extension ID and user password
 const getEncryptionKey = async (userPassword: string): Promise<CryptoKey> => {
     // Get or generate a salt
-    const { [SALT_KEY]: existingSalt } =
-        await browser.storage.local.get(SALT_KEY);
+    const result = await browser.storage.local.get(SALT_KEY);
+    const parsed = SaltSchema.safeParse(result);
+    const existingSalt = parsed.success ? parsed.data[SALT_KEY] : undefined;
 
     let saltArray: Uint8Array;
 
@@ -114,8 +121,9 @@ export const setupEncryption = async (password: string): Promise<boolean> => {
 // Validate if the provided password is correct by attempting to decrypt the test vector
 export const validatePassword = async (password: string): Promise<boolean> => {
     try {
-        const { [TEST_KEY]: testVector } =
-            await browser.storage.local.get(TEST_KEY);
+        const result = await browser.storage.local.get(TEST_KEY);
+        const parsed = TestVectorSchema.safeParse(result);
+        const testVector = parsed.success ? parsed.data[TEST_KEY] : undefined;
 
         if (!testVector) {
             return false;
@@ -194,8 +202,15 @@ export const decryptAppData = async <T = Record<string, unknown>>(
     password: string
 ): Promise<T | null> => {
     try {
-        const { [ENCRYPTED_DATA_KEY]: encryptedArray, [DATA_IV_KEY]: ivArray } =
-            await browser.storage.local.get([ENCRYPTED_DATA_KEY, DATA_IV_KEY]);
+        const result = await browser.storage.local.get([
+            ENCRYPTED_DATA_KEY,
+            DATA_IV_KEY,
+        ]);
+        const parsed = EncryptedDataSchema.safeParse(result);
+        const encryptedArray = parsed.success
+            ? parsed.data[ENCRYPTED_DATA_KEY]
+            : undefined;
+        const ivArray = parsed.success ? parsed.data[DATA_IV_KEY] : undefined;
 
         if (!encryptedArray || !ivArray) {
             console.log('No encrypted app data found');
@@ -280,8 +295,12 @@ export const decryptToken = async (
     password: string
 ): Promise<string | null> => {
     try {
-        const { [TOKEN_KEY]: encryptedArray, [IV_KEY]: ivArray } =
-            await browser.storage.local.get([TOKEN_KEY, IV_KEY]);
+        const result = await browser.storage.local.get([TOKEN_KEY, IV_KEY]);
+        const parsed = EncryptedTokenSchema.safeParse(result);
+        const encryptedArray = parsed.success
+            ? parsed.data[TOKEN_KEY]
+            : undefined;
+        const ivArray = parsed.success ? parsed.data[IV_KEY] : undefined;
 
         if (!encryptedArray || !ivArray) {
             console.log('No encrypted token found');
@@ -315,16 +334,16 @@ export const decryptToken = async (
 
 // Check if a token exists
 export const hasStoredToken = async (): Promise<boolean> => {
-    const { [TOKEN_KEY]: encryptedToken } =
-        await browser.storage.local.get(TOKEN_KEY);
-    return !!encryptedToken;
+    const result = await browser.storage.local.get(TOKEN_KEY);
+    const parsed = EncryptedTokenSchema.safeParse(result);
+    return parsed.success && !!parsed.data[TOKEN_KEY];
 };
 
 // Check if encryption has been set up (password created)
 export const hasEncryptionSetup = async (): Promise<boolean> => {
-    const { [TEST_KEY]: testVector } =
-        await browser.storage.local.get(TEST_KEY);
-    return !!testVector;
+    const result = await browser.storage.local.get(TEST_KEY);
+    const parsed = TestVectorSchema.safeParse(result);
+    return parsed.success && !!parsed.data[TEST_KEY];
 };
 
 // Remove token

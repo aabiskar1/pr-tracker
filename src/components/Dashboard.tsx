@@ -103,7 +103,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                     : 'Enable notifications'
                             }
                             className="theme-toggle-switch relative inline-flex items-center h-6"
-                            data-enabled={notificationsEnabled ? 'true' : 'false'}
+                            data-enabled={
+                                notificationsEnabled ? 'true' : 'false'
+                            }
                         >
                             <span
                                 className={`toggle-track w-11 h-6 rounded-full transition-colors ${notificationsEnabled ? 'bg-green-600' : 'bg-gray-300 dark:bg-gray-600'}`}

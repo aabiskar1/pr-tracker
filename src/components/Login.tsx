@@ -24,8 +24,8 @@ export const Login: React.FC<LoginProps> = ({
             </div>
 
             <p className="text-gray-600 dark:text-gray-300 mb-4">
-                Please enter your GitHub personal access token. Your token will be
-                securely encrypted before storage.
+                Please enter your GitHub personal access token. Your token will
+                be securely encrypted before storage.
             </p>
 
             <form

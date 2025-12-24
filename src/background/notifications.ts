@@ -63,7 +63,7 @@ export async function createNotification(
 
         const notificationOptions = {
             ...options,
-            iconUrl: constants.NOTIFICATION_ICON,
+            iconUrl: browser.runtime.getURL(constants.NOTIFICATION_ICON),
         };
         console.log(
             'Creating notification',

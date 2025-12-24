@@ -25,22 +25,22 @@ jobs:
               run: npm ci
 
             - name: Build for Chrome
-              run: npm run build:chrome
+              run: npm run build
 
             - name: Build for Firefox
               run: npm run build:firefox
 
             - name: Zip Chrome Extension
               run: |
-                  cd dist-chrome
-                  zip -r ../extension-chrome.zip .
-                  cd ..
+                  cd .output/chrome-mv3
+                  zip -r ../../extension-chrome.zip .
+                  cd ../..
 
             - name: Zip Firefox Extension
               run: |
-                  cd dist-firefox
-                  zip -r ../extension-firefox.zip .
-                  cd ..
+                  cd .output/firefox-mv2
+                  zip -r ../../extension-firefox.zip .
+                  cd ../..
 
             - name: Upload Artifacts
               uses: actions/upload-artifact@v4

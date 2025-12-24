@@ -1,5 +1,11 @@
 import React, { useState } from 'react';
-import { FaLock, FaShieldAlt, FaQuestionCircle, FaClock, FaKey } from 'react-icons/fa';
+import {
+    FaLock,
+    FaShieldAlt,
+    FaQuestionCircle,
+    FaClock,
+    FaKey,
+} from 'react-icons/fa';
 
 interface PasswordSetupProps {
     password: string;
@@ -46,8 +52,8 @@ export const PasswordSetup: React.FC<PasswordSetupProps> = ({
                 </div>
                 <div className="ml-3">
                     <p className="text-sm text-blue-700 dark:text-blue-300">
-                        Your password is never stored anywhere. It's only used to
-                        encrypt and decrypt your GitHub token.
+                        Your password is never stored anywhere. It's only used
+                        to encrypt and decrypt your GitHub token.
                     </p>
                 </div>
             </div>
@@ -69,7 +75,9 @@ export const PasswordSetup: React.FC<PasswordSetupProps> = ({
                         <button
                             type="button"
                             className="text-xs text-primary flex items-center"
-                            onClick={() => setShowPasswordHelp(!showPasswordHelp)}
+                            onClick={() =>
+                                setShowPasswordHelp(!showPasswordHelp)
+                            }
                             aria-label="Password requirements"
                         >
                             <FaQuestionCircle className="mr-1" />

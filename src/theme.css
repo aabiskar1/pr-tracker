@@ -422,9 +422,15 @@ html[data-theme='dark'] .dark\:text-gray-400 {
 }
 
 /* Fix: Allow Tailwind color utilities for icons in dark mode */
-html[data-theme='dark'] .text-green-500 { color: #22c55e !important; }
-html[data-theme='dark'] .text-yellow-500 { color: #eab308 !important; }
-html[data-theme='dark'] .text-red-500 { color: #ef4444 !important; }
+html[data-theme='dark'] .text-green-500 {
+    color: #22c55e !important;
+}
+html[data-theme='dark'] .text-yellow-500 {
+    color: #eab308 !important;
+}
+html[data-theme='dark'] .text-red-500 {
+    color: #ef4444 !important;
+}
 
 html[data-theme='dark'] .dark\:bg-gray-700,
 html[data-theme='dark'] .dark\:bg-gray-800 {

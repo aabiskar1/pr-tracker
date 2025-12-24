@@ -1,7 +1,8 @@
 const lintstagedConfig = {
-    '*.{js,ts}': ['prettier --write'],
-    '*.{json,md,yaml,yml}': 'prettier --write',
-    'package.json': ['prettier --write', 'sort-package-json'],
+    '*.{js,ts,tsx,css,md,yaml,yml}': ['prettier --write'],
+    '*.json': ['prettier --write'],
+    'package.json': ['sort-package-json', 'prettier --write'],
+    'tsconfig*.json': ['sort-package-json', 'prettier --write'],
 };
 
 export default lintstagedConfig;
