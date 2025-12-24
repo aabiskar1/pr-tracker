@@ -80,6 +80,9 @@ jobs:
               with:
                   name: extension-builds
 
+            - name: Create Artifacts Directory
+              run: mkdir -p web-ext-artifacts
+
             - name: Sign and Upload to Firefox Add-ons
               uses: kewisch/action-web-ext@v1
               with:
