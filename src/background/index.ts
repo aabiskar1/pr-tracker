@@ -3,17 +3,23 @@ import browser from 'webextension-polyfill';
 import { state, constants } from './state';
 import { checkPullRequests } from './prManager';
 import { setupAlarms, createPeriodicAlarm } from './alarms';
+import { SessionStorageSchema } from '../services/storageSchemas';
 
 // Initialize the remembered password state when the service worker starts
 const initializeRememberedPassword = async () => {
     try {
-        const data = await browser.storage.session.get([
+        const result = await browser.storage.session.get([
             'sessionPassword',
             'rememberPasswordFlag',
         ]);
+        const parsed = SessionStorageSchema.safeParse(result);
 
-        if (data.sessionPassword && data.rememberPasswordFlag) {
-            state.sessionPassword = data.sessionPassword;
+        if (
+            parsed.success &&
+            parsed.data.sessionPassword &&
+            parsed.data.rememberPasswordFlag
+        ) {
+            state.sessionPassword = parsed.data.sessionPassword;
             state.rememberPassword = true;
 
             // Check if the password expiry alarm exists
@@ -159,13 +165,18 @@ browser.runtime.onMessage.addListener(function (
             // Try to get from session storage
             browser.storage.session
                 .get(['sessionPassword', 'rememberPasswordFlag'])
-                .then((data) => {
-                    if (data.sessionPassword && data.rememberPasswordFlag) {
-                        state.sessionPassword = data.sessionPassword;
+                .then((result) => {
+                    const parsed = SessionStorageSchema.safeParse(result);
+                    if (
+                        parsed.success &&
+                        parsed.data.sessionPassword &&
+                        parsed.data.rememberPasswordFlag
+                    ) {
+                        state.sessionPassword = parsed.data.sessionPassword;
                         state.rememberPassword = true;
                         sendResponse({
                             hasRememberedPassword: true,
-                            password: data.sessionPassword,
+                            password: parsed.data.sessionPassword,
                         });
                     } else {
                         sendResponse({

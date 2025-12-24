@@ -62,7 +62,9 @@ export async function checkPullRequests(
     try {
         // Only proceed if we have the password or can get it from session storage
         if (!state.sessionPassword) {
-            const data = await browser.storage.session.get(['sessionPassword']);
+            const data = (await browser.storage.session.get([
+                'sessionPassword',
+            ])) as Record<string, any>;
             if (data.sessionPassword) {
                 state.sessionPassword = data.sessionPassword;
             } else {

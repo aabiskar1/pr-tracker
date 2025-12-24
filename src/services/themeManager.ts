@@ -1,11 +1,14 @@
 import browser from 'webextension-polyfill';
+import { ThemeStorageSchema } from './storageSchemas';
 
 const THEME_KEY = 'theme-preference'; // 'light', 'dark', or 'auto'
 
 export type ThemePreference = 'light' | 'dark' | 'auto';
 
 export async function getStoredTheme(): Promise<ThemePreference> {
-    const { [THEME_KEY]: theme } = await browser.storage.local.get(THEME_KEY);
+    const result = await browser.storage.local.get(THEME_KEY);
+    const parsed = ThemeStorageSchema.safeParse(result);
+    const theme = parsed.success ? parsed.data[THEME_KEY] : undefined;
     return theme || 'auto';
 }
 
