@@ -6,28 +6,15 @@ import {
     FaHourglassHalf,
     FaCodeBranch,
     FaUserCheck,
+    FaEyeSlash,
+    FaEye,
 } from 'react-icons/fa';
+import { PullRequest } from '../types';
 import { getAgeColor } from '../utils/dateUtils';
-import { ReviewStatus, CIStatus } from './FilterBar';
-
-type PullRequest = {
-    id: number;
-    title: string;
-    html_url: string;
-    repository: {
-        name: string;
-    };
-    state: string;
-    draft: boolean;
-    created_at: string;
-    requested_reviewers: { login: string; avatar_url: string }[];
-    review_status?: ReviewStatus;
-    ci_status?: CIStatus;
-    author?: { login: string; avatar_url: string };
-};
 
 type PullRequestListProps = {
     pullRequests: PullRequest[];
+    onToggleHide: (id: number) => void;
 };
 
 const formatTimeAgo = (date: string) => {
@@ -42,7 +29,10 @@ const formatTimeAgo = (date: string) => {
     return 'just now';
 };
 
-export const PullRequestList: FC<PullRequestListProps> = ({ pullRequests }) => {
+export const PullRequestList: FC<PullRequestListProps> = ({
+    pullRequests,
+    onToggleHide,
+}) => {
     return (
         <div className="container mx-auto">
             <ul className="space-y-3">
@@ -79,6 +69,30 @@ export const PullRequestList: FC<PullRequestListProps> = ({ pullRequests }) => {
                                         <span className="inline-block px-2 py-1 text-xs font-medium rounded badge-repo max-w-[220px] sm:max-w-[280px] truncate align-middle shrink">
                                             {pr.repository.name}
                                         </span>
+                                        <button
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                onToggleHide(pr.id);
+                                            }}
+                                            className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                                            title={
+                                                pr.hidden
+                                                    ? 'Unhide PR'
+                                                    : 'Hide PR'
+                                            }
+                                            aria-label={
+                                                pr.hidden
+                                                    ? 'Unhide PR'
+                                                    : 'Hide PR'
+                                            }
+                                        >
+                                            {pr.hidden ? (
+                                                <FaEyeSlash size={12} />
+                                            ) : (
+                                                <FaEye size={12} />
+                                            )}
+                                        </button>
                                         {/* Age Indicator */}
                                         <div
                                             className={`flex items-center gap-1 text-xs ${getAgeColor(pr.created_at)}`}

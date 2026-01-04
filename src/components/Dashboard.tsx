@@ -28,6 +28,7 @@ interface DashboardProps {
     customQuery: string;
     handleSearch: (e: React.ChangeEvent<HTMLInputElement>) => void;
     filteredPRs: PullRequest[];
+    toggleHidePR: (id: number) => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -53,6 +54,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     customQuery,
     handleSearch,
     filteredPRs,
+    toggleHidePR,
 }) => {
     return (
         <div className="screen-prlist w-full max-w-3xl mx-auto p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
@@ -177,7 +179,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </p>
                 </div>
             ) : (
-                <PullRequestList pullRequests={filteredPRs} />
+                <PullRequestList
+                    pullRequests={filteredPRs}
+                    onToggleHide={toggleHidePR}
+                />
             )}
         </div>
     );

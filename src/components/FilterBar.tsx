@@ -24,6 +24,7 @@ type FilterBarProps = {
 export type FilterState = {
     showDrafts: boolean;
     showReady: boolean;
+    showHidden: boolean;
     ageFilter: PRAgeFilter;
     reviewStatus: ReviewStatus[];
     ciStatus: CIStatus[];
@@ -120,6 +121,34 @@ export function FilterBar({
                         />
                         <span className="text-sm text-gray-600 dark:text-gray-300">
                             Ready
+                        </span>
+                    </label>
+
+                    <label
+                        className="flex items-center gap-2 cursor-pointer"
+                        title="Show or hide hidden pull requests"
+                    >
+                        <div
+                            className={`w-4 h-4 flex items-center justify-center rounded border ${filters.showHidden ? 'bg-primary border-primary' : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-500'}`}
+                        >
+                            {filters.showHidden && (
+                                <FaCheck size={10} className="text-white" />
+                            )}
+                        </div>
+                        <input
+                            type="checkbox"
+                            className="sr-only"
+                            checked={filters.showHidden}
+                            onChange={() =>
+                                handleFilterChange(
+                                    'showHidden',
+                                    !filters.showHidden
+                                )
+                            }
+                            aria-label="Show Hidden"
+                        />
+                        <span className="text-sm text-gray-600 dark:text-gray-300">
+                            Hidden
                         </span>
                     </label>
                 </div>

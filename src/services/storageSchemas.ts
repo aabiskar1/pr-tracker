@@ -33,6 +33,11 @@ export const EncryptedTokenSchema = z.object({
     prtracker_iv: ByteArraySchema.optional(),
 });
 
+export const EncryptedHiddenIdsSchema = z.object({
+    encryptedHiddenPrIds: ByteArraySchema.optional(),
+    hiddenPrIdsIv: ByteArraySchema.optional(),
+});
+
 // Theme Schema
 export const ThemePreferenceSchema = z.enum(['light', 'dark', 'auto']);
 export const ThemeStorageSchema = z.object({

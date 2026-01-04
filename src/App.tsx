@@ -51,6 +51,7 @@ function App() {
         handleResetCustomQuery,
         handleToggleNotifications,
         refreshPullRequests,
+        toggleHidePR,
     } = usePullRequests(password, authState);
 
     const isLoading =
@@ -149,6 +150,7 @@ function App() {
             customQuery={customQuery}
             handleSearch={handleSearch}
             filteredPRs={filteredPRs}
+            toggleHidePR={toggleHidePR}
         />
     );
 }
