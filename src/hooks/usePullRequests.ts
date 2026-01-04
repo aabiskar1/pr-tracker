@@ -7,6 +7,7 @@ import { AuthState } from './useAuth';
 const DEFAULT_FILTERS: FilterState = {
     showDrafts: true,
     showReady: true,
+    showHidden: false,
     ageFilter: 'all',
     reviewStatus: ['approved', 'changes-requested', 'pending'],
     ciStatus: ['passing', 'failing', 'pending'],
@@ -162,6 +163,8 @@ export function usePullRequests(password: string, authState: AuthState) {
     const applyFiltersAndSort = useCallback(
         (filters: FilterState, prs: PullRequest[], sort: SortOption) => {
             let filtered = prs.filter((pr) => {
+                if (!filters.showHidden && pr.hidden) return false;
+
                 if (pr.draft && !filters.showDrafts) return false;
                 if (!pr.draft && !filters.showReady) return false;
                 if (filters.ageFilter !== 'all') {
@@ -398,6 +401,43 @@ export function usePullRequests(password: string, authState: AuthState) {
         }
     };
 
+    const toggleHidePR = async (id: number) => {
+        // Optimistic update
+        const updatedPRs = pullRequests.map((pr) =>
+            pr.id === id ? { ...pr, hidden: !pr.hidden } : pr
+        );
+        setPullRequests(updatedPRs);
+
+        if (password && authState === 'authenticated') {
+            try {
+                const appData = await decryptAppData<AppData>(password);
+                if (appData) {
+                    // Update in main list
+                    if (appData.pullRequests) {
+                        appData.pullRequests = appData.pullRequests.map((pr) =>
+                            pr.id === id ? { ...pr, hidden: !pr.hidden } : pr
+                        );
+                    }
+                    // Update in oldPullRequests (crucial for persistence across checks)
+                    if (appData.oldPullRequests) {
+                        appData.oldPullRequests = appData.oldPullRequests.map(
+                            (pr) =>
+                                pr.id === id
+                                    ? { ...pr, hidden: !pr.hidden }
+                                    : pr
+                        );
+                    }
+                    await encryptAppData(appData, password);
+                }
+            } catch (error) {
+                console.error(
+                    'Failed to update hidden status in storage:',
+                    error
+                );
+            }
+        }
+    };
+
     const refreshPullRequests = async () => {
         setIsLoading(true);
         await browser.runtime.sendMessage({
@@ -432,5 +472,6 @@ export function usePullRequests(password: string, authState: AuthState) {
         handleResetCustomQuery,
         handleToggleNotifications,
         refreshPullRequests,
+        toggleHidePR,
     };
 }

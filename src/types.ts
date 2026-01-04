@@ -44,6 +44,7 @@ export type PullRequest = {
         login: string;
         avatar_url: string;
     };
+    hidden?: boolean;
 };
 
 export type AppPreferences = {
@@ -63,6 +64,7 @@ export type AppData = {
 export type FilterState = {
     showDrafts: boolean;
     showReady: boolean;
+    showHidden: boolean;
     ageFilter: 'all' | 'today' | 'week' | 'older';
     reviewStatus: ('approved' | 'changes-requested' | 'pending')[];
     ciStatus: ('passing' | 'failing' | 'pending')[];

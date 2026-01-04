@@ -261,6 +261,17 @@ export async function checkPullRequests(
             (pr: PullRequest) => !oldPrIds.has(pr.id)
         );
 
+        // Merge hidden status from old PRs
+        const hiddenPrIds = new Set(
+            oldPrs.filter((pr) => pr.hidden).map((pr) => pr.id)
+        );
+
+        uniquePRs.forEach((pr) => {
+            if (hiddenPrIds.has(pr.id)) {
+                pr.hidden = true;
+            }
+        });
+
         // Determine whether to notify on first run if enabled
         let notifyOnFirstRun = false;
         if (oldPrs.length === 0 && newPrs.length === uniquePRs.length) {
