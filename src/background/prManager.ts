@@ -3,6 +3,7 @@ import {
     decryptToken,
     decryptAppData,
     encryptAppData,
+    decryptHiddenPrIds,
 } from '../services/secureStorage';
 import { PullRequest, AppData, AppPreferences } from '../types';
 import { fetchPullRequests, handleApiError } from './api';
@@ -64,8 +65,11 @@ export async function checkPullRequests(
         if (!state.sessionPassword) {
             const data = (await browser.storage.session.get([
                 'sessionPassword',
-            ])) as Record<string, any>;
-            if (data.sessionPassword) {
+            ])) as Record<string, unknown>;
+            if (
+                data.sessionPassword &&
+                typeof data.sessionPassword === 'string'
+            ) {
                 state.sessionPassword = data.sessionPassword;
             } else {
                 console.log(
@@ -244,12 +248,16 @@ export async function checkPullRequests(
 
         // Handle notifications - check for new PRs
         let oldPrs: PullRequest[] = [];
+        let currentStoredPrs: PullRequest[] = [];
         try {
             const encryptedData = await decryptAppData<AppData>(
                 state.sessionPassword
             );
             if (encryptedData && encryptedData.oldPullRequests) {
                 oldPrs = encryptedData.oldPullRequests;
+            }
+            if (encryptedData && encryptedData.pullRequests) {
+                currentStoredPrs = encryptedData.pullRequests;
             }
         } catch (error) {
             console.log('Failed to get old PRs from encrypted storage:', error);
@@ -261,10 +269,19 @@ export async function checkPullRequests(
             (pr: PullRequest) => !oldPrIds.has(pr.id)
         );
 
-        // Merge hidden status from old PRs
-        const hiddenPrIds = new Set(
-            oldPrs.filter((pr) => pr.hidden).map((pr) => pr.id)
-        );
+        // Merge hidden status from decoupled storage (source of truth)
+        let hiddenPrIds = new Set<number>();
+        try {
+            const ids = await decryptHiddenPrIds(state.sessionPassword);
+            if (ids && ids.length > 0) {
+                hiddenPrIds = new Set(ids);
+            }
+        } catch (error) {
+            console.error(
+                'Failed to load hidden PR IDs from secure storage:',
+                error
+            );
+        }
 
         uniquePRs.forEach((pr) => {
             if (hiddenPrIds.has(pr.id)) {

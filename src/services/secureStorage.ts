@@ -4,6 +4,7 @@ import {
     TestVectorSchema,
     EncryptedDataSchema,
     EncryptedTokenSchema,
+    EncryptedHiddenIdsSchema,
 } from './storageSchemas';
 
 /**
@@ -153,6 +154,90 @@ export const validatePassword = async (password: string): Promise<boolean> => {
     } catch {
         // Decryption failure means wrong password
         return false;
+    }
+};
+
+// Encrypt and store hidden PR IDs
+export const encryptHiddenPrIds = async (
+    ids: number[],
+    password: string
+): Promise<void> => {
+    try {
+        const key = await getEncryptionKey(password);
+        const iv = generateIV();
+
+        // Serialize the data to JSON
+        const dataString = JSON.stringify(ids);
+        const encoder = new TextEncoder();
+        const dataBytes = encoder.encode(dataString);
+
+        // Encrypt
+        const encryptedData = await crypto.subtle.encrypt(
+            {
+                name: 'AES-GCM',
+                iv: iv as BufferSource,
+            },
+            key,
+            dataBytes
+        );
+
+        // Convert to arrays for storage
+        const encryptedArray = Array.from(new Uint8Array(encryptedData));
+        const ivArray = Array.from(iv);
+
+        // Store both encrypted data and IV
+        await browser.storage.local.set({
+            encryptedHiddenPrIds: encryptedArray,
+            hiddenPrIdsIv: ivArray,
+        });
+    } catch (error) {
+        console.error('Error encrypting hidden PR IDs:', error);
+        throw new Error('Failed to securely store hidden PR IDs');
+    }
+};
+
+// Decrypt and retrieve hidden PR IDs
+export const decryptHiddenPrIds = async (
+    password: string
+): Promise<number[]> => {
+    try {
+        const result = await browser.storage.local.get([
+            'encryptedHiddenPrIds',
+            'hiddenPrIdsIv',
+        ]);
+        const parsed = EncryptedHiddenIdsSchema.safeParse(result);
+        const encryptedArray = parsed.success
+            ? parsed.data.encryptedHiddenPrIds
+            : undefined;
+        const ivArray = parsed.success ? parsed.data.hiddenPrIdsIv : undefined;
+
+        if (!encryptedArray || !ivArray) {
+            return [];
+        }
+
+        const key = await getEncryptionKey(password);
+
+        // Convert back to Uint8Array
+        const encryptedData = new Uint8Array(encryptedArray);
+        const iv = new Uint8Array(ivArray);
+
+        // Decrypt
+        const decryptedData = await crypto.subtle.decrypt(
+            {
+                name: 'AES-GCM',
+                iv: iv as BufferSource,
+            },
+            key,
+            encryptedData
+        );
+
+        // Convert back to string and parse JSON
+        const decoder = new TextDecoder();
+        const dataString = decoder.decode(decryptedData);
+        return JSON.parse(dataString);
+    } catch (error) {
+        console.error('Error decrypting hidden PR IDs:', error);
+        return [];
     }
 };
 

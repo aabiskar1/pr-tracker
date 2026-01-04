@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, afterAll } from 'vitest';
-import { Page } from 'puppeteer';
+import { Page, ElementHandle } from 'puppeteer';
 import {
     getExtensionId,
     openExtensionPopup,
@@ -698,9 +698,20 @@ describe('PR Tracker Extension', () => {
             expect(prsAfterHide.length).toBe(initialCount - 1);
             console.log('✅ PR hidden and removed from list');
 
+            // 3b. Verify persistence after reloading popup (verifies storage was updated)
+            console.log('Testing persistence on popup reload...');
+            await popupPage.reload();
+            await waitForElement(popupPage, '.space-y-3', 10000);
+
+            // Re-fetch elements after reload
+            const prsAfterReload = await popupPage.$$('li');
+            // If persistence works, the count should still be 1 less (hidden)
+            // Note: This relies on the background script NOT wiping data with a failed fetch in the meantime.
+            expect(prsAfterReload.length).toBe(initialCount - 1);
+            console.log('✅ Hidden PR persisted after popup reload');
+
             // 4. Enable "Show Hidden" filter
-            // Find the checkbox with label "Hidden"
-            // We can look for the input inside the label with text "Hidden"
+            // Re-acquire element after reload
             const hiddenFilterLabel = await popupPage.evaluateHandle(() => {
                 const labels = Array.from(document.querySelectorAll('label'));
                 return labels.find((l) => l.textContent?.includes('Hidden'));
@@ -708,7 +719,9 @@ describe('PR Tracker Extension', () => {
 
             if (hiddenFilterLabel) {
                 // Click the label or input to toggle
-                await (hiddenFilterLabel as any).click();
+                await (
+                    hiddenFilterLabel as unknown as ElementHandle<Element>
+                ).click();
                 await delay(1000);
 
                 // 5. Verify PR reappears
@@ -731,7 +744,9 @@ describe('PR Tracker Extension', () => {
                     await delay(1000);
 
                     // 8. Disable "Show Hidden" filter
-                    await (hiddenFilterLabel as any).click();
+                    await (
+                        hiddenFilterLabel as unknown as ElementHandle<Element>
+                    ).click();
                     await delay(1000);
 
                     // 9. Verify PR remains visible

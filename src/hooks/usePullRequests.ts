@@ -1,7 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import browser from 'webextension-polyfill';
 import { FilterState, SortOption, PullRequest, AppData } from '../types';
-import { decryptAppData, encryptAppData } from '../services/secureStorage';
+import {
+    decryptAppData,
+    encryptAppData,
+    encryptHiddenPrIds,
+    decryptHiddenPrIds,
+} from '../services/secureStorage';
 import { AuthState } from './useAuth';
 
 const DEFAULT_FILTERS: FilterState = {
@@ -37,7 +42,24 @@ export function usePullRequests(password: string, authState: AuthState) {
                 const appData = await decryptAppData<AppData>(password);
                 if (appData && appData.pullRequests) {
                     console.log('Loaded pull requests from encrypted storage');
-                    setPullRequests(appData.pullRequests as PullRequest[]);
+
+                    // Load hidden IDs to ensuring UI matches source of truth
+                    let hiddenIds: number[] = [];
+                    try {
+                        hiddenIds = await decryptHiddenPrIds(password);
+                    } catch (e) {
+                        console.error('Failed to load hidden IDs', e);
+                    }
+                    const hiddenSet = new Set(hiddenIds);
+
+                    const mergedPRs = (
+                        appData.pullRequests as PullRequest[]
+                    ).map((pr) => ({
+                        ...pr,
+                        hidden: hiddenSet.has(pr.id),
+                    }));
+
+                    setPullRequests(mergedPRs);
 
                     // Load preferences
                     if (appData.preferences) {
@@ -70,7 +92,9 @@ export function usePullRequests(password: string, authState: AuthState) {
         }
     }, [password, authState]);
 
-    loadPullRequestsRef.current = loadPullRequests;
+    useEffect(() => {
+        loadPullRequestsRef.current = loadPullRequests;
+    }, [loadPullRequests]);
 
     // Listen for messages from background script
     useEffect(() => {
@@ -402,7 +426,7 @@ export function usePullRequests(password: string, authState: AuthState) {
     };
 
     const toggleHidePR = async (id: number) => {
-        // Optimistic update
+        // Optimistic update locally
         const updatedPRs = pullRequests.map((pr) =>
             pr.id === id ? { ...pr, hidden: !pr.hidden } : pr
         );
@@ -410,15 +434,28 @@ export function usePullRequests(password: string, authState: AuthState) {
 
         if (password && authState === 'authenticated') {
             try {
+                // Get current hidden IDs from secure storage (source of truth)
+                const currentHiddenIds = await decryptHiddenPrIds(password);
+                const hiddenSet = new Set(currentHiddenIds);
+
+                // Toggle the ID
+                if (hiddenSet.has(id)) {
+                    hiddenSet.delete(id);
+                } else {
+                    hiddenSet.add(id);
+                }
+
+                // Save back to secure storage
+                await encryptHiddenPrIds(Array.from(hiddenSet), password);
+
+                // Also update the main blob for backup/consistency, though prManager prefers the separate key now
                 const appData = await decryptAppData<AppData>(password);
                 if (appData) {
-                    // Update in main list
                     if (appData.pullRequests) {
                         appData.pullRequests = appData.pullRequests.map((pr) =>
                             pr.id === id ? { ...pr, hidden: !pr.hidden } : pr
                         );
                     }
-                    // Update in oldPullRequests (crucial for persistence across checks)
                     if (appData.oldPullRequests) {
                         appData.oldPullRequests = appData.oldPullRequests.map(
                             (pr) =>

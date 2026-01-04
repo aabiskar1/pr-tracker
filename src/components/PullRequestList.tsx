@@ -9,24 +9,8 @@ import {
     FaEyeSlash,
     FaEye,
 } from 'react-icons/fa';
+import { PullRequest } from '../types';
 import { getAgeColor } from '../utils/dateUtils';
-import { ReviewStatus, CIStatus } from './FilterBar';
-
-type PullRequest = {
-    id: number;
-    title: string;
-    html_url: string;
-    repository: {
-        name: string;
-    };
-    state: string;
-    draft: boolean;
-    created_at: string;
-    requested_reviewers: { login: string; avatar_url: string }[];
-    review_status?: ReviewStatus;
-    ci_status?: CIStatus;
-    author?: { login: string; avatar_url: string };
-};
 
 type PullRequestListProps = {
     pullRequests: PullRequest[];
