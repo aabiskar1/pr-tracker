@@ -674,4 +674,86 @@ describe('PR Tracker Extension', () => {
             `✅ Test data injection successful: ${testData.testPRs.length} PRs, ${testData.testUsers.length} users`
         );
     });
+    it('hide and unhide functionality works', async () => {
+        await ensureAuthenticatedWithTestData();
+        await waitForElement(popupPage, '.space-y-3', 10000);
+
+        // 1. Get initial PR count
+        const initialPRs = await popupPage.$$('li');
+        const initialCount = initialPRs.length;
+        expect(initialCount).toBeGreaterThan(0);
+
+        // 2. Hide the first PR
+        // Find the hide button of the first PR
+        // The button title helps identify it: "Hide PR"
+        const firstHideBtn = await popupPage.$('button[title="Hide PR"]');
+        expect(firstHideBtn).toBeDefined();
+
+        if (firstHideBtn) {
+            await firstHideBtn.click();
+            await delay(1000); // Wait for optimistic update and re-render
+
+            // 3. Verify PR is removed from list
+            const prsAfterHide = await popupPage.$$('li');
+            expect(prsAfterHide.length).toBe(initialCount - 1);
+            console.log('✅ PR hidden and removed from list');
+
+            // 4. Enable "Show Hidden" filter
+            // Find the checkbox with label "Hidden"
+            // We can look for the input inside the label with text "Hidden"
+            const hiddenFilterLabel = await popupPage.evaluateHandle(() => {
+                const labels = Array.from(document.querySelectorAll('label'));
+                return labels.find((l) => l.textContent?.includes('Hidden'));
+            });
+
+            if (hiddenFilterLabel) {
+                // Click the label or input to toggle
+                await (hiddenFilterLabel as any).click();
+                await delay(1000);
+
+                // 5. Verify PR reappears
+                const prsAfterShowHidden = await popupPage.$$('li');
+                expect(prsAfterShowHidden.length).toBe(initialCount);
+                console.log('✅ Hidden PR reappeared after enabling filter');
+
+                // 6. Verify icon status (should be "Unhide PR" / Eye Slash)
+                // Wait for the unhide button
+                const unhideBtn = await waitForElement(
+                    popupPage,
+                    'button[title="Unhide PR"]'
+                );
+                expect(unhideBtn).toBeDefined();
+                console.log('✅ Unhide button found');
+
+                if (unhideBtn) {
+                    // 7. Unhide the PR
+                    await unhideBtn.click();
+                    await delay(1000);
+
+                    // 8. Disable "Show Hidden" filter
+                    await (hiddenFilterLabel as any).click();
+                    await delay(1000);
+
+                    // 9. Verify PR remains visible
+                    const finalPRs = await popupPage.$$('li');
+                    expect(finalPRs.length).toBe(initialCount);
+                    console.log(
+                        '✅ PR remains visible after unhiding and disabling filter'
+                    );
+                }
+            } else {
+                console.log('❌ Could not find Hidden filter label');
+                throw new Error('Hidden filter label not found');
+            }
+        } else {
+            console.log('❌ No hide button found');
+            // If this fails, maybe all PRs are already hidden or selector is wrong
+            const buttons = await popupPage.$$('button');
+            for (const b of buttons) {
+                const title = await b.evaluate((el) => el.title);
+                if (title) console.log(`Button title: ${title}`);
+            }
+            throw new Error('Hide button not found');
+        }
+    });
 });
