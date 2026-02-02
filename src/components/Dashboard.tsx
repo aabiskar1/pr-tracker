@@ -1,5 +1,5 @@
 import React from 'react';
-import { FaSync, FaSignOutAlt, FaSearch } from 'react-icons/fa';
+import { FaSync, FaSignOutAlt, FaSearch, FaCoffee } from 'react-icons/fa';
 import { FilterBar, FilterState, SortOption } from './FilterBar';
 import { PullRequestList } from './PullRequestList';
 import ThemeSwitcher from './ThemeSwitcher';
@@ -90,6 +90,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     Pull Requests
                 </h2>
                 <div className="flex flex-wrap items-center gap-2 sm:gap-3 justify-end">
+                    <a
+                        href="https://buymeacoffee.com/aabiskar1"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center text-gray-500 dark:text-gray-400 hover:text-yellow-600 dark:hover:text-yellow-500 transition-colors p-1"
+                        aria-label="Buy me a coffee"
+                        title="Buy me a coffee"
+                    >
+                        <FaCoffee size={20} />
+                    </a>
                     <ThemeSwitcher
                         theme={theme}
                         onThemeChange={handleThemeChange}
