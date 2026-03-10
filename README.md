@@ -1,7 +1,15 @@
 # PR Tracker - GitHub Pull Request Management Extension
 
 <p align="center">
-  <img src="./screenshots/light-theme.jpg" alt="PR Tracker Light Theme Screenshot" width="600" />
+  <img src="./screenshots/posters/intro.jpeg" alt="PR Tracker Intro Poster" width="800" />
+</p>
+
+<p align="center">
+  <img src="./screenshots/posters/secure-setup.png" alt="PR Tracker secure setup poster" width="800" />
+</p>
+
+<p align="center">
+  <img src="./screenshots/posters/themes.png" alt="PR Tracker themes poster" width="800" />
 </p>
 
 Chrome webstore link: [PR Tracker for Chrome](https://chromewebstore.google.com/detail/pr-tracker/kfeglmkcicfmegclihokchplngcokgil)
