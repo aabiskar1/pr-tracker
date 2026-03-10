@@ -1,7 +1,7 @@
 # PR Tracker - GitHub Pull Request Management Extension
 
 <p align="center">
-  <img src="./screenshots/posters/intro.png" alt="PR Tracker Intro Poster" width="600" />
+  <img src="./screenshots/posters/intro.jpeg" alt="PR Tracker Intro Poster" width="600" />
 </p>
 
 <p align="center">
