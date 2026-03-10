@@ -5,6 +5,10 @@
 </p>
 
 <p align="center">
+  <img src="./screenshots/posters/secure-setup.png" alt="PR Tracker secure setup poster" width="800" />
+</p>
+
+<p align="center">
   <img src="./screenshots/posters/themes.png" alt="PR Tracker themes poster" width="800" />
 </p>
 
