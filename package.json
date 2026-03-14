@@ -52,7 +52,7 @@
         "husky": "^9.1.7",
         "lint-staged": "^16.2.7",
         "prettier": "^3.7.4",
-        "puppeteer": "^24.34.0",
+        "puppeteer": "^24.39.1",
         "sort-package-json": "^3.6.0",
         "tailwindcss": "^4.1.18",
         "typescript": "^5.9.3",
