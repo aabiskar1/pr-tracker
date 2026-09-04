@@ -3,7 +3,7 @@ import {
     getStoredTheme,
     setStoredTheme as setStoredThemeService,
     applyTheme,
-    ThemePreference,
+    type ThemePreference,
 } from '../services/themeManager';
 
 export function useTheme() {

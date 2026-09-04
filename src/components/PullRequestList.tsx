@@ -1,4 +1,4 @@
-import { FC } from 'react';
+import type { FC } from 'react';
 import {
     FaClock,
     FaCheck,
@@ -9,7 +9,7 @@ import {
     FaEyeSlash,
     FaEye,
 } from 'react-icons/fa';
-import { PullRequest } from '../types';
+import type { PullRequest } from '../types';
 import { getAgeColor } from '../utils/dateUtils';
 
 type PullRequestListProps = {

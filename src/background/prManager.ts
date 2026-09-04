@@ -5,7 +5,7 @@ import {
     encryptAppData,
     decryptHiddenPrIds,
 } from '../services/secureStorage';
-import { PullRequest, AppData, AppPreferences } from '../types';
+import type { PullRequest, AppData, AppPreferences } from '../types';
 import { fetchPullRequests, handleApiError } from './api';
 import { createNotification, setBadgeText } from './notifications';
 import { state, constants } from './state';
@@ -248,16 +248,12 @@ export async function checkPullRequests(
 
         // Handle notifications - check for new PRs
         let oldPrs: PullRequest[] = [];
-        let currentStoredPrs: PullRequest[] = [];
         try {
             const encryptedData = await decryptAppData<AppData>(
                 state.sessionPassword
             );
             if (encryptedData && encryptedData.oldPullRequests) {
                 oldPrs = encryptedData.oldPullRequests;
-            }
-            if (encryptedData && encryptedData.pullRequests) {
-                currentStoredPrs = encryptedData.pullRequests;
             }
         } catch (error) {
             console.log('Failed to get old PRs from encrypted storage:', error);

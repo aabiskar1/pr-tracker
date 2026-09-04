@@ -106,7 +106,7 @@ rl.question('\n📝 Paste the Authorization Code here: ', (code) => {
                         '\n⚠️ No refresh_token returned. Did you revoke access first?'
                     );
                 }
-            } catch (e) {
+            } catch {
                 console.error('❌ Failed to parse response:', data);
             }
         });

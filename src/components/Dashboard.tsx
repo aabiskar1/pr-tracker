@@ -1,9 +1,9 @@
 import React from 'react';
 import { FaSync, FaSignOutAlt, FaSearch, FaCoffee } from 'react-icons/fa';
-import { FilterBar, FilterState, SortOption } from './FilterBar';
+import { FilterBar, type FilterState, type SortOption } from './FilterBar';
 import { PullRequestList } from './PullRequestList';
 import ThemeSwitcher from './ThemeSwitcher';
-import { PullRequest, ThemePreference } from '../types';
+import type { PullRequest, ThemePreference } from '../types';
 
 interface DashboardProps {
     globalError: string;

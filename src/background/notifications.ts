@@ -1,7 +1,7 @@
 import browser from 'webextension-polyfill';
 import { decryptAppData } from '../services/secureStorage';
 import { state, constants } from './state';
-import { AppData } from '../types';
+import type { AppData } from '../types';
 
 const notificationThrottle = new Map<string, number>();
 
