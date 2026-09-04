@@ -40,7 +40,7 @@ describe('Background Alarms', () => {
         setupAlarms();
 
         // Get the registered listener
-        const listener = (browser.alarms.onAlarm.addListener as any).mock
+        const listener = vi.mocked(browser.alarms.onAlarm.addListener).mock
             .calls[0][0];
 
         // Simulate alarm

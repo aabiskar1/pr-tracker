@@ -23,9 +23,9 @@ const config = {
 
 // --- Helpers ---
 
-const jwtSign = (payload: any, secret: string) => {
+const jwtSign = (payload: Record<string, unknown>, secret: string) => {
     const header = { alg: 'HS256', typ: 'JWT' };
-    const encodeBase64 = (json: any) =>
+    const encodeBase64 = (json: unknown) =>
         Buffer.from(JSON.stringify(json)).toString('base64url');
     const signatureInput = `${encodeBase64(header)}.${encodeBase64(payload)}`;
     const signature = createHmac('sha256', secret)
@@ -37,8 +37,8 @@ const jwtSign = (payload: any, secret: string) => {
 const httpsRequest = (
     url: string,
     options: https.RequestOptions,
-    body?: any
-): Promise<any> => {
+    body?: string | Record<string, unknown>
+): Promise<{ statusCode?: number; body: unknown }> => {
     return new Promise((resolve, reject) => {
         const req = https.request(url, options, (res) => {
             let data = '';
@@ -47,7 +47,7 @@ const httpsRequest = (
                 try {
                     const json = JSON.parse(data);
                     resolve({ statusCode: res.statusCode, body: json });
-                } catch (e) {
+                } catch {
                     resolve({ statusCode: res.statusCode, body: data });
                 }
             });

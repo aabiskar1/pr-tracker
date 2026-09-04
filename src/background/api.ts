@@ -1,5 +1,5 @@
 import browser from 'webextension-polyfill';
-import {
+import type {
     GitHubIssueSearchItem,
     GitHubReview,
     GitHubChecksResponse,

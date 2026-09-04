@@ -1,13 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import browser from 'webextension-polyfill';
-import { FilterState, SortOption, PullRequest, AppData } from '../types';
+import type { FilterState, SortOption, PullRequest, AppData } from '../types';
 import {
     decryptAppData,
     encryptAppData,
     encryptHiddenPrIds,
     decryptHiddenPrIds,
 } from '../services/secureStorage';
-import { AuthState } from './useAuth';
+import type { AuthState } from './useAuth';
 
 const DEFAULT_FILTERS: FilterState = {
     showDrafts: true,

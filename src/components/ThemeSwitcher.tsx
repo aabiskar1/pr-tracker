@@ -1,5 +1,5 @@
 import React from 'react';
-import { ThemePreference } from '../services/themeManager';
+import type { ThemePreference } from '../services/themeManager';
 
 interface ThemeSwitcherProps {
     theme: ThemePreference;
