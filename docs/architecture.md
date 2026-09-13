@@ -1,0 +1,190 @@
+# Current architecture
+
+This document records the architecture that exists today. It is a baseline for
+future work, not a proposal to redesign the extension.
+
+## System overview
+
+PR Tracker is a client-only WXT browser extension. A React popup provides the
+user interface, and a background context polls GitHub, persists encrypted data,
+updates the toolbar badge, and creates desktop notifications. All durable state
+is held in browser extension storage; GitHub is the only remote application
+service used at runtime. There is no PR Tracker backend.
+
+WXT produces a Chrome Manifest V3 build and a Firefox Manifest V2 build from the
+same source. `wxt.config.ts` declares storage, notifications, and alarms
+permissions plus access to `https://api.github.com/*`.
+
+## Extension entrypoints
+
+`entrypoints/popup/main.tsx` is a thin popup bootstrap: it loads popup styling
+and mounts `src/App.tsx` under React `StrictMode`.
+
+`entrypoints/background.ts` registers the WXT background context. It currently
+does more than bootstrap wiring: it restores remembered-password state,
+registers install and runtime-message listeners, creates alarms, updates the
+initial badge colour, and handles authentication/session and first-run
+notification messages.
+
+Desired direction: keep both entrypoints focused on lifecycle and message
+wiring. Move reusable decisions into typed, independently testable modules when
+a scoped change justifies doing so. This is not a mandate to refactor the
+background entrypoint opportunistically.
+
+## Popup and UI layer
+
+`src/App.tsx` selects the loading, token login, password setup, password entry,
+or authenticated dashboard screen. It composes three stateful hooks:
+
+- `useAuth` determines authentication state, validates the GitHub token and its
+  `repo` scope, coordinates encryption setup, and exchanges runtime messages
+  with the background context.
+- `usePullRequests` reads encrypted PR data and preferences, listens for runtime
+  messages and storage changes, filters and sorts PRs, persists settings, hides
+  or unhides PRs, and requests refreshes.
+- `useTheme` loads, applies, and persists the light/dark/automatic theme.
+
+Components under `src/components/` render the authentication screens,
+dashboard controls, filters, empty state, and PR cards. PR links open GitHub in
+a new tab. `src/utils/dateUtils.ts` supplies age colouring, while relative-time
+formatting currently remains inside `PullRequestList.tsx`.
+
+Current boundary note: filtering, sorting, search, preference persistence, and
+browser messaging are combined in `usePullRequests`. Token validation also
+fetches GitHub directly from `useAuth`. Pure domain decisions should gradually
+move to framework-independent functions when those areas are changed, but this
+document does not prescribe an unscoped rewrite.
+
+## Background and service-worker layer
+
+The background context is split across `entrypoints/background.ts` and
+`src/background/`:
+
+- `alarms.ts` registers handlers for five-minute PR checks and the 12-hour
+  remembered-password expiry, and creates the periodic alarm.
+- `prManager.ts` coordinates refresh throttling, token decryption, current-user
+  lookup, PR fetching, badge updates, encrypted persistence, popup update/error
+  messages, hidden-PR restoration, and new-PR notification decisions.
+- `api.ts` queries GitHub and maps results into the shared `PullRequest` model.
+  It also classifies HTTP errors and currently sends UI messages through a
+  notification callback and `browser.runtime`.
+- `notifications.ts` reads the encrypted notification preference, throttles
+  repeated notifications in memory, creates browser notifications, and handles
+  the Chrome/Firefox badge API difference.
+- `state.ts` holds process-local session password and refresh/notification
+  throttle state plus timing constants.
+
+The background process may be stopped and recreated by the browser. Session
+password state is therefore restored from `browser.storage.session` when the
+background context starts. In-memory refresh and notification throttle values
+do not survive a background restart.
+
+## GitHub API and data access
+
+The extension authenticates with a user-supplied GitHub token. The popup first
+calls `GET /user` to validate the token and checks the `x-oauth-scopes` response
+header for `repo`. Background refreshes call `/user` again, then either:
+
+- run separate GitHub issue searches for open PRs authored by the user and open
+  PRs requesting that user's review; or
+- run the saved custom issue-search query.
+
+For every result, `api.ts` fetches full PR details, reviews, and check runs. If
+there are no check runs, it falls back to the combined commit status. It reduces
+the responses to the shared `PullRequest` shape, derives review and CI states,
+and deduplicates by GitHub PR ID.
+
+Current boundary note: transport, response interpretation, transformation,
+error notification, and browser messaging are not fully separated. Preserve
+the behaviour, but prefer pure transformation/error-classification functions
+and injectable transport or side-effect boundaries in future scoped work.
+
+## Storage and settings
+
+`src/services/secureStorage.ts` is the main browser-storage boundary. It uses
+the Web Crypto API with password-derived AES-GCM keys. `browser.storage.local`
+contains the encrypted GitHub token, encryption metadata/test vector, encrypted
+application data, and separately encrypted hidden PR IDs. The application data
+contains current and previous PR snapshots plus preferences such as filters,
+sort order, custom query, and notification enablement.
+
+The user's encryption password is not persistently stored. When the user opts
+to remember it, the password and flag are held in `browser.storage.session` and
+cleared by a 12-hour alarm. The theme and the first-run notification flag are
+plain local preferences. `storageSchemas.ts` uses Zod to validate selected
+stored values before use.
+
+Current boundary note: UI hooks call secure-storage functions directly and
+perform read-modify-write preference updates. Keep storage access consolidated
+in services and avoid spreading raw storage keys or browser calls further.
+
+## Alarms, polling, and notifications
+
+Installation creates a periodic alarm, and setting a password creates it again.
+The five-minute alarm checks PRs only when a session password is available or
+can be restored. Automatic and manual refreshes have additional in-memory
+throttles in `prManager.ts`.
+
+After a successful fetch, the manager updates the badge, stores the current PR
+snapshot, compares it with `oldPullRequests`, and optionally notifies for new
+PRs. First-run notifications are off unless the separate local flag is enabled.
+New-PR notifications respect the encrypted notification preference. Error
+notifications can be forced for selected authentication/session failures.
+Duplicate delivery is limited by both manager state and an in-memory key/time
+map in `notifications.ts`; those guards reset when the background context is
+restarted.
+
+Desired direction: notification eligibility, snapshot comparison, first-run
+behaviour, preference handling, and duplicate prevention should be expressible
+as deterministic logic independent of the browser notification API.
+
+## Shared types and utilities
+
+`src/types.ts` defines GitHub response fragments, the normalized `PullRequest`,
+encrypted application data/preferences, filter state, sort options, and theme
+preferences. Some component-local filter type declarations duplicate these
+shared types today. Centralise domain definitions rather than adding further
+duplicates when touching that area.
+
+## High-level data flow
+
+1. The popup initializes and asks the background context whether a password is
+   remembered; otherwise it inspects encrypted local storage to select the
+   appropriate authentication screen.
+2. A new token is validated against GitHub and encrypted with the user's
+   password. The popup sends the password/remember choice to the background.
+3. A popup action or periodic alarm asks `prManager` to refresh.
+4. `prManager` decrypts the token, fetches and normalizes GitHub PR data, updates
+   the badge, encrypts the new snapshot, evaluates notifications, and sends a
+   `DATA_UPDATED` or `SHOW_ERROR` runtime message.
+5. `usePullRequests` also watches encrypted storage changes. It decrypts the
+   current data, merges separately stored hidden IDs, applies filters and sort
+   order, and renders the dashboard.
+6. Popup preference changes are written back to encrypted application data;
+   refresh and custom-query actions are sent to the background context.
+
+## Chrome and Firefox portability
+
+- Continue using WXT and `webextension-polyfill` rather than introducing raw,
+  browser-specific access without a compatibility reason.
+- The current Chrome build is Manifest V3 and uses `browser.action`; Firefox is
+  built as Manifest V2 and may require `browser.browserAction`. Badge setup and
+  updates already implement this fallback.
+- Do not assume a persistent background process. Design state restoration and
+  event handling for service-worker lifecycle interruptions.
+- Validate changes in both `npm run build` and `npm run build:firefox`.
+- Current Puppeteer E2E coverage runs only against the built Chrome extension;
+  a successful Firefox build is not equivalent to Firefox runtime coverage.
+
+## Boundaries to preserve
+
+- Keep the product client-only unless an approved task changes that constraint.
+- Keep GitHub transport/data-access concerns out of presentation components.
+- Keep encryption and storage details behind service boundaries.
+- Keep popup/background communication explicit and avoid hidden cross-context
+  state assumptions.
+- Keep shared transformations, filtering, comparisons, and notification
+  decisions suitable for unit testing.
+- Preserve Chrome and Firefox support together.
+- Improve imperfect boundaries incrementally and only within the scope of an
+  approved change.
