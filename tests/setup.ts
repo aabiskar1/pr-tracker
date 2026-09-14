@@ -25,8 +25,13 @@ beforeAll(async () => {
 
     browser = await puppeteer.launch(puppeteerConfig.launch);
 
-    // Wait for extension to load
-    await new Promise((resolve) => setTimeout(resolve, 3000));
+    // Wait for the packaged extension's background context to become observable.
+    await browser.waitForTarget(
+        (target) =>
+            target.type() === 'service_worker' &&
+            target.url().startsWith('chrome-extension://'),
+        { timeout: 10000 }
+    );
 
     // Get extension ID
     extensionId = await getExtensionIdFromBrowser();
@@ -87,7 +92,12 @@ const getExtensionIdFromBrowser = async (): Promise<string> => {
             }
         });
 
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        await extensionsPage.waitForFunction(() => {
+            const manager = document.querySelector('extensions-manager');
+            return Boolean(
+                manager?.shadowRoot?.querySelector('extensions-item-list')
+            );
+        });
 
         const id = await extensionsPage.evaluate(() => {
             const manager = document.querySelector('extensions-manager');
