@@ -6,7 +6,7 @@ feature exists or a test has a broad name.
 
 ## Current tooling and layout
 
-Vitest `^4.1.11` is the test runner. `vitest.config.ts` uses a Node environment,
+Vitest `5.0.0` is the test runner. `vitest.config.ts` uses a Node environment,
 loads `tests/setup.ts`, and discovers test files through the script filters in
 `package.json`.
 

@@ -125,7 +125,7 @@ describe('preference persistence journeys', () => {
             {},
             initialCount
         );
-        expect(await page.$('[aria-label="Unhide PR"]')).not.toBeNull();
+        await page.waitForSelector('[aria-label="Unhide PR"]');
         await page.click('[aria-label="Unhide PR"]');
         await page.click('[aria-label="Show Hidden"]');
         await waitForText(page, 'li', 'Add new authentication flow');
