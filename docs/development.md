@@ -6,8 +6,6 @@
 - npm, using the committed `package-lock.json`.
 - Chrome or Chromium for local development and Puppeteer E2E tests.
 - Firefox when manually validating the Firefox build.
-- A GitHub token with `repo` scope only for the current live-authentication E2E
-  suite. Keep it in the ignored `.env.test` file; never commit credentials.
 
 ## Install dependencies
 
@@ -74,20 +72,32 @@ npm run test:unit
 
 ## E2E tests
 
-Copy `.env.test.example` to `.env.test` and set `GITHUB_TOKEN` to a test token
-with `repo` scope. Do not commit `.env.test`. Then run:
+The required behavioural suite is deterministic and needs no GitHub token or
+public-network access. Run it in a visible Chrome window with:
 
 ```sh
 npm run test:e2e
 ```
 
-The script first runs the Chrome build and then executes `.e2e.test` files with
-Vitest. `tests/setup.ts` launches Puppeteer with `.output/chrome-mv3`. Local E2E
-runs open a visible browser; the CI-oriented command is:
+The script first builds Chrome and then executes the focused files under
+`tests/e2e/`. `tests/setup.ts` launches Puppeteer with `.output/chrome-mv3`.
+The CI-oriented headless command runs the same suite:
 
 ```sh
 npm run test:headless
 ```
+
+Optional promotional screenshot capture remains separate. It requires a
+`GITHUB_TOKEN` with `repo` scope in the ignored `.env.test` file and may make
+live GitHub requests:
+
+```sh
+npm run test:e2e:screenshots
+```
+
+Chrome MV3 is the only runtime E2E target. Firefox MV2 remains covered by the
+build command, not browser automation. See `docs/testing.md` for the service
+worker restart gap and deterministic harness details.
 
 Run unit and E2E tests together with:
 

@@ -7,48 +7,43 @@ feature exists or a test has a broad name.
 ## Current tooling and layout
 
 Vitest `^4.1.11` is the test runner. `vitest.config.ts` uses a Node environment,
-loads `tests/setup.ts`, and discovers `.unit.test` and `.e2e.test` files through
-the script filters in `package.json`.
+loads `tests/setup.ts`, and discovers test files through the script filters in
+`package.json`.
 
-- `tests/unit/alarms.unit.test.ts` is the only unit-test file. It mocks
-  `webextension-polyfill` and `prManager` and checks listener registration plus
-  a non-throwing periodic-alarm path.
-- `tests/extension.e2e.test.ts` drives the built Chrome extension popup through
-  Puppeteer. It covers the main authentication flow and a set of dashboard
-  interactions and visual assertions.
+- `tests/unit/` contains focused coverage for authentication, secure storage,
+  preferences, GitHub response mapping and errors, background sessions,
+  polling, alarms, and notifications.
+- `tests/e2e/` contains the required deterministic Chrome journeys, split into
+  authentication, popup states, preferences, refresh, and lifecycle suites.
+- `tests/e2e/harness.ts` seeds the real encrypted extension-storage format and
+  intercepts only GitHub API requests from the popup and MV3 service worker.
+- `tests/e2e/fixtures.ts` supplies fixed tokens, timestamps, users, reviewers,
+  repositories, statuses, and pull requests.
 - `tests/screenshot.e2e.test.ts` populates the extension and captures light and
-  dark screenshots. It is primarily artifact/visual support rather than a
-  comprehensive behavioural oracle.
+  dark screenshots. It remains an optional live-token visual-artifact command,
+  not a behavioural oracle or part of the required E2E suite.
 - `tests/setup.ts` launches Chrome with `.output/chrome-mv3`, discovers the
   extension ID, opens popup pages, and closes the shared browser.
-- `tests/test-data.ts` injects encrypted PR/application data in the extension
-  page for repeatable popup scenarios.
-- `tests/types.ts` validates that the E2E token environment variable is present;
-  `tests/utils.ts` supplies a delay helper.
 
-The E2E suite currently loads `GITHUB_TOKEN` from `.env.test` and performs live
-GitHub token/scope validation before injecting local test data. It therefore is
-not fully isolated from GitHub or suitable for every developer environment.
+`npm run test:e2e` and `npm run test:headless` require no GitHub credentials or
+public-network access. They exercise token validation with popup request
+interception and exercise refresh/error integration by intercepting the
+packaged service worker's `api.github.com` requests through the Chrome DevTools
+Protocol. No test-only production switch or runtime endpoint exists.
 
 ## Current coverage summary
 
-Unit coverage is minimal and focused on alarm listener setup. There are no
-focused unit tests for GitHub response mapping, HTTP error classification,
-filtering and sorting, secure storage, authentication decisions, polling,
-notification decisions, or duplicate prevention.
+The unit suite covers the underlying decisions and transformations. The smaller
+browser suite proves the packaged popup, background messaging, encryption,
+storage, and UI boundaries are connected. It covers login and password
+transitions, missing scope and invalid token errors, remembered sessions,
+loading/empty/populated/error states, notification/filter/sort/query/theme and
+hidden-state persistence, manual refresh persistence, sign-out/reset, popup
+close/reopen/reload, and critical link targets.
 
-The Chrome popup E2E suite meaningfully exercises authentication with a live
-token, populated rendering, some filtering/sorting/search/theme interactions,
-refresh, and hidden-PR persistence across a popup reload. Other assertions are
-broad, conditional, or inspect only the presence of generic elements. For
-example, the test named for the notification toggle selects the first checkbox,
-while the actual notification control is a button, so it does not establish
-targeted notification-preference coverage.
-
-The fixture data avoids live PR contents after authentication, but it currently
-uses `Date.now()` and `Math.random()` for ages and reviewer selection. Future
-test work should use a fixed clock and fixed reviewer assignments where exact
-ordering or output matters.
+Behavioural fixtures contain no `Math.random()`, uncontrolled fixture time,
+live GitHub data, or arbitrary test delays. Screenshot demo fixtures remain
+separate and may vary because they are not regression assertions.
 
 ## Unit versus E2E
 
@@ -97,53 +92,39 @@ that the UI, background context, storage, and browser APIs are connected.
 - Do not make tests depend on public repository activity, current PR contents,
   network timing, locale-specific clock output, or test execution order.
 
-## Initial coverage matrix
+## Legacy E2E assertion migration
 
-“Today” describes meaningful observable coverage, not just incidental execution.
+The former `tests/extension.e2e.test.ts` mixed state across one popup and used a
+live token. Its meaningful assertions map as follows:
 
-| Area                                  | Primary level | Meaningful coverage today | Baseline note                                                                                                                                                                       |
-| ------------------------------------- | ------------- | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Authentication/token validation       | Both          | Partial E2E               | The main E2E flow submits a live token and reaches the dashboard; invalid/revoked/network cases have no focused coverage.                                                           |
-| GitHub permission/scopes handling     | Both          | Partial E2E               | Successful `repo` scope is traversed by live authentication, but missing-scope behaviour is not asserted.                                                                           |
-| GitHub API error handling             | Unit          | No                        | `analyzeHttpError` and popup/notification propagation lack focused tests.                                                                                                           |
-| PR data transformation                | Unit          | No                        | Detail mapping, defaults, review/CI reduction, and deduplication are untested directly.                                                                                             |
-| PR filtering/review-request detection | Both          | Partial E2E               | A draft filter and rendered review states are exercised broadly; authored/review-request search construction and filter decision tables are not tested.                             |
-| Repository information                | Both          | Partial E2E               | Injected repository names are asserted in populated rendering; mapping and link correctness are not.                                                                                |
-| Background polling                    | Both          | No                        | The alarm unit test does not establish fetch, persistence, badge, or scheduling behaviour.                                                                                          |
-| Alarms                                | Both          | Minimal unit              | Listener registration and a non-throwing periodic path exist; creation, password restoration/expiry, and browser lifecycle behaviour do not.                                        |
-| Notification decisions                | Unit          | No                        | New-PR, first-run, error, and force-show decisions are untested.                                                                                                                    |
-| Notification preference handling      | Both          | No                        | A named E2E test targets a checkbox rather than the notification button; persistence and delivery suppression are not established.                                                  |
-| Duplicate-notification prevention     | Unit          | No                        | Snapshot comparison and both in-memory throttles have no focused coverage.                                                                                                          |
-| Settings/storage persistence          | Both          | Partial E2E               | Hidden PR state persists across popup reload; encrypted token/data, filters, sort, custom query, theme, and notification persistence lack focused coverage.                         |
-| Popup loading state                   | E2E           | No                        | Popup loading is traversed but the loading state and transition are not asserted.                                                                                                   |
-| Popup empty state                     | Both          | No                        | The `No pull requests found` rendering has no focused test.                                                                                                                         |
-| Popup populated state                 | E2E           | Yes                       | Injected PR titles, repositories, cards, avatars, and several status representations are exercised.                                                                                 |
-| Popup error handling                  | Both          | No                        | Login errors and `SHOW_ERROR` dashboard behaviour are not meaningfully asserted.                                                                                                    |
-| Links/actions                         | E2E           | Partial                   | Refresh and hide/unhide are exercised; PR/external link targets and sign-out/reset flows are not fully covered.                                                                     |
-| Extension startup/reload behaviour    | E2E           | Partial                   | Extension loading and popup reload with hidden-state persistence are covered; background restart, remembered-password restore/expiry, reinstall, and full extension reload are not. |
-| Chrome build                          | Build check   | Yes                       | `npm run build` is used by E2E and `build:all`; CI builds Chrome. This is build compatibility, not full runtime coverage.                                                           |
-| Firefox build                         | Build check   | Yes                       | CI runs `npm run build:all`, including Firefox. There is no Firefox browser E2E suite.                                                                                              |
+| Former coverage                                                                                  | Focused replacement                                                                            |
+| ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| Extension/popup loads and authentication succeeds                                                | `authentication.e2e.test.ts` initial and full setup journeys                                   |
+| Injected titles, repositories, authors, avatars, reviewer overflow, draft, review, and CI states | `popup-states.e2e.test.ts` populated-state journey                                             |
+| Draft filtering and title search                                                                 | `preferences.e2e.test.ts` persisted draft filter and `popup-states.e2e.test.ts` focused search |
+| Sorting, custom query, theme, and hidden PR persistence                                          | `preferences.e2e.test.ts`                                                                      |
+| Manual refresh                                                                                   | `refresh.e2e.test.ts`, including message-path requests and encrypted persistence               |
+| Popup reload                                                                                     | `preferences.e2e.test.ts` and `lifecycle.e2e.test.ts`                                          |
 
-## Critical E2E journeys to establish
+The former notification test clicked the first checkbox (the Drafts filter), so
+it was false coverage; the replacement targets the notification button by its
+specific accessible label and proves encrypted persistence after reload.
+Conditional theme/search/status checks, generic icon/element counts, the debug
+target test, and assertions about the injector's own object shape were removed
+because they could pass without proving the named user behaviour. Their useful
+intent is covered by direct state and user-visible assertions above.
 
-The following are the eventual critical journeys; add them incrementally in
-focused testing work rather than as incidental additions:
+## Browser scope and remaining gaps
 
-1. First install, valid token with required scope, password creation, encrypted
-   persistence, and populated dashboard.
-2. Invalid token, missing scope, expired/revoked token, rate limit, network
-   failure, and recovery.
-3. Remembered-password startup, background restart, 12-hour expiry, sign-out,
-   and reset.
-4. Empty, populated, loading, and error popup states.
-5. Manual and alarm-driven refresh through GitHub fixtures, encrypted storage,
-   badge update, and popup update.
-6. Notification opt-in/out, first-run policy, new-PR detection, duplicate
-   prevention, and browser notification delivery.
-7. Filter, sort, search, custom query, hide/unhide, theme, and preference
-   persistence after reload.
-8. PR and external actions opening the correct safe URL.
-9. Extension startup and core popup flow in both Chrome and Firefox.
+- Required runtime E2E runs packaged Chrome MV3 locally and in GitHub Actions.
+- Firefox MV2 is still build-verified, but the current Puppeteer harness does
+  not provide Firefox extension runtime E2E.
+- Popup close/reopen/reload and remembered-session restoration are covered.
+- Deliberately terminating/restarting the MV3 service worker is not covered;
+  doing so reliably with the current harness would require fragile Chrome
+  internals. Background restart/session restoration remains protected at unit
+  level.
+- Screenshot capture remains opt-in and live-token based. It is not run in CI.
 
 ## Regression workflow
 

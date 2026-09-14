@@ -16,7 +16,8 @@
         "prepare": "husky install",
         "test": "npm run test:unit",
         "test:all": "npm run test:unit && npm run test:e2e",
-        "test:e2e": "npm run build && vitest run --reporter=verbose .e2e.test",
+        "test:e2e": "npm run build && vitest run --reporter=verbose tests/e2e",
+        "test:e2e:screenshots": "npm run build && vitest run --reporter=verbose tests/screenshot.e2e.test.ts",
         "test:headless": "cross-env CI=true npm run test:e2e",
         "test:unit": "vitest run --reporter=verbose .unit.test",
         "zip": "wxt zip"
