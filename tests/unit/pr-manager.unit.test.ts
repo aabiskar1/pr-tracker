@@ -234,14 +234,12 @@ describe('background PR polling and notification decisions', () => {
 
         await checkPullRequests(true);
 
-        expect(storedData.pullRequests).toEqual([
-            expect.objectContaining({ id: 1, hidden: undefined }),
-            expect.objectContaining({ id: 2, hidden: undefined }),
-        ]);
-        expect(storedData.oldPullRequests).toEqual([
-            expect.objectContaining({ id: 1, hidden: undefined }),
-            expect.objectContaining({ id: 2, hidden: true }),
-        ]);
+        expect(storedData.pullRequests.map(({ id }) => id)).toEqual([1, 2]);
+        expect(storedData.pullRequests[0]).not.toHaveProperty('hidden');
+        expect(storedData.pullRequests[1]).not.toHaveProperty('hidden');
+        expect(storedData.oldPullRequests?.map(({ id }) => id)).toEqual([1, 2]);
+        expect(storedData.oldPullRequests?.[0]).not.toHaveProperty('hidden');
+        expect(storedData.oldPullRequests?.[1]).toHaveProperty('hidden', true);
     });
 
     it('uses the manager throttle to suppress repeated new-PR delivery', async () => {
