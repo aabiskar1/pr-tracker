@@ -294,6 +294,11 @@ export async function openSeededPopup(
     const expectedPrs = options.data?.pullRequests ?? POPULATED_PRS;
     if (expectedPrs.length > 0) {
         await waitForText(page, 'li', expectedPrs[0].title);
+        await page.waitForFunction(
+            (count) => document.querySelectorAll('li').length === count,
+            {},
+            expectedPrs.length
+        );
     }
     return page;
 }

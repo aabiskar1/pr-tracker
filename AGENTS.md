@@ -25,8 +25,9 @@ this guidance was written, the relevant declared versions are:
 | UI                  | React and React DOM `^19.2.3`                                            |
 | Language            | TypeScript `^5.9.3`                                                      |
 | Bundler             | Vite `^7.3.0`, used through WXT                                          |
+| Runtime             | Node.js 24 LTS                                                           |
 | Package manager     | npm with `package-lock.json`                                             |
-| Tests               | Vitest `^4.1.11`                                                         |
+| Tests               | Vitest `5.0.0`                                                           |
 | E2E                 | Puppeteer `^24.39.1`, `vitest-puppeteer` `^11.0.3`, and Vitest           |
 | Linting             | ESLint `^9.39.2` with TypeScript, React Hooks, and React Refresh plugins |
 | Formatting          | Prettier `^3.7.4` and `sort-package-json` `^3.6.0`                       |

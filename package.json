@@ -42,7 +42,7 @@
         "@types/react": "^19.2.7",
         "@types/react-dom": "^19.2.3",
         "@types/webextension-polyfill": "^0.12.4",
-        "@vitest/ui": "^4.0.16",
+        "@vitest/ui": "5.0.0",
         "@wxt-dev/module-react": "^1.2.2",
         "cross-env": "^10.1.0",
         "dotenv": "^17.2.3",
@@ -59,8 +59,12 @@
         "typescript": "^5.9.3",
         "typescript-eslint": "^8.50.1",
         "vite": "^7.3.0",
-        "vitest": "^4.1.11",
+        "vitest": "5.0.0",
         "vitest-puppeteer": "^11.0.3",
         "wxt": "^0.21.4"
+    },
+    "allowScripts": {
+        "puppeteer@24.43.1": true,
+        "esbuild@0.27.2": true
     }
 }

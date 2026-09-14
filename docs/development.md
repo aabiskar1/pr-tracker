@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Node.js 20. The GitHub Actions workflows and current README use Node 20.
+- Node.js 24 LTS. The GitHub Actions workflows use the Node 24 major release.
 - npm, using the committed `package-lock.json`.
 - Chrome or Chromium for local development and Puppeteer E2E tests.
 - Firefox when manually validating the Firefox build.
