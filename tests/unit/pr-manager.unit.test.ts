@@ -1,0 +1,380 @@
+import browser from 'webextension-polyfill';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { checkPullRequests } from '../../src/background/prManager';
+import { constants, state } from '../../src/background/state';
+import { fetchPullRequests, handleApiError } from '../../src/background/api';
+import {
+    createNotification,
+    setBadgeText,
+} from '../../src/background/notifications';
+import {
+    decryptAppData,
+    decryptHiddenPrIds,
+    decryptToken,
+    encryptAppData,
+} from '../../src/services/secureStorage';
+import type { AppData, PullRequest } from '../../src/types';
+
+vi.mock('webextension-polyfill', () => ({
+    default: {
+        runtime: {
+            sendMessage: vi.fn(async () => undefined),
+        },
+        storage: {
+            session: {
+                get: vi.fn(async () => ({})),
+            },
+            local: {
+                get: vi.fn(async () => ({})),
+            },
+        },
+    },
+}));
+
+vi.mock('../../src/services/secureStorage', () => ({
+    decryptToken: vi.fn(),
+    decryptAppData: vi.fn(),
+    encryptAppData: vi.fn(),
+    decryptHiddenPrIds: vi.fn(),
+}));
+
+vi.mock('../../src/background/api', () => ({
+    fetchPullRequests: vi.fn(),
+    handleApiError: vi.fn(async () => undefined),
+}));
+
+vi.mock('../../src/background/notifications', () => ({
+    createNotification: vi.fn(async () => undefined),
+    setBadgeText: vi.fn(async () => undefined),
+}));
+
+const PASSWORD = 'active-password';
+const TOKEN = 'sanitized-token';
+const FIXED_TIME = new Date('2030-06-07T08:09:10.000Z');
+
+const pullRequest = (id: number): PullRequest => ({
+    id,
+    title: `PR ${id}`,
+    html_url: `https://github.com/acme/repo/pull/${id}`,
+    repository: { name: 'repo' },
+    state: 'open',
+    draft: false,
+    created_at: '2030-06-01T00:00:00.000Z',
+    requested_reviewers: [],
+});
+
+const appData = (overrides: Partial<AppData> = {}): AppData => ({
+    pullRequests: [],
+    oldPullRequests: [],
+    lastUpdated: '2030-06-01T00:00:00.000Z',
+    preferences: { notificationsEnabled: true },
+    ...overrides,
+});
+
+const clone = <T>(value: T): T => structuredClone(value);
+
+describe('background PR polling and notification decisions', () => {
+    let storedData: AppData;
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        vi.useFakeTimers();
+        vi.setSystemTime(FIXED_TIME);
+        delete (globalThis as { _prTrackerLastManual?: number })
+            ._prTrackerLastManual;
+        state.sessionPassword = PASSWORD;
+        state.rememberPassword = false;
+        state.lastRefreshTime = 0;
+        state.isCheckingPRs = false;
+        state.lastNewPRNotificationTime = 0;
+        storedData = appData();
+        vi.mocked(decryptToken).mockResolvedValue(TOKEN);
+        vi.mocked(decryptAppData).mockImplementation(async () =>
+            clone(storedData)
+        );
+        vi.mocked(encryptAppData).mockImplementation(async (data) => {
+            storedData = clone(data as AppData);
+        });
+        vi.mocked(decryptHiddenPrIds).mockResolvedValue([]);
+        vi.mocked(fetchPullRequests).mockResolvedValue([]);
+        vi.mocked(browser.storage.session.get).mockResolvedValue({});
+        vi.mocked(browser.storage.local.get).mockResolvedValue({});
+        vi.mocked(browser.runtime.sendMessage).mockResolvedValue(undefined);
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(
+                async () =>
+                    new Response(JSON.stringify({ login: 'octo-user' }), {
+                        status: 200,
+                        headers: { 'Content-Type': 'application/json' },
+                    })
+            )
+        );
+        vi.spyOn(console, 'log').mockImplementation(() => undefined);
+        vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+        vi.unstubAllGlobals();
+        vi.restoreAllMocks();
+    });
+
+    it('fetches, badges, persists, publishes an update, and advances the comparison snapshot', async () => {
+        const prs = [pullRequest(1), pullRequest(2)];
+        storedData = appData({
+            oldPullRequests: [pullRequest(1)],
+            preferences: {
+                notificationsEnabled: true,
+                customQuery: 'is:pr org:acme',
+            },
+        });
+        vi.mocked(fetchPullRequests).mockResolvedValue(prs);
+
+        await checkPullRequests(true);
+
+        expect(fetch).toHaveBeenCalledWith('https://api.github.com/user', {
+            headers: {
+                Authorization: `token ${TOKEN}`,
+                Accept: 'application/vnd.github.v3+json',
+            },
+        });
+        expect(fetchPullRequests).toHaveBeenCalledWith(
+            TOKEN,
+            { login: 'octo-user' },
+            'is:pr org:acme',
+            createNotification
+        );
+        expect(setBadgeText).toHaveBeenCalledWith('2');
+        expect(browser.runtime.sendMessage).toHaveBeenCalledWith({
+            type: 'DATA_UPDATED',
+            timestamp: FIXED_TIME.getTime(),
+        });
+        expect(storedData).toEqual({
+            pullRequests: prs,
+            oldPullRequests: prs,
+            lastUpdated: FIXED_TIME.toISOString(),
+            preferences: {
+                notificationsEnabled: true,
+                customQuery: 'is:pr org:acme',
+            },
+        });
+        expect(encryptAppData).toHaveBeenCalledTimes(2);
+        expect(state.isCheckingPRs).toBe(false);
+    });
+
+    it('uses an explicit message query instead of the persisted custom query', async () => {
+        storedData = appData({
+            preferences: { customQuery: 'is:pr org:stored' },
+        });
+
+        await checkPullRequests(true, 'is:pr org:message');
+
+        expect(fetchPullRequests).toHaveBeenCalledWith(
+            TOKEN,
+            { login: 'octo-user' },
+            'is:pr org:message',
+            createNotification
+        );
+    });
+
+    it('notifies only for IDs absent from a non-empty previous snapshot', async () => {
+        storedData = appData({ oldPullRequests: [pullRequest(1)] });
+        vi.mocked(fetchPullRequests).mockResolvedValue([
+            pullRequest(1),
+            pullRequest(2),
+            pullRequest(3),
+        ]);
+
+        await checkPullRequests(true);
+
+        expect(createNotification).toHaveBeenCalledWith(undefined, {
+            type: 'basic',
+            iconUrl: constants.NOTIFICATION_ICON,
+            title: 'New Pull Requests',
+            message: 'You have 2 new pull requests!',
+        });
+        expect(state.lastNewPRNotificationTime).toBe(FIXED_TIME.getTime());
+    });
+
+    it('does not notify on first run by default', async () => {
+        vi.mocked(fetchPullRequests).mockResolvedValue([pullRequest(1)]);
+
+        await checkPullRequests(true);
+
+        expect(browser.storage.local.get).toHaveBeenCalledWith(
+            'prtracker-notify-on-first-run'
+        );
+        expect(createNotification).not.toHaveBeenCalled();
+    });
+
+    it('notifies on first run only when the separate local flag is true', async () => {
+        vi.mocked(fetchPullRequests).mockResolvedValue([pullRequest(1)]);
+        vi.mocked(browser.storage.local.get).mockResolvedValue({
+            'prtracker-notify-on-first-run': true,
+        });
+
+        await checkPullRequests(true);
+
+        expect(createNotification).toHaveBeenCalledWith(
+            undefined,
+            expect.objectContaining({
+                title: 'New Pull Requests',
+                message: 'You have 1 new pull request!',
+            })
+        );
+    });
+
+    it('applies separately stored hidden IDs to the advanced old snapshot', async () => {
+        const visible = pullRequest(1);
+        const hidden = pullRequest(2);
+        storedData = appData({ oldPullRequests: [visible] });
+        vi.mocked(fetchPullRequests).mockResolvedValue([visible, hidden]);
+        vi.mocked(decryptHiddenPrIds).mockResolvedValue([2]);
+
+        await checkPullRequests(true);
+
+        expect(storedData.pullRequests).toEqual([
+            expect.objectContaining({ id: 1, hidden: undefined }),
+            expect.objectContaining({ id: 2, hidden: undefined }),
+        ]);
+        expect(storedData.oldPullRequests).toEqual([
+            expect.objectContaining({ id: 1, hidden: undefined }),
+            expect.objectContaining({ id: 2, hidden: true }),
+        ]);
+    });
+
+    it('uses the manager throttle to suppress repeated new-PR delivery', async () => {
+        storedData = appData({ oldPullRequests: [pullRequest(1)] });
+        vi.mocked(fetchPullRequests).mockResolvedValue([
+            pullRequest(1),
+            pullRequest(2),
+        ]);
+
+        await checkPullRequests(true);
+        storedData.oldPullRequests = [pullRequest(1)];
+        vi.advanceTimersByTime(5000);
+        await checkPullRequests(true);
+
+        expect(createNotification).toHaveBeenCalledTimes(1);
+        expect(encryptAppData).toHaveBeenCalledTimes(3);
+    });
+
+    it('skips overlapping automatic checks but permits a manual check', async () => {
+        state.isCheckingPRs = true;
+
+        await checkPullRequests();
+        expect(decryptToken).not.toHaveBeenCalled();
+
+        await checkPullRequests(true);
+        expect(decryptToken).toHaveBeenCalledOnce();
+        expect(state.isCheckingPRs).toBe(false);
+    });
+
+    it('enforces automatic and manual refresh throttles with a frozen clock', async () => {
+        await checkPullRequests();
+        expect(fetchPullRequests).toHaveBeenCalledTimes(1);
+
+        vi.advanceTimersByTime(10_000);
+        await checkPullRequests();
+        expect(fetchPullRequests).toHaveBeenCalledTimes(1);
+
+        vi.advanceTimersByTime(constants.REFRESH_INTERVAL - 10_000);
+        await checkPullRequests();
+        expect(fetchPullRequests).toHaveBeenCalledTimes(2);
+
+        await checkPullRequests(true);
+        await checkPullRequests(true);
+        expect(fetchPullRequests).toHaveBeenCalledTimes(3);
+        vi.advanceTimersByTime(4000);
+        await checkPullRequests(true);
+        expect(fetchPullRequests).toHaveBeenCalledTimes(4);
+    });
+
+    it('restores a session password before polling', async () => {
+        state.sessionPassword = null;
+        vi.mocked(browser.storage.session.get).mockResolvedValue({
+            sessionPassword: 'restored-password',
+        });
+
+        await checkPullRequests(true);
+
+        expect(state.sessionPassword).toBe('restored-password');
+        expect(decryptToken).toHaveBeenCalledWith('restored-password');
+    });
+
+    it('force-shows and publishes a missing-session error', async () => {
+        state.sessionPassword = null;
+
+        await checkPullRequests(true);
+
+        const message =
+            'Session expired or password missing. Please sign in again.';
+        expect(createNotification).toHaveBeenCalledWith(
+            undefined,
+            {
+                type: 'basic',
+                iconUrl: constants.NOTIFICATION_ICON,
+                title: 'PR Tracker Error',
+                message,
+            },
+            true
+        );
+        expect(browser.runtime.sendMessage).toHaveBeenCalledWith({
+            type: 'SHOW_ERROR',
+            message,
+        });
+        expect(decryptToken).not.toHaveBeenCalled();
+        expect(state.isCheckingPRs).toBe(false);
+    });
+
+    it('returns silently when the encrypted token cannot be decrypted', async () => {
+        vi.mocked(decryptToken).mockResolvedValue(null);
+
+        await checkPullRequests(true);
+
+        expect(fetch).not.toHaveBeenCalled();
+        expect(createNotification).not.toHaveBeenCalled();
+        expect(browser.runtime.sendMessage).not.toHaveBeenCalled();
+    });
+
+    it('delegates a failed user lookup to API error handling and stops', async () => {
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async () => new Response('Unauthorized', { status: 401 }))
+        );
+
+        await checkPullRequests(true);
+
+        expect(handleApiError).toHaveBeenCalledWith(
+            expect.objectContaining({ status: 401 }),
+            createNotification,
+            'User info fetch'
+        );
+        expect(fetchPullRequests).not.toHaveBeenCalled();
+    });
+
+    it('reports unexpected polling failures to the notification and popup paths', async () => {
+        vi.mocked(fetchPullRequests).mockRejectedValue(
+            new Error('GitHub unavailable')
+        );
+
+        await checkPullRequests(true);
+
+        expect(createNotification).toHaveBeenCalledWith(
+            undefined,
+            {
+                type: 'basic',
+                iconUrl: constants.NOTIFICATION_ICON,
+                title: 'PR Tracker Error',
+                message: 'GitHub unavailable',
+            },
+            false
+        );
+        expect(browser.runtime.sendMessage).toHaveBeenCalledWith({
+            type: 'SHOW_ERROR',
+            message: 'GitHub unavailable',
+        });
+        expect(state.isCheckingPRs).toBe(false);
+    });
+});
