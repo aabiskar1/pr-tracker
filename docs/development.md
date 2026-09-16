@@ -40,9 +40,8 @@ npm run compile
 
 This runs TypeScript with `--noEmit`.
 
-TypeScript 6 is the supported compiler. Oxlint is independent of the
-`typescript-eslint` compatibility range; a direct TypeScript 7 upgrade remains
-deferred to a dedicated toolchain change with full verification.
+TypeScript 7 is the supported compiler. Oxlint remains the sole lint path and
+does not depend on the TypeScript programmatic API.
 
 ## Format and lint
 
