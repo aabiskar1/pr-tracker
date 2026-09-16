@@ -52,7 +52,7 @@
         "puppeteer": "^25.11.0",
         "sort-package-json": "^3.6.0",
         "tailwindcss": "^4.1.18",
-        "typescript": "^6.0.3",
+        "typescript": "^7.0.2",
         "vite": "^7.3.0",
         "vitest": "5.0.0",
         "vitest-puppeteer": "^11.0.3",
