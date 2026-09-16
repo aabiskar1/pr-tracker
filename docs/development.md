@@ -7,6 +7,8 @@
 - Chrome or Chromium for local development and Puppeteer E2E tests.
 - Firefox when manually validating the Firefox build.
 
+The committed `mise.toml` selects Node 24 for developers who use mise.
+
 ## Install dependencies
 
 For a clean, lockfile-reproducible install, run:
@@ -37,6 +39,10 @@ npm run compile
 ```
 
 This runs TypeScript with `--noEmit`.
+
+TypeScript 6 is the supported compiler. TypeScript 7 is intentionally deferred
+until `typescript-eslint` officially supports it and compile, lint, tests, and
+both browser builds remain green without parallel compilers.
 
 ## Format and lint
 
