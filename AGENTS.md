@@ -23,7 +23,7 @@ this guidance was written, the relevant declared versions are:
 | ------------------- | ------------------------------------------------------------------------ |
 | Extension framework | WXT `^0.21.4` with `@wxt-dev/module-react` `^1.2.2`                      |
 | UI                  | React and React DOM `^19.2.3`                                            |
-| Language            | TypeScript `^5.9.3`                                                      |
+| Language            | TypeScript `^6.0.3`                                                      |
 | Bundler             | Vite `^7.3.0`, used through WXT                                          |
 | Runtime             | Node.js 24 LTS                                                           |
 | Package manager     | npm with `package-lock.json`                                             |
