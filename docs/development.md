@@ -40,9 +40,9 @@ npm run compile
 
 This runs TypeScript with `--noEmit`.
 
-TypeScript 6 is the supported compiler. TypeScript 7 is intentionally deferred
-until `typescript-eslint` officially supports it and compile, lint, tests, and
-both browser builds remain green without parallel compilers.
+TypeScript 6 is the supported compiler. Oxlint is independent of the
+`typescript-eslint` compatibility range; a direct TypeScript 7 upgrade remains
+deferred to a dedicated toolchain change with full verification.
 
 ## Format and lint
 
@@ -59,7 +59,7 @@ npm run format
 ```
 
 The format script also sorts `package.json` and `tsconfig*.json`. Review its diff
-and do not commit unrelated rewrites. Run ESLint with:
+and do not commit unrelated rewrites. Run Oxlint with:
 
 ```sh
 npm run lint

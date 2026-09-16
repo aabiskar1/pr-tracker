@@ -19,19 +19,19 @@ requires an architectural change and that change has been approved.
 The checked-in `package.json` and lockfile are the source of truth. At the time
 this guidance was written, the relevant declared versions are:
 
-| Area                | Current package or configuration                                         |
-| ------------------- | ------------------------------------------------------------------------ |
-| Extension framework | WXT `^0.21.4` with `@wxt-dev/module-react` `^1.2.2`                      |
-| UI                  | React and React DOM `^19.2.3`                                            |
-| Language            | TypeScript `^6.0.3`                                                      |
-| Bundler             | Vite `^7.3.0`, used through WXT                                          |
-| Runtime             | Node.js 24 LTS                                                           |
-| Package manager     | npm with `package-lock.json`                                             |
-| Tests               | Vitest `5.0.0`                                                           |
-| E2E                 | Puppeteer `^24.39.1`, `vitest-puppeteer` `^11.0.3`, and Vitest           |
-| Linting             | ESLint `^9.39.2` with TypeScript, React Hooks, and React Refresh plugins |
-| Formatting          | Prettier `^3.7.4` and `sort-package-json` `^3.6.0`                       |
-| Git hooks           | Husky `^9.1.7` and lint-staged `^16.2.7`                                 |
+| Area                | Current package or configuration                               |
+| ------------------- | -------------------------------------------------------------- |
+| Extension framework | WXT `^0.21.4` with `@wxt-dev/module-react` `^1.2.2`            |
+| UI                  | React and React DOM `^19.2.3`                                  |
+| Language            | TypeScript `^6.0.3`                                            |
+| Bundler             | Vite `^7.3.0`, used through WXT                                |
+| Runtime             | Node.js 24 LTS                                                 |
+| Package manager     | npm with `package-lock.json`                                   |
+| Tests               | Vitest `5.0.0`                                                 |
+| E2E                 | Puppeteer `^24.39.1`, `vitest-puppeteer` `^11.0.3`, and Vitest |
+| Linting             | Oxlint `^1.83.0` with native TypeScript and React rules        |
+| Formatting          | Prettier `^3.7.4` and `sort-package-json` `^3.6.0`             |
+| Git hooks           | Husky `^9.1.7` and lint-staged `^16.2.7`                       |
 
 Do not upgrade any of these as part of an unrelated change.
 
