@@ -28,7 +28,7 @@ this guidance was written, the relevant declared versions are:
 | Runtime             | Node.js 24 LTS                                                 |
 | Package manager     | npm with `package-lock.json`                                   |
 | Tests               | Vitest `5.0.0`                                                 |
-| E2E                 | Puppeteer `^24.39.1`, `vitest-puppeteer` `^11.0.3`, and Vitest |
+| E2E                 | Puppeteer `^25.11.0`, `vitest-puppeteer` `^11.0.3`, and Vitest |
 | Linting             | Oxlint `^1.83.0` with native TypeScript and React rules        |
 | Formatting          | Prettier `^3.7.4` and `sort-package-json` `^3.6.0`             |
 | Git hooks           | Husky `^9.1.7` and lint-staged `^16.2.7`                       |
