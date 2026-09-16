@@ -53,7 +53,7 @@
         "husky": "^9.1.7",
         "lint-staged": "^16.2.7",
         "prettier": "^3.7.4",
-        "puppeteer": "^24.39.1",
+        "puppeteer": "^25.11.0",
         "sort-package-json": "^3.6.0",
         "tailwindcss": "^4.1.18",
         "typescript": "^6.0.3",
@@ -64,7 +64,7 @@
         "wxt": "^0.21.4"
     },
     "allowScripts": {
-        "puppeteer@24.43.1": true,
+        "puppeteer@25.11.0": true,
         "esbuild@0.27.2": true
     }
 }
