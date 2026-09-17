@@ -76,6 +76,15 @@ const successfulFetch = (pullRequests: PullRequest[]) => ({
     status: 'success' as const,
     pullRequests,
 });
+const deferred = <T>() => {
+    let resolve!: (value: T) => void;
+    let reject!: (reason?: unknown) => void;
+    const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+        resolve = resolvePromise;
+        reject = rejectPromise;
+    });
+    return { promise, resolve, reject };
+};
 
 describe('background PR polling and notification decisions', () => {
     let storedData: AppData;
@@ -310,14 +319,95 @@ describe('background PR polling and notification decisions', () => {
         expect(encryptAppData).toHaveBeenCalledTimes(3);
     });
 
-    it('skips overlapping automatic checks but permits a manual check', async () => {
-        state.isCheckingPRs = true;
+    it.each([
+        {
+            label: 'manual caller during an automatic refresh',
+            firstIsManual: false,
+            secondIsManual: true,
+        },
+        {
+            label: 'automatic caller during a manual refresh',
+            firstIsManual: true,
+            secondIsManual: false,
+        },
+        {
+            label: 'second manual caller during a manual refresh',
+            firstIsManual: true,
+            secondIsManual: true,
+        },
+        {
+            label: 'second automatic caller during an automatic refresh',
+            firstIsManual: false,
+            secondIsManual: false,
+        },
+    ])('reuses the active operation for $label', async (scenario) => {
+        const fetchResult = deferred<ReturnType<typeof successfulFetch>>();
+        vi.mocked(fetchPullRequests).mockReturnValue(fetchResult.promise);
 
-        await checkPullRequests();
-        expect(decryptToken).not.toHaveBeenCalled();
+        const firstRefresh = checkPullRequests(scenario.firstIsManual);
+        await vi.waitFor(() => {
+            expect(fetchPullRequests).toHaveBeenCalledOnce();
+        });
 
+        const secondRefresh = checkPullRequests(scenario.secondIsManual);
+
+        expect(secondRefresh).toBe(firstRefresh);
+        expect(fetchPullRequests).toHaveBeenCalledOnce();
+        expect(state.isCheckingPRs).toBe(true);
+
+        fetchResult.resolve(successfulFetch([pullRequest(1)]));
+        await expect(
+            Promise.all([firstRefresh, secondRefresh])
+        ).resolves.toEqual([undefined, undefined]);
+        expect(state.isCheckingPRs).toBe(false);
+    });
+
+    it('starts a later refresh after successful in-flight cleanup', async () => {
+        const firstFetch = deferred<ReturnType<typeof successfulFetch>>();
+        vi.mocked(fetchPullRequests).mockReturnValueOnce(firstFetch.promise);
+
+        const firstRefresh = checkPullRequests(true);
+        await vi.waitFor(() => {
+            expect(fetchPullRequests).toHaveBeenCalledOnce();
+        });
+        firstFetch.resolve(successfulFetch([pullRequest(1)]));
+        await firstRefresh;
+
+        vi.advanceTimersByTime(4000);
+        vi.mocked(fetchPullRequests).mockResolvedValueOnce(
+            successfulFetch([pullRequest(2)])
+        );
         await checkPullRequests(true);
-        expect(decryptToken).toHaveBeenCalledOnce();
+
+        expect(fetchPullRequests).toHaveBeenCalledTimes(2);
+        expect(state.isCheckingPRs).toBe(false);
+    });
+
+    it('shares a failed operation and permits a later refresh', async () => {
+        const firstFetch = deferred<ReturnType<typeof successfulFetch>>();
+        vi.mocked(fetchPullRequests).mockReturnValueOnce(firstFetch.promise);
+
+        const firstRefresh = checkPullRequests(true);
+        await vi.waitFor(() => {
+            expect(fetchPullRequests).toHaveBeenCalledOnce();
+        });
+        const secondRefresh = checkPullRequests();
+        expect(secondRefresh).toBe(firstRefresh);
+
+        firstFetch.reject(new Error('GitHub unavailable'));
+        await expect(
+            Promise.all([firstRefresh, secondRefresh])
+        ).resolves.toEqual([undefined, undefined]);
+        expect(createNotification).toHaveBeenCalledTimes(1);
+        expect(state.isCheckingPRs).toBe(false);
+
+        vi.advanceTimersByTime(4000);
+        vi.mocked(fetchPullRequests).mockResolvedValueOnce(
+            successfulFetch([pullRequest(2)])
+        );
+        await checkPullRequests(true);
+
+        expect(fetchPullRequests).toHaveBeenCalledTimes(2);
         expect(state.isCheckingPRs).toBe(false);
     });
 
