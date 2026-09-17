@@ -33,6 +33,7 @@ function App() {
 
     const {
         filteredPRs,
+        searchTerm,
         isLoading: isPRLoading,
         filterState,
         sortOption,
@@ -149,6 +150,7 @@ function App() {
             isCustomQueryActive={isCustomQueryActive}
             customQuery={customQuery}
             handleSearch={handleSearch}
+            searchTerm={searchTerm}
             filteredPRs={filteredPRs}
             toggleHidePR={toggleHidePR}
         />

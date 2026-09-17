@@ -26,6 +26,7 @@ interface DashboardProps {
     handleResetCustomQuery: () => void;
     isCustomQueryActive: boolean;
     customQuery: string;
+    searchTerm: string;
     handleSearch: (e: React.ChangeEvent<HTMLInputElement>) => void;
     filteredPRs: PullRequest[];
     toggleHidePR: (id: number) => void;
@@ -52,6 +53,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     handleResetCustomQuery,
     isCustomQueryActive,
     customQuery,
+    searchTerm,
     handleSearch,
     filteredPRs,
     toggleHidePR,
@@ -175,6 +177,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     type="text"
                     placeholder="Search pull requests"
                     className="w-full pl-10 pr-3 h-10 leading-none border rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    value={searchTerm}
                     onChange={handleSearch}
                     aria-label="Search Pull Requests"
                     name="search-pull-requests"

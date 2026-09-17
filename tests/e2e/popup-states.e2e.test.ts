@@ -9,9 +9,10 @@ import {
     resetManualRefreshThrottle,
     waitForDashboard,
     waitForText,
+    writeAppData,
     type GitHubMock,
 } from './harness.js';
-import { appData, POPULATED_PRS } from './fixtures.js';
+import { appData, POPULATED_PRS, TEST_PASSWORD } from './fixtures.js';
 
 describe('popup state journeys', () => {
     let github: GitHubMock;
@@ -102,9 +103,13 @@ describe('popup state journeys', () => {
         expect(await page.$$('li img')).not.toHaveLength(0);
     });
 
-    it('filters by search text with a feature-specific result', async () => {
+    it('keeps search active after a background refresh and DATA_UPDATED reload', async () => {
         const page = await openSeededPopup(github);
         pages.push(page);
+        await resetManualRefreshThrottle();
+        const refreshedPrs = POPULATED_PRS.map((pr, index) =>
+            index === 0 ? { ...pr, title: 'Refreshed authentication flow' } : pr
+        );
 
         await page.type(
             '[aria-label="Search Pull Requests"]',
@@ -115,6 +120,95 @@ describe('popup state journeys', () => {
         );
         await waitForText(page, 'li', 'Add new authentication flow');
         expect(await page.$$('li')).toHaveLength(1);
+
+        github.setScenario({ pullRequests: refreshedPrs });
+        github.resetRequests();
+        await page.evaluate(
+            (password) =>
+                chrome.runtime.sendMessage({
+                    type: 'CHECK_PRS',
+                    password,
+                    manual: true,
+                }),
+            TEST_PASSWORD
+        );
+        await expect
+            .poll(() => github.requests)
+            .toContain('https://api.github.com/user');
+        await waitForText(page, 'li', 'Refreshed authentication flow');
+
+        expect(
+            await page.$eval(
+                '[aria-label="Search Pull Requests"]',
+                (input) => (input as HTMLInputElement).value
+            )
+        ).toBe('authentication');
+        expect(await page.$$('li')).toHaveLength(1);
+        await page.close();
+        pages.pop();
+    });
+
+    it('keeps search active after encrypted app-data changes', async () => {
+        const page = await openSeededPopup(github);
+        pages.push(page);
+        const updatedPrs = POPULATED_PRS.map((pr, index) =>
+            index === 0 ? { ...pr, title: 'Updated authentication flow' } : pr
+        );
+
+        await page.type(
+            '[aria-label="Search Pull Requests"]',
+            'authentication'
+        );
+        await page.waitForFunction(
+            () => document.querySelectorAll('li').length === 1
+        );
+
+        await writeAppData(page, appData(updatedPrs));
+        await waitForText(page, 'li', 'Updated authentication flow');
+
+        expect(
+            await page.$eval(
+                '[aria-label="Search Pull Requests"]',
+                (input) => (input as HTMLInputElement).value
+            )
+        ).toBe('authentication');
+        expect(await page.$$('li')).toHaveLength(1);
+        await page.close();
+        pages.pop();
+    });
+
+    it('combines active search with sort and filter changes', async () => {
+        const page = await openSeededPopup(github);
+        pages.push(page);
+
+        await page.type('[aria-label="Search Pull Requests"]', 'add');
+        await page.waitForFunction(
+            () => document.querySelectorAll('li').length === 2
+        );
+
+        await page.select('[aria-label="Sort pull requests"]', 'oldest');
+        await page.waitForFunction(
+            () =>
+                document.querySelectorAll('li').length !== 2 ||
+                document
+                    .querySelector('li h3')
+                    ?.textContent?.includes('dark mode') === true
+        );
+        expect(await page.$$('li')).toHaveLength(2);
+
+        await page.click('[aria-label="Show Drafts"]');
+        await page.waitForFunction(
+            () => document.querySelectorAll('li').length === 1
+        );
+        await waitForText(page, 'li', 'Add new authentication flow');
+        expect(
+            await page.$eval(
+                '[aria-label="Search Pull Requests"]',
+                (input) => (input as HTMLInputElement).value
+            )
+        ).toBe('add');
+        await page.close();
+        pages.pop();
     });
 
     it('shows a controlled background API error in the dashboard', async () => {
