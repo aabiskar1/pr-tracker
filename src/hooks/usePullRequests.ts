@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import browser from 'webextension-polyfill';
-import type { FilterState, SortOption, PullRequest, AppData } from '../types';
-import {
-    decryptAppData,
-    encryptAppData,
-    encryptHiddenPrIds,
-    decryptHiddenPrIds,
-} from '../services/secureStorage';
+import type {
+    FilterState,
+    SortOption,
+    PullRequest,
+    AppData,
+    AppDataMutation,
+} from '../types';
+import { decryptAppData, decryptHiddenPrIds } from '../services/secureStorage';
 import type { AuthState } from './useAuth';
 
 const DEFAULT_FILTERS: FilterState = {
@@ -34,6 +35,16 @@ export function usePullRequests(password: string, authState: AuthState) {
     const [globalError, setGlobalError] = useState<string>('');
 
     const loadPullRequestsRef = useRef<(() => Promise<void>) | null>(null);
+
+    const persistAppDataMutation = async (mutation: AppDataMutation) => {
+        const updated = await browser.runtime.sendMessage({
+            type: 'UPDATE_APP_DATA',
+            mutation,
+        });
+        if (updated !== true) {
+            throw new Error('Background rejected app-data update');
+        }
+    };
 
     const loadPullRequests = useCallback(async () => {
         console.log('Loading pull requests from storage...');
@@ -273,12 +284,10 @@ export function usePullRequests(password: string, authState: AuthState) {
         setFilterState(filters);
         if (password && authState === 'authenticated') {
             try {
-                const appData = await decryptAppData<AppData>(password);
-                if (appData) {
-                    appData.preferences = appData.preferences || {};
-                    appData.preferences.filters = filters;
-                    await encryptAppData(appData, password);
-                }
+                await persistAppDataMutation({
+                    kind: 'set-filters',
+                    filters,
+                });
             } catch (error) {
                 console.error(
                     'Failed to update filters in encrypted storage:',
@@ -292,12 +301,7 @@ export function usePullRequests(password: string, authState: AuthState) {
         setSortOption(sort);
         if (password && authState === 'authenticated') {
             try {
-                const appData = await decryptAppData<AppData>(password);
-                if (appData) {
-                    appData.preferences = appData.preferences || {};
-                    appData.preferences.sort = sort;
-                    await encryptAppData(appData, password);
-                }
+                await persistAppDataMutation({ kind: 'set-sort', sort });
             } catch (error) {
                 console.error(
                     'Failed to update sort in encrypted storage:',
@@ -311,12 +315,10 @@ export function usePullRequests(password: string, authState: AuthState) {
         setFilterState(DEFAULT_FILTERS);
         if (password && authState === 'authenticated') {
             try {
-                const appData = await decryptAppData<AppData>(password);
-                if (appData) {
-                    appData.preferences = appData.preferences || {};
-                    appData.preferences.filters = DEFAULT_FILTERS;
-                    await encryptAppData(appData, password);
-                }
+                await persistAppDataMutation({
+                    kind: 'set-filters',
+                    filters: DEFAULT_FILTERS,
+                });
             } catch (error) {
                 console.error(
                     'Failed to update filters in encrypted storage:',
@@ -336,12 +338,10 @@ export function usePullRequests(password: string, authState: AuthState) {
 
         if (password && authState === 'authenticated') {
             try {
-                const appData = await decryptAppData<AppData>(password);
-                if (appData) {
-                    appData.preferences = appData.preferences || {};
-                    appData.preferences.customQuery = customQueryInput;
-                    await encryptAppData(appData, password);
-                }
+                await persistAppDataMutation({
+                    kind: 'set-custom-query',
+                    customQuery: customQueryInput,
+                });
             } catch (error) {
                 console.error(
                     'Failed to update custom query in encrypted storage:',
@@ -370,12 +370,10 @@ export function usePullRequests(password: string, authState: AuthState) {
 
         if (password && authState === 'authenticated') {
             try {
-                const appData = await decryptAppData<AppData>(password);
-                if (appData) {
-                    appData.preferences = appData.preferences || {};
-                    delete appData.preferences.customQuery;
-                    await encryptAppData(appData, password);
-                }
+                await persistAppDataMutation({
+                    kind: 'set-custom-query',
+                    customQuery: null,
+                });
             } catch (error) {
                 console.error(
                     'Failed to clear custom query in encrypted storage:',
@@ -403,22 +401,10 @@ export function usePullRequests(password: string, authState: AuthState) {
 
         if (password && authState === 'authenticated') {
             try {
-                const appData = await decryptAppData<AppData>(password);
-                if (appData) {
-                    appData.preferences = appData.preferences || {};
-                    appData.preferences.notificationsEnabled = newValue;
-                    await encryptAppData(appData, password);
-                } else {
-                    await encryptAppData(
-                        {
-                            pullRequests: [],
-                            lastUpdated: new Date().toISOString(),
-                            preferences: { notificationsEnabled: newValue },
-                            oldPullRequests: [],
-                        },
-                        password
-                    );
-                }
+                await persistAppDataMutation({
+                    kind: 'set-notifications-enabled',
+                    enabled: newValue,
+                });
             } catch (error) {
                 console.error(
                     'Failed to update notifications setting in encrypted storage:',
@@ -437,38 +423,13 @@ export function usePullRequests(password: string, authState: AuthState) {
 
         if (password && authState === 'authenticated') {
             try {
-                // Get current hidden IDs from secure storage (source of truth)
-                const currentHiddenIds = await decryptHiddenPrIds(password);
-                const hiddenSet = new Set(currentHiddenIds);
-
-                // Toggle the ID
-                if (hiddenSet.has(id)) {
-                    hiddenSet.delete(id);
-                } else {
-                    hiddenSet.add(id);
-                }
-
-                // Save back to secure storage
-                await encryptHiddenPrIds(Array.from(hiddenSet), password);
-
-                // Also update the main blob for backup/consistency, though prManager prefers the separate key now
-                const appData = await decryptAppData<AppData>(password);
-                if (appData) {
-                    if (appData.pullRequests) {
-                        appData.pullRequests = appData.pullRequests.map((pr) =>
-                            pr.id === id ? { ...pr, hidden: !pr.hidden } : pr
-                        );
-                    }
-                    if (appData.oldPullRequests) {
-                        appData.oldPullRequests = appData.oldPullRequests.map(
-                            (pr) =>
-                                pr.id === id
-                                    ? { ...pr, hidden: !pr.hidden }
-                                    : pr
-                        );
-                    }
-                    await encryptAppData(appData, password);
-                }
+                const hidden =
+                    updatedPRs.find((pr) => pr.id === id)?.hidden === true;
+                await persistAppDataMutation({
+                    kind: 'set-hidden',
+                    id,
+                    hidden,
+                });
             } catch (error) {
                 console.error(
                     'Failed to update hidden status in storage:',
