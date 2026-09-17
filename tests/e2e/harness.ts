@@ -361,6 +361,49 @@ export async function readAppData(page: Page): Promise<AppData> {
     }, TEST_PASSWORD);
 }
 
+export async function writeAppData(page: Page, data: AppData): Promise<void> {
+    await page.evaluate(
+        async ({ dataToStore, password }) => {
+            const stored = await chrome.storage.local.get('prtracker_salt');
+            const extension = await chrome.management.getSelf();
+            const material = await crypto.subtle.importKey(
+                'raw',
+                new TextEncoder().encode(`${extension.id}:${password}`),
+                { name: 'PBKDF2' },
+                false,
+                ['deriveKey']
+            );
+            const key = await crypto.subtle.deriveKey(
+                {
+                    name: 'PBKDF2',
+                    salt: new Uint8Array(stored.prtracker_salt),
+                    iterations: 100000,
+                    hash: 'SHA-256',
+                },
+                material,
+                { name: 'AES-GCM', length: 256 },
+                false,
+                ['encrypt']
+            );
+            const iv = crypto.getRandomValues(new Uint8Array(12));
+            const plaintext = new TextEncoder().encode(
+                JSON.stringify(dataToStore)
+            );
+            const encrypted = await crypto.subtle.encrypt(
+                { name: 'AES-GCM', iv },
+                key,
+                plaintext
+            );
+
+            await chrome.storage.local.set({
+                encryptedAppData: Array.from(new Uint8Array(encrypted)),
+                appDataIv: Array.from(iv),
+            });
+        },
+        { dataToStore: data, password: TEST_PASSWORD }
+    );
+}
+
 export async function resetManualRefreshThrottle() {
     const target = await getBrowser().waitForTarget(
         (candidate) =>

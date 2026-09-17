@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import browser from 'webextension-polyfill';
 import type { FilterState, SortOption, PullRequest, AppData } from '../types';
 import {
@@ -20,7 +20,7 @@ const DEFAULT_FILTERS: FilterState = {
 
 export function usePullRequests(password: string, authState: AuthState) {
     const [pullRequests, setPullRequests] = useState<PullRequest[]>([]);
-    const [filteredPRs, setFilteredPRs] = useState<PullRequest[]>([]);
+    const [searchTerm, setSearchTerm] = useState('');
     const [isLoading, setIsLoading] = useState(true);
     const [filterState, setFilterState] =
         useState<FilterState>(DEFAULT_FILTERS);
@@ -250,11 +250,24 @@ export function usePullRequests(password: string, authState: AuthState) {
         []
     );
 
-    useEffect(() => {
-        setFilteredPRs(
-            applyFiltersAndSort(filterState, pullRequests, sortOption)
+    const filteredPRs = useMemo(() => {
+        const normalizedSearchTerm = searchTerm.toLowerCase();
+        return applyFiltersAndSort(
+            filterState,
+            pullRequests,
+            sortOption
+        ).filter(
+            (pr) =>
+                pr.title.toLowerCase().includes(normalizedSearchTerm) ||
+                pr.repository.name.toLowerCase().includes(normalizedSearchTerm)
         );
-    }, [pullRequests, filterState, sortOption, applyFiltersAndSort]);
+    }, [
+        applyFiltersAndSort,
+        filterState,
+        pullRequests,
+        searchTerm,
+        sortOption,
+    ]);
 
     const handleFilterChange = async (filters: FilterState) => {
         setFilterState(filters);
@@ -314,17 +327,7 @@ export function usePullRequests(password: string, authState: AuthState) {
     };
 
     const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const searchTerm = e.target.value.toLowerCase();
-        const filtered = applyFiltersAndSort(
-            filterState,
-            pullRequests,
-            sortOption
-        ).filter(
-            (pr) =>
-                pr.title.toLowerCase().includes(searchTerm) ||
-                pr.repository.name.toLowerCase().includes(searchTerm)
-        );
-        setFilteredPRs(filtered);
+        setSearchTerm(e.target.value);
     };
 
     const handleSaveCustomQuery = async () => {
@@ -491,6 +494,7 @@ export function usePullRequests(password: string, authState: AuthState) {
     return {
         pullRequests,
         filteredPRs,
+        searchTerm,
         isLoading,
         filterState,
         sortOption,

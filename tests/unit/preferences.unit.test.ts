@@ -33,6 +33,7 @@ vi.mock('react', () => ({
     }),
     useRef: vi.fn((initialValue: unknown) => ({ current: initialValue })),
     useCallback: vi.fn((callback: unknown) => callback),
+    useMemo: vi.fn((factory: () => unknown) => factory()),
 }));
 
 vi.mock('webextension-polyfill', () => ({
@@ -133,12 +134,36 @@ describe('usePullRequests preference persistence', () => {
     it('uses current defaults when no saved preference has been loaded', () => {
         const preferences = renderPreferences();
 
+        expect(preferences.searchTerm).toBe('');
         expect(preferences.filterState).toEqual(DEFAULT_FILTERS);
         expect(preferences.sortOption).toBe('newest');
         expect(preferences.customQuery).toBe('');
         expect(preferences.customQueryInput).toBe('');
         expect(preferences.isCustomQueryActive).toBe(false);
         expect(preferences.notificationsEnabled).toBe(true);
+    });
+
+    it('derives case-insensitive title and repository search results from search state', () => {
+        const prs = [
+            {
+                ...pullRequest(1),
+                title: 'Add authentication flow',
+                repository: { name: 'identity-service' },
+            },
+            {
+                ...pullRequest(2),
+                title: 'Update dashboard',
+                repository: { name: 'web-app' },
+            },
+        ];
+        const preferences = renderPreferences({ 0: prs, 1: 'AUTHENTICATION' });
+
+        expect(preferences.filteredPRs).toEqual([prs[0]]);
+
+        preferences.handleSearch({
+            target: { value: 'WEB-APP' },
+        } as React.ChangeEvent<HTMLInputElement>);
+        expect(hookHarness.setters[1]).toHaveBeenCalledWith('WEB-APP');
     });
 
     it('restores saved notification, filter, sort, custom-query, and hidden-ID state', async () => {
