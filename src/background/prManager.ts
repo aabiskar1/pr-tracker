@@ -179,12 +179,16 @@ export async function checkPullRequests(
             }
         }
 
-        const uniquePRs = await fetchPullRequests(
+        const result = await fetchPullRequests(
             token,
             user,
             customQuery || undefined,
             createNotification
         );
+        if (result.status === 'failure') {
+            return;
+        }
+        const uniquePRs = result.pullRequests;
 
         const count = uniquePRs.length;
         console.log(`Final count of unique PRs: ${count}`);

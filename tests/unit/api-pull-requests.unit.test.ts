@@ -1,6 +1,9 @@
 import browser from 'webextension-polyfill';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fetchPullRequests } from '../../src/background/api';
+import {
+    fetchPullRequests,
+    type PullRequestFetchResult,
+} from '../../src/background/api';
 import {
     TOKEN,
     USER,
@@ -43,6 +46,14 @@ const successfulSupportingResponse = (url: string): Response => {
         });
     }
     return jsonResponse(prDetail(prNumberFromUrl(url)));
+};
+
+const expectSuccessfulPullRequests = (result: PullRequestFetchResult) => {
+    expect(result.status).toBe('success');
+    if (result.status === 'failure') {
+        throw new Error('Expected a successful pull-request search');
+    }
+    return result.pullRequests;
 };
 
 describe('fetchPullRequests search and transformation behavior', () => {
@@ -103,11 +114,8 @@ describe('fetchPullRequests search and transformation behavior', () => {
             return jsonResponse(prDetail(prNumberFromUrl(url)));
         });
 
-        const result = await fetchPullRequests(
-            TOKEN,
-            USER,
-            undefined,
-            createNotification
+        const result = expectSuccessfulPullRequests(
+            await fetchPullRequests(TOKEN, USER, undefined, createNotification)
         );
 
         expect(searchUrls.map(queryFromSearchUrl)).toEqual([
@@ -157,11 +165,13 @@ describe('fetchPullRequests search and transformation behavior', () => {
             return successfulSupportingResponse(url);
         });
 
-        const result = await fetchPullRequests(
-            TOKEN,
-            USER,
-            customQuery,
-            createNotificationMock()
+        const result = expectSuccessfulPullRequests(
+            await fetchPullRequests(
+                TOKEN,
+                USER,
+                customQuery,
+                createNotificationMock()
+            )
         );
 
         expect(result.map((pr) => pr.id)).toEqual([3]);
@@ -183,14 +193,14 @@ describe('fetchPullRequests search and transformation behavior', () => {
 
         await expect(
             fetchPullRequests(TOKEN, USER, '   \t ', createNotificationMock())
-        ).resolves.toEqual([]);
+        ).resolves.toEqual({ status: 'success', pullRequests: [] });
         expect(queries).toEqual([
             'is:open is:pr author:octo-user archived:false',
             'is:open is:pr review-requested:octo-user archived:false',
         ]);
     });
 
-    it('returns an empty result and reports a failed custom search', async () => {
+    it('reports a failed custom search without returning an empty success', async () => {
         const createNotification = createNotificationMock();
 
         installFetch((url) => {
@@ -207,7 +217,7 @@ describe('fetchPullRequests search and transformation behavior', () => {
             createNotification
         );
 
-        expect(result).toEqual([]);
+        expect(result).toEqual({ status: 'failure' });
         expect(createNotification).toHaveBeenCalledWith(
             undefined,
             expect.objectContaining({
@@ -219,6 +229,45 @@ describe('fetchPullRequests search and transformation behavior', () => {
         expect(browser.runtime.sendMessage).toHaveBeenCalledWith({
             type: 'SHOW_ERROR',
             message: expect.stringContaining('Authentication failed'),
+        });
+    });
+
+    it('reports a failed default search without returning an empty success', async () => {
+        const createNotification = createNotificationMock();
+
+        installFetch((url) => {
+            if (isSearchUrl(url)) {
+                const query = queryFromSearchUrl(url);
+                return query.includes('author:')
+                    ? jsonResponse({ message: 'Service unavailable' }, 503)
+                    : jsonResponse({ items: [] });
+            }
+            throw new Error(`Unexpected URL: ${url}`);
+        });
+
+        const result = await fetchPullRequests(
+            TOKEN,
+            USER,
+            undefined,
+            createNotification
+        );
+
+        expect(result).toEqual({ status: 'failure' });
+        expect(createNotification).toHaveBeenCalledWith(
+            undefined,
+            expect.objectContaining({
+                title: 'PR Tracker Error',
+                message: expect.stringContaining(
+                    'GitHub servers are experiencing issues (503)'
+                ),
+            }),
+            false
+        );
+        expect(browser.runtime.sendMessage).toHaveBeenCalledWith({
+            type: 'SHOW_ERROR',
+            message: expect.stringContaining(
+                'GitHub servers are experiencing issues (503)'
+            ),
         });
     });
 
@@ -250,7 +299,7 @@ describe('fetchPullRequests search and transformation behavior', () => {
                 'is:pr org:acme',
                 createNotificationMock()
             )
-        ).resolves.toEqual([]);
+        ).resolves.toEqual({ status: 'success', pullRequests: [] });
     });
 
     it('maps field fallbacks and all repository-name resolution paths', async () => {
@@ -302,11 +351,13 @@ describe('fetchPullRequests search and transformation behavior', () => {
             return jsonResponse(detail);
         });
 
-        const result = await fetchPullRequests(
-            TOKEN,
-            USER,
-            'is:pr org:acme',
-            createNotificationMock()
+        const result = expectSuccessfulPullRequests(
+            await fetchPullRequests(
+                TOKEN,
+                USER,
+                'is:pr org:acme',
+                createNotificationMock()
+            )
         );
 
         expect(result.map((pr) => pr.repository.name)).toEqual([
@@ -351,11 +402,13 @@ describe('fetchPullRequests search and transformation behavior', () => {
             return successfulSupportingResponse(url);
         });
 
-        const result = await fetchPullRequests(
-            TOKEN,
-            USER,
-            'is:pr org:acme',
-            createNotificationMock()
+        const result = expectSuccessfulPullRequests(
+            await fetchPullRequests(
+                TOKEN,
+                USER,
+                'is:pr org:acme',
+                createNotificationMock()
+            )
         );
 
         expect(result.map((pr) => pr.id)).toEqual([22]);
@@ -374,11 +427,13 @@ describe('fetchPullRequests search and transformation behavior', () => {
             return successfulSupportingResponse(url);
         });
 
-        const result = await fetchPullRequests(
-            TOKEN,
-            USER,
-            'is:pr org:acme',
-            createNotificationMock()
+        const result = expectSuccessfulPullRequests(
+            await fetchPullRequests(
+                TOKEN,
+                USER,
+                'is:pr org:acme',
+                createNotificationMock()
+            )
         );
 
         expect(result.map((pr) => pr.id)).toEqual([31]);

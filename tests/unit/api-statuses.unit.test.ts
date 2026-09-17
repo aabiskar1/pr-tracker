@@ -84,9 +84,13 @@ const runScenario = async (scenario: Scenario = {}) => {
         createNotificationMock()
     );
 
-    expect(result).toHaveLength(1);
+    expect(result.status).toBe('success');
+    if (result.status === 'failure') {
+        throw new Error('Expected a successful pull-request search');
+    }
+    expect(result.pullRequests).toHaveLength(1);
     return {
-        pullRequest: result[0],
+        pullRequest: result.pullRequests[0],
         requestedUrls,
     };
 };

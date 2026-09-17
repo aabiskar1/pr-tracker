@@ -6,6 +6,7 @@ import {
     installGitHubApiMock,
     openCleanPopup,
     openSeededPopup,
+    readAppData,
     resetManualRefreshThrottle,
     waitForDashboard,
     waitForText,
@@ -214,7 +215,8 @@ describe('popup state journeys', () => {
     it('shows a controlled background API error in the dashboard', async () => {
         const page = await openSeededPopup(github);
         pages.push(page);
-        github.setScenario({ pullRequests: [], userStatus: 503 });
+        const cachedData = await readAppData(page);
+        github.setScenario({ pullRequests: [], searchStatus: 503 });
         github.resetRequests();
         await resetManualRefreshThrottle();
 
@@ -225,6 +227,12 @@ describe('popup state journeys', () => {
             'GitHub servers are experiencing issues (503)'
         );
         await waitForDashboard(page);
+        expect(await page.$$('li')).toHaveLength(POPULATED_PRS.length);
+        const dataAfterFailure = await readAppData(page);
+        expect(dataAfterFailure).toEqual(cachedData);
         expect(github.requests).toContain('https://api.github.com/user');
+        expect(
+            github.requests.some((url) => url.includes('/search/issues'))
+        ).toBe(true);
     });
 });
