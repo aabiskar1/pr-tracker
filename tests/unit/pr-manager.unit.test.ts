@@ -72,6 +72,10 @@ const appData = (overrides: Partial<AppData> = {}): AppData => ({
 });
 
 const clone = <T>(value: T): T => structuredClone(value);
+const successfulFetch = (pullRequests: PullRequest[]) => ({
+    status: 'success' as const,
+    pullRequests,
+});
 
 describe('background PR polling and notification decisions', () => {
     let storedData: AppData;
@@ -96,7 +100,7 @@ describe('background PR polling and notification decisions', () => {
             storedData = clone(data as AppData);
         });
         vi.mocked(decryptHiddenPrIds).mockResolvedValue([]);
-        vi.mocked(fetchPullRequests).mockResolvedValue([]);
+        vi.mocked(fetchPullRequests).mockResolvedValue(successfulFetch([]));
         vi.mocked(browser.storage.session.get).mockResolvedValue({});
         vi.mocked(browser.storage.local.get).mockResolvedValue({});
         vi.mocked(browser.runtime.sendMessage).mockResolvedValue(undefined);
@@ -129,7 +133,7 @@ describe('background PR polling and notification decisions', () => {
                 customQuery: 'is:pr org:acme',
             },
         });
-        vi.mocked(fetchPullRequests).mockResolvedValue(prs);
+        vi.mocked(fetchPullRequests).mockResolvedValue(successfulFetch(prs));
 
         await checkPullRequests(true);
 
@@ -163,6 +167,51 @@ describe('background PR polling and notification decisions', () => {
         expect(state.isCheckingPRs).toBe(false);
     });
 
+    it('preserves cached success state when the top-level search fails', async () => {
+        const cachedPrs = [pullRequest(1), pullRequest(2)];
+        const previousPrs = [pullRequest(1)];
+        storedData = appData({
+            pullRequests: cachedPrs,
+            oldPullRequests: previousPrs,
+        });
+        const originalData = clone(storedData);
+        vi.mocked(fetchPullRequests).mockResolvedValue({ status: 'failure' });
+
+        await checkPullRequests(true);
+
+        expect(storedData).toEqual(originalData);
+        expect(setBadgeText).not.toHaveBeenCalled();
+        expect(encryptAppData).not.toHaveBeenCalled();
+        expect(browser.runtime.sendMessage).not.toHaveBeenCalledWith(
+            expect.objectContaining({ type: 'DATA_UPDATED' })
+        );
+        expect(createNotification).not.toHaveBeenCalled();
+        expect(state.lastNewPRNotificationTime).toBe(0);
+        expect(state.isCheckingPRs).toBe(false);
+    });
+
+    it('persists and publishes a successful empty search result', async () => {
+        const cachedPrs = [pullRequest(1), pullRequest(2)];
+        storedData = appData({
+            pullRequests: cachedPrs,
+            oldPullRequests: cachedPrs,
+        });
+        vi.mocked(fetchPullRequests).mockResolvedValue(successfulFetch([]));
+
+        await checkPullRequests(true);
+
+        expect(setBadgeText).toHaveBeenCalledWith('');
+        expect(storedData.pullRequests).toEqual([]);
+        expect(storedData.oldPullRequests).toEqual([]);
+        expect(storedData.lastUpdated).toBe(FIXED_TIME.toISOString());
+        expect(encryptAppData).toHaveBeenCalledTimes(2);
+        expect(browser.runtime.sendMessage).toHaveBeenCalledWith({
+            type: 'DATA_UPDATED',
+            timestamp: FIXED_TIME.getTime(),
+        });
+        expect(state.isCheckingPRs).toBe(false);
+    });
+
     it('uses an explicit message query instead of the persisted custom query', async () => {
         storedData = appData({
             preferences: { customQuery: 'is:pr org:stored' },
@@ -180,11 +229,9 @@ describe('background PR polling and notification decisions', () => {
 
     it('notifies only for IDs absent from a non-empty previous snapshot', async () => {
         storedData = appData({ oldPullRequests: [pullRequest(1)] });
-        vi.mocked(fetchPullRequests).mockResolvedValue([
-            pullRequest(1),
-            pullRequest(2),
-            pullRequest(3),
-        ]);
+        vi.mocked(fetchPullRequests).mockResolvedValue(
+            successfulFetch([pullRequest(1), pullRequest(2), pullRequest(3)])
+        );
 
         await checkPullRequests(true);
 
@@ -198,7 +245,9 @@ describe('background PR polling and notification decisions', () => {
     });
 
     it('does not notify on first run by default', async () => {
-        vi.mocked(fetchPullRequests).mockResolvedValue([pullRequest(1)]);
+        vi.mocked(fetchPullRequests).mockResolvedValue(
+            successfulFetch([pullRequest(1)])
+        );
 
         await checkPullRequests(true);
 
@@ -209,7 +258,9 @@ describe('background PR polling and notification decisions', () => {
     });
 
     it('notifies on first run only when the separate local flag is true', async () => {
-        vi.mocked(fetchPullRequests).mockResolvedValue([pullRequest(1)]);
+        vi.mocked(fetchPullRequests).mockResolvedValue(
+            successfulFetch([pullRequest(1)])
+        );
         vi.mocked(browser.storage.local.get).mockResolvedValue({
             'prtracker-notify-on-first-run': true,
         });
@@ -229,7 +280,9 @@ describe('background PR polling and notification decisions', () => {
         const visible = pullRequest(1);
         const hidden = pullRequest(2);
         storedData = appData({ oldPullRequests: [visible] });
-        vi.mocked(fetchPullRequests).mockResolvedValue([visible, hidden]);
+        vi.mocked(fetchPullRequests).mockResolvedValue(
+            successfulFetch([visible, hidden])
+        );
         vi.mocked(decryptHiddenPrIds).mockResolvedValue([2]);
 
         await checkPullRequests(true);
@@ -244,10 +297,9 @@ describe('background PR polling and notification decisions', () => {
 
     it('uses the manager throttle to suppress repeated new-PR delivery', async () => {
         storedData = appData({ oldPullRequests: [pullRequest(1)] });
-        vi.mocked(fetchPullRequests).mockResolvedValue([
-            pullRequest(1),
-            pullRequest(2),
-        ]);
+        vi.mocked(fetchPullRequests).mockResolvedValue(
+            successfulFetch([pullRequest(1), pullRequest(2)])
+        );
 
         await checkPullRequests(true);
         storedData.oldPullRequests = [pullRequest(1)];

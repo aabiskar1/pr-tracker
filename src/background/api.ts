@@ -6,6 +6,10 @@ import type {
     PullRequest,
 } from '../types';
 
+export type PullRequestFetchResult =
+    | { status: 'success'; pullRequests: PullRequest[] }
+    | { status: 'failure' };
+
 // Constants
 const NOTIFICATION_ICON = 'icons/icon-128.png';
 
@@ -243,7 +247,7 @@ export async function fetchPullRequests(
         },
         forceShow?: boolean
     ) => Promise<void>
-): Promise<PullRequest[]> {
+): Promise<PullRequestFetchResult> {
     let prItems: GitHubIssueSearchItem[] = [];
 
     if (customQuery && customQuery.trim()) {
@@ -262,7 +266,7 @@ export async function fetchPullRequests(
                 createNotification,
                 'Custom PR search'
             );
-            return [];
+            return { status: 'failure' };
         }
         const customData = await customResp.json();
         prItems = customData.items || [];
@@ -299,7 +303,7 @@ export async function fetchPullRequests(
                 ? 'Authored PR search'
                 : 'Review PR search';
             await handleApiError(failedResponse, createNotification, context);
-            return [];
+            return { status: 'failure' };
         }
 
         const authoredData = await authoredResponse.json();
@@ -402,5 +406,5 @@ export async function fetchPullRequests(
         ).values()
     );
 
-    return uniquePRs;
+    return { status: 'success', pullRequests: uniquePRs };
 }
