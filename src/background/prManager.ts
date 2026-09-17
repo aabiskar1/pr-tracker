@@ -10,6 +10,8 @@ import { fetchPullRequests, handleApiError } from './api';
 import { createNotification, setBadgeText } from './notifications';
 import { state, constants } from './state';
 
+let inFlightRefresh: Promise<void> | null = null;
+
 // Helper function to check if we should refresh
 function shouldRefresh(): { shouldRefresh: boolean; remainingMs: number } {
     const now = Date.now();
@@ -22,17 +24,32 @@ function shouldRefresh(): { shouldRefresh: boolean; remainingMs: number } {
     return { shouldRefresh: false, remainingMs: Math.max(0, remainingMs) };
 }
 
-export async function checkPullRequests(
+export function checkPullRequests(
     isManualRefresh = false,
     customQueryFromMsg?: string | null
-) {
-    console.log('Starting PR check');
-
-    // Prevent multiple simultaneous checks
-    if (state.isCheckingPRs && !isManualRefresh) {
-        console.log('PR check already in progress, skipping...');
-        return;
+): Promise<void> {
+    if (inFlightRefresh) {
+        console.log('PR check already in progress, reusing it...');
+        return inFlightRefresh;
     }
+
+    state.isCheckingPRs = true;
+    const operation = runPullRequestCheck(isManualRefresh, customQueryFromMsg);
+    const trackedOperation = operation.finally(() => {
+        if (inFlightRefresh === trackedOperation) {
+            inFlightRefresh = null;
+            state.isCheckingPRs = false;
+        }
+    });
+    inFlightRefresh = trackedOperation;
+    return trackedOperation;
+}
+
+async function runPullRequestCheck(
+    isManualRefresh: boolean,
+    customQueryFromMsg?: string | null
+): Promise<void> {
+    console.log('Starting PR check');
 
     // Additional rate limiting: prevent too frequent checks; throttle manual refreshes too
     if (!isManualRefresh && Date.now() - state.lastRefreshTime < 10000) {
@@ -57,8 +74,6 @@ export async function checkPullRequests(
         }
         globalScope._prTrackerLastManual = now;
     }
-
-    state.isCheckingPRs = true;
 
     try {
         // Only proceed if we have the password or can get it from session storage
@@ -386,7 +401,5 @@ export async function checkPullRequests(
             false
         );
         browser.runtime.sendMessage({ type: 'SHOW_ERROR', message });
-    } finally {
-        state.isCheckingPRs = false;
     }
 }
