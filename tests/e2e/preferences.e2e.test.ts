@@ -120,6 +120,12 @@ describe('preference persistence journeys', () => {
         expect(await page.$$('li')).toHaveLength(initialCount - 1);
 
         await page.click('[aria-label="Show Hidden"]');
+        await expect
+            .poll(
+                async () =>
+                    (await readAppData(page)).preferences?.filters?.showHidden
+            )
+            .toBe(true);
         await page.waitForFunction(
             (count) => document.querySelectorAll('li').length === count,
             {},
@@ -127,7 +133,19 @@ describe('preference persistence journeys', () => {
         );
         await page.waitForSelector('[aria-label="Unhide PR"]');
         await page.click('[aria-label="Unhide PR"]');
+        await expect
+            .poll(async () => (await readAppData(page)).pullRequests[0].hidden)
+            .toBe(false);
+        await page.waitForSelector('[aria-label="Unhide PR"]', {
+            hidden: true,
+        });
         await page.click('[aria-label="Show Hidden"]');
+        await expect
+            .poll(
+                async () =>
+                    (await readAppData(page)).preferences?.filters?.showHidden
+            )
+            .toBe(false);
         await waitForText(page, 'li', 'Add new authentication flow');
         expect(await page.$$('li')).toHaveLength(initialCount);
     });
