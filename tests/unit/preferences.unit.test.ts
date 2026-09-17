@@ -4,8 +4,6 @@ import { usePullRequests } from '../../src/hooks/usePullRequests';
 import {
     decryptAppData,
     decryptHiddenPrIds,
-    encryptAppData,
-    encryptHiddenPrIds,
 } from '../../src/services/secureStorage';
 import type { AppData, FilterState, PullRequest } from '../../src/types';
 
@@ -56,8 +54,6 @@ vi.mock('webextension-polyfill', () => ({
 
 vi.mock('../../src/services/secureStorage', () => ({
     decryptAppData: vi.fn(),
-    encryptAppData: vi.fn(),
-    encryptHiddenPrIds: vi.fn(),
     decryptHiddenPrIds: vi.fn(),
 }));
 
@@ -120,8 +116,6 @@ describe('usePullRequests preference persistence', () => {
         vi.mocked(browser.runtime.sendMessage).mockResolvedValue(true);
         vi.mocked(decryptAppData).mockResolvedValue(appData());
         vi.mocked(decryptHiddenPrIds).mockResolvedValue([]);
-        vi.mocked(encryptAppData).mockResolvedValue(undefined);
-        vi.mocked(encryptHiddenPrIds).mockResolvedValue(undefined);
         vi.spyOn(console, 'log').mockImplementation(() => undefined);
         vi.spyOn(console, 'error').mockImplementation(() => undefined);
     });
@@ -207,17 +201,10 @@ describe('usePullRequests preference persistence', () => {
         await preferences.handleFilterChange(SAVED_FILTERS);
 
         expect(hookHarness.setters[3]).toHaveBeenCalledWith(SAVED_FILTERS);
-        expect(encryptAppData).toHaveBeenCalledWith(
-            {
-                ...stored,
-                preferences: {
-                    notificationsEnabled: false,
-                    sort: 'newest',
-                    filters: SAVED_FILTERS,
-                },
-            },
-            PASSWORD
-        );
+        expect(browser.runtime.sendMessage).toHaveBeenCalledWith({
+            type: 'UPDATE_APP_DATA',
+            mutation: { kind: 'set-filters', filters: SAVED_FILTERS },
+        });
     });
 
     it('persists a sort update and preserves existing preferences', async () => {
@@ -228,16 +215,10 @@ describe('usePullRequests preference persistence', () => {
         await preferences.handleSortChange('most-stale');
 
         expect(hookHarness.setters[4]).toHaveBeenCalledWith('most-stale');
-        expect(encryptAppData).toHaveBeenCalledWith(
-            {
-                ...stored,
-                preferences: {
-                    filters: SAVED_FILTERS,
-                    sort: 'most-stale',
-                },
-            },
-            PASSWORD
-        );
+        expect(browser.runtime.sendMessage).toHaveBeenCalledWith({
+            type: 'UPDATE_APP_DATA',
+            mutation: { kind: 'set-sort', sort: 'most-stale' },
+        });
     });
 
     it('resets and persists filters to the current defaults', async () => {
@@ -248,8 +229,10 @@ describe('usePullRequests preference persistence', () => {
         await preferences.handleResetFilters();
 
         expect(hookHarness.setters[3]).toHaveBeenCalledWith(DEFAULT_FILTERS);
-        expect(stored.preferences?.filters).toEqual(DEFAULT_FILTERS);
-        expect(encryptAppData).toHaveBeenCalledWith(stored, PASSWORD);
+        expect(browser.runtime.sendMessage).toHaveBeenCalledWith({
+            type: 'UPDATE_APP_DATA',
+            mutation: { kind: 'set-filters', filters: DEFAULT_FILTERS },
+        });
     });
 
     it('saves a custom query to encrypted preferences and requests a matching refresh', async () => {
@@ -263,8 +246,10 @@ describe('usePullRequests preference persistence', () => {
 
         expect(hookHarness.setters[5]).toHaveBeenCalledWith(query);
         expect(hookHarness.setters[7]).toHaveBeenCalledWith(true);
-        expect(stored.preferences?.customQuery).toBe(query);
-        expect(encryptAppData).toHaveBeenCalledWith(stored, PASSWORD);
+        expect(browser.runtime.sendMessage).toHaveBeenCalledWith({
+            type: 'UPDATE_APP_DATA',
+            mutation: { kind: 'set-custom-query', customQuery: query },
+        });
         expect(browser.runtime.sendMessage).toHaveBeenCalledWith({
             type: 'CHECK_PRS',
             password: PASSWORD,
@@ -291,8 +276,10 @@ describe('usePullRequests preference persistence', () => {
         expect(hookHarness.setters[5]).toHaveBeenCalledWith('');
         expect(hookHarness.setters[6]).toHaveBeenCalledWith('');
         expect(hookHarness.setters[7]).toHaveBeenCalledWith(false);
-        expect(stored.preferences).toEqual({ notificationsEnabled: false });
-        expect(encryptAppData).toHaveBeenCalledWith(stored, PASSWORD);
+        expect(browser.runtime.sendMessage).toHaveBeenCalledWith({
+            type: 'UPDATE_APP_DATA',
+            mutation: { kind: 'set-custom-query', customQuery: null },
+        });
         expect(browser.runtime.sendMessage).toHaveBeenCalledWith({
             type: 'CHECK_PRS',
             password: PASSWORD,
@@ -314,43 +301,41 @@ describe('usePullRequests preference persistence', () => {
             await preferences.handleToggleNotifications();
 
             expect(hookHarness.setters[8]).toHaveBeenCalledWith(expected);
-            expect(stored.preferences?.notificationsEnabled).toBe(expected);
-            expect(encryptAppData).toHaveBeenCalledWith(stored, PASSWORD);
+            expect(browser.runtime.sendMessage).toHaveBeenCalledWith({
+                type: 'UPDATE_APP_DATA',
+                mutation: {
+                    kind: 'set-notifications-enabled',
+                    enabled: expected,
+                },
+            });
         }
     );
 
-    it('creates the current empty app-data envelope when toggling notifications with no decrypted app data', async () => {
-        vi.useFakeTimers();
-        vi.setSystemTime(new Date('2030-06-07T08:09:10.000Z'));
-        vi.mocked(decryptAppData).mockResolvedValue(null);
+    it('delegates notification persistence without reading app data in the popup', async () => {
         const preferences = renderPreferences({ 8: true });
 
         await preferences.handleToggleNotifications();
 
-        expect(encryptAppData).toHaveBeenCalledWith(
-            {
-                pullRequests: [],
-                lastUpdated: '2030-06-07T08:09:10.000Z',
-                preferences: { notificationsEnabled: false },
-                oldPullRequests: [],
+        expect(browser.runtime.sendMessage).toHaveBeenCalledWith({
+            type: 'UPDATE_APP_DATA',
+            mutation: {
+                kind: 'set-notifications-enabled',
+                enabled: false,
             },
-            PASSWORD
-        );
+        });
     });
 
-    it('persists hidden IDs separately and mirrors hidden state in current and old PR snapshots', async () => {
+    it('delegates hidden-ID and snapshot persistence to the background', async () => {
         const stored = appData();
-        vi.mocked(decryptHiddenPrIds).mockResolvedValue([2]);
-        vi.mocked(decryptAppData).mockResolvedValue(stored);
         const preferences = renderPreferences({
             0: stored.pullRequests,
         });
 
         await preferences.toggleHidePR(1);
 
-        expect(encryptHiddenPrIds).toHaveBeenCalledWith([2, 1], PASSWORD);
-        expect(stored.pullRequests[0].hidden).toBe(true);
-        expect(stored.oldPullRequests?.[0].hidden).toBe(true);
-        expect(encryptAppData).toHaveBeenCalledWith(stored, PASSWORD);
+        expect(browser.runtime.sendMessage).toHaveBeenCalledWith({
+            type: 'UPDATE_APP_DATA',
+            mutation: { kind: 'set-hidden', id: 1, hidden: true },
+        });
     });
 });

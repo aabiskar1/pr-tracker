@@ -108,15 +108,25 @@ application data, and separately encrypted hidden PR IDs. The application data
 contains current and previous PR snapshots plus preferences such as filters,
 sort order, custom query, and notification enablement.
 
+Encrypted application-data writes are owned by the background context. Popup
+preference and hidden-state actions send validated, operation-specific messages
+to the background rather than writing a previously decrypted whole object.
+`src/background/appDataStore.ts` serializes those mutations with refresh writes,
+decrypts the latest persisted value for each queued operation, applies only the
+owned fields, and re-encrypts the result. This single-writer boundary is needed
+because popup and background modules execute in separate JavaScript contexts;
+a module-local popup mutex would not coordinate with the service worker.
+
 The user's encryption password is not persistently stored. When the user opts
 to remember it, the password and flag are held in `browser.storage.session` and
 cleared by a 12-hour alarm. The theme and the first-run notification flag are
 plain local preferences. `storageSchemas.ts` uses Zod to validate selected
 stored values before use.
 
-Current boundary note: UI hooks call secure-storage functions directly and
-perform read-modify-write preference updates. Keep storage access consolidated
-in services and avoid spreading raw storage keys or browser calls further.
+Current boundary note: UI hooks still read encrypted application data directly
+to render the popup. Keep writes routed through the background mutation owner,
+keep storage access consolidated in services, and avoid spreading raw storage
+keys or browser calls further.
 
 ## Alarms, polling, and notifications
 
@@ -160,8 +170,9 @@ duplicates when touching that area.
 5. `usePullRequests` also watches encrypted storage changes. It decrypts the
    current data, merges separately stored hidden IDs, applies filters and sort
    order, and renders the dashboard.
-6. Popup preference changes are written back to encrypted application data;
-   refresh and custom-query actions are sent to the background context.
+6. Popup preference and hidden-state changes are sent as narrow mutation
+   messages to the background, where they are serialized with refresh writes;
+   refresh and custom-query actions are also sent to the background context.
 
 ## Chrome and Firefox portability
 

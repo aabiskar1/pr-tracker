@@ -2,6 +2,11 @@ import browser from 'webextension-polyfill';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { constants } from '../../src/background/state';
 import { createPeriodicAlarm } from '@/src/background/alarms';
+import {
+    applyAppDataMutation,
+    parseAppDataMutation,
+} from '@/src/background/appDataStore';
+import type { AppDataMutation } from '../../src/types';
 
 vi.mock('webextension-polyfill', () => ({
     default: {
@@ -43,6 +48,11 @@ vi.mock('@/src/background/alarms', () => ({
     createPeriodicAlarm: vi.fn(),
 }));
 
+vi.mock('@/src/background/appDataStore', () => ({
+    applyAppDataMutation: vi.fn(async () => undefined),
+    parseAppDataMutation: vi.fn(),
+}));
+
 type MessageListener = (
     message: unknown,
     sender: unknown,
@@ -65,6 +75,15 @@ describe('background remembered-session wiring', () => {
         vi.mocked(browser.storage.session.get).mockResolvedValue({});
         vi.mocked(browser.alarms.getAll).mockResolvedValue([]);
         vi.mocked(browser.runtime.sendMessage).mockResolvedValue(undefined);
+        vi.mocked(applyAppDataMutation).mockResolvedValue({
+            pullRequests: [],
+            oldPullRequests: [],
+            lastUpdated: '2030-06-07T08:09:10.000Z',
+            preferences: {},
+        });
+        vi.mocked(parseAppDataMutation).mockImplementation(
+            (value) => value as AppDataMutation
+        );
         vi.spyOn(console, 'log').mockImplementation(() => undefined);
         vi.spyOn(console, 'error').mockImplementation(() => undefined);
     });
@@ -189,6 +208,54 @@ describe('background remembered-session wiring', () => {
         );
         expect(createPeriodicAlarm).toHaveBeenCalledOnce();
         expect(sendResponse).toHaveBeenCalledWith(true);
+    });
+
+    it('routes a validated app-data mutation through the background owner', async () => {
+        const listener = await loadBackground();
+        const { state } = await import('../../src/background/state');
+        state.sessionPassword = 'active-password';
+        const sendResponse = vi.fn();
+        const mutation: AppDataMutation = {
+            kind: 'set-sort',
+            sort: 'oldest',
+        };
+
+        listener({ type: 'UPDATE_APP_DATA', mutation }, {}, sendResponse);
+
+        await vi.waitFor(() => {
+            expect(sendResponse).toHaveBeenCalledWith(true);
+        });
+        expect(parseAppDataMutation).toHaveBeenCalledWith(mutation);
+        expect(applyAppDataMutation).toHaveBeenCalledWith(
+            'active-password',
+            mutation
+        );
+    });
+
+    it('rejects invalid or unauthenticated app-data mutation messages', async () => {
+        const listener = await loadBackground();
+        const { state } = await import('../../src/background/state');
+        const sendResponse = vi.fn();
+        vi.mocked(parseAppDataMutation).mockReturnValueOnce(null);
+
+        listener(
+            { type: 'UPDATE_APP_DATA', mutation: { kind: 'arbitrary' } },
+            {},
+            sendResponse
+        );
+        expect(sendResponse).toHaveBeenLastCalledWith(false);
+
+        state.sessionPassword = null;
+        listener(
+            {
+                type: 'UPDATE_APP_DATA',
+                mutation: { kind: 'set-sort', sort: 'oldest' },
+            },
+            {},
+            sendResponse
+        );
+        expect(sendResponse).toHaveBeenLastCalledWith(false);
+        expect(applyAppDataMutation).not.toHaveBeenCalled();
     });
 
     it('keeps a non-remembered password only in memory and clears prior remembered state', async () => {

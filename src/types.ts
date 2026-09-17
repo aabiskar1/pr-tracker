@@ -72,4 +72,11 @@ export type FilterState = {
 
 export type SortOption = 'newest' | 'oldest' | 'urgent' | 'most-stale';
 
+export type AppDataMutation =
+    | { kind: 'set-filters'; filters: FilterState }
+    | { kind: 'set-sort'; sort: SortOption }
+    | { kind: 'set-notifications-enabled'; enabled: boolean }
+    | { kind: 'set-custom-query'; customQuery: string | null }
+    | { kind: 'set-hidden'; id: number; hidden: boolean };
+
 export type ThemePreference = 'light' | 'dark' | 'auto';

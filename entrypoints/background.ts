@@ -3,6 +3,10 @@ import browser from 'webextension-polyfill';
 import { state, constants } from '@/src/background/state';
 import { checkPullRequests } from '@/src/background/prManager';
 import { setupAlarms, createPeriodicAlarm } from '@/src/background/alarms';
+import {
+    applyAppDataMutation,
+    parseAppDataMutation,
+} from '@/src/background/appDataStore';
 import { SessionStorageSchema } from '@/src/services/storageSchemas';
 
 export default defineBackground(() => {
@@ -100,6 +104,20 @@ export default defineBackground(() => {
                     console.error('Error checking PRs:', error);
                     sendResponse(false);
                 });
+        } else if (typedMessage.type === 'UPDATE_APP_DATA') {
+            const mutation = parseAppDataMutation(typedMessage.mutation);
+            if (!state.sessionPassword || !mutation) {
+                sendResponse(false);
+            } else {
+                applyAppDataMutation(state.sessionPassword, mutation)
+                    .then(() => {
+                        sendResponse(true);
+                    })
+                    .catch((error) => {
+                        console.error('Failed to update app data:', error);
+                        sendResponse(false);
+                    });
+            }
         } else if (typedMessage.type === 'SET_PASSWORD') {
             if (
                 typedMessage.password &&

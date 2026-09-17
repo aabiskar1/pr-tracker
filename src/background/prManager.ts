@@ -2,13 +2,13 @@ import browser from 'webextension-polyfill';
 import {
     decryptToken,
     decryptAppData,
-    encryptAppData,
     decryptHiddenPrIds,
 } from '../services/secureStorage';
-import type { PullRequest, AppData, AppPreferences } from '../types';
+import type { PullRequest, AppData } from '../types';
 import { fetchPullRequests, handleApiError } from './api';
 import { createNotification, setBadgeText } from './notifications';
 import { state, constants } from './state';
+import { updateEncryptedAppData } from './appDataStore';
 
 let inFlightRefresh: Promise<void> | null = null;
 
@@ -210,46 +210,13 @@ async function runPullRequestCheck(
         await setBadgeText(count > 0 ? count.toString() : '');
 
         console.log('Saving PRs to storage');
-
-        // Get current app preferences from encrypted storage
-        let preferences: AppPreferences = {};
-        try {
-            const existingData = await decryptAppData<AppData>(
-                state.sessionPassword
-            );
-            if (existingData && existingData.preferences) {
-                preferences = existingData.preferences;
+        const refreshedData = await updateEncryptedAppData(
+            state.sessionPassword,
+            (appData) => {
+                appData.pullRequests = uniquePRs;
+                appData.lastUpdated = new Date().toISOString();
             }
-        } catch {
-            console.log(
-                'Failed to load existing preferences from encrypted storage'
-            );
-        }
-
-        // Create app data object to encrypt
-        const appData: AppData = {
-            pullRequests: uniquePRs,
-            lastUpdated: new Date().toISOString(),
-            preferences: preferences,
-        };
-
-        // Try to preserve oldPullRequests
-        try {
-            const existingData = await decryptAppData<AppData>(
-                state.sessionPassword
-            );
-            if (existingData && existingData.oldPullRequests) {
-                appData.oldPullRequests = existingData.oldPullRequests;
-            } else {
-                appData.oldPullRequests = [];
-            }
-        } catch {
-            // If we can't decrypt existing data, initialize as empty for first run
-            appData.oldPullRequests = [];
-        }
-
-        // Encrypt and store all app data
-        await encryptAppData(appData, state.sessionPassword);
+        );
 
         // Notify popup about data update
         try {
@@ -266,17 +233,7 @@ async function runPullRequestCheck(
         }
 
         // Handle notifications - check for new PRs
-        let oldPrs: PullRequest[] = [];
-        try {
-            const encryptedData = await decryptAppData<AppData>(
-                state.sessionPassword
-            );
-            if (encryptedData && encryptedData.oldPullRequests) {
-                oldPrs = encryptedData.oldPullRequests;
-            }
-        } catch (error) {
-            console.log('Failed to get old PRs from encrypted storage:', error);
-        }
+        const oldPrs = refreshedData.oldPullRequests ?? [];
 
         // Compare old and current PRs for new ones
         const oldPrIds = new Set(oldPrs.map((pr: PullRequest) => pr.id));
@@ -348,35 +305,9 @@ async function runPullRequestCheck(
 
         // Update oldPullRequests in storage AFTER notification logic
         try {
-            let dataToSave: AppData;
-            try {
-                const decrypted = await decryptAppData<AppData>(
-                    state.sessionPassword
-                );
-                if (!decrypted) {
-                    dataToSave = {
-                        pullRequests: uniquePRs,
-                        lastUpdated: new Date().toISOString(),
-                        preferences: preferences,
-                        oldPullRequests: uniquePRs,
-                    };
-                } else {
-                    dataToSave = decrypted as AppData;
-                    dataToSave.oldPullRequests = uniquePRs;
-                }
-            } catch {
-                console.log(
-                    'Could not decrypt existing data, creating new structure'
-                );
-                dataToSave = {
-                    pullRequests: uniquePRs,
-                    lastUpdated: new Date().toISOString(),
-                    preferences: preferences,
-                    oldPullRequests: uniquePRs,
-                };
-            }
-
-            await encryptAppData(dataToSave, state.sessionPassword);
+            await updateEncryptedAppData(state.sessionPassword, (appData) => {
+                appData.oldPullRequests = uniquePRs;
+            });
             console.log('Updated oldPullRequests in encrypted storage');
         } catch (error) {
             console.error(
