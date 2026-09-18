@@ -38,7 +38,13 @@ export function usePullRequests(password: string, authState: AuthState) {
         useState<boolean>(true);
     const [globalError, setGlobalError] = useState<string>('');
 
-    const loadPullRequestsRef = useRef<(() => Promise<void>) | null>(null);
+    const requestPullRequestReloadRef = useRef<(() => Promise<void>) | null>(
+        null
+    );
+    const reloadStateRef = useRef<{
+        inFlight: Promise<void> | null;
+        trailingRequested: boolean;
+    }>({ inFlight: null, trailingRequested: false });
 
     const persistAppDataMutation = async (mutation: AppDataMutation) => {
         const updated = await browser.runtime.sendMessage({
@@ -119,7 +125,6 @@ export function usePullRequests(password: string, authState: AuthState) {
         if (completed !== true) {
             throw new Error('Background refresh did not complete');
         }
-        await loadPullRequests();
     };
 
     const runLoadingOperation = async (
@@ -139,9 +144,30 @@ export function usePullRequests(password: string, authState: AuthState) {
         }
     };
 
-    useEffect(() => {
-        loadPullRequestsRef.current = loadPullRequests;
+    const requestPullRequestReload = useCallback((): Promise<void> => {
+        const reloadState = reloadStateRef.current;
+        if (reloadState.inFlight) {
+            reloadState.trailingRequested = true;
+            return reloadState.inFlight;
+        }
+
+        const operation = (async () => {
+            try {
+                do {
+                    reloadState.trailingRequested = false;
+                    await loadPullRequests();
+                } while (reloadState.trailingRequested);
+            } finally {
+                reloadState.inFlight = null;
+            }
+        })();
+        reloadState.inFlight = operation;
+        return operation;
     }, [loadPullRequests]);
+
+    useEffect(() => {
+        requestPullRequestReloadRef.current = requestPullRequestReload;
+    }, [requestPullRequestReload]);
 
     // Listen for messages from background script
     useEffect(() => {
@@ -155,20 +181,16 @@ export function usePullRequests(password: string, authState: AuthState) {
             ) {
                 setGlobalError(typedMessage.message);
             } else if (typedMessage.type === 'DATA_UPDATED') {
-                console.log('Received DATA_UPDATED message, refreshing UI...');
-                if (loadPullRequestsRef.current) {
-                    loadPullRequestsRef.current();
-                }
-                if (loadPullRequestsRef.current) {
-                    loadPullRequestsRef.current();
-                }
+                console.log(
+                    'Received DATA_UPDATED message; storage change owns the UI reload'
+                );
             } else if (typedMessage.type === 'AUTH_STATE_CHANGED') {
                 console.log(
                     'Received AUTH_STATE_CHANGED message, checking auth state...'
                 );
                 setTimeout(() => {
-                    if (loadPullRequestsRef.current) {
-                        loadPullRequestsRef.current();
+                    if (requestPullRequestReloadRef.current) {
+                        void requestPullRequestReloadRef.current();
                     }
                 }, 100);
             }
@@ -192,7 +214,7 @@ export function usePullRequests(password: string, authState: AuthState) {
                 authState === 'authenticated'
             ) {
                 console.log('Encrypted app data changed, reloading...');
-                loadPullRequests();
+                void requestPullRequestReload();
             }
         };
 
@@ -205,14 +227,14 @@ export function usePullRequests(password: string, authState: AuthState) {
                 browser.storage.onChanged.removeListener(storageListener);
             }
         };
-    }, [password, authState, loadPullRequests]);
+    }, [password, authState, requestPullRequestReload]);
 
     // Initial load
     useEffect(() => {
         if (authState === 'authenticated') {
             void (async () => {
                 try {
-                    await loadPullRequests();
+                    await requestPullRequestReload();
                 } finally {
                     setIsLoading(false);
                 }
@@ -220,7 +242,7 @@ export function usePullRequests(password: string, authState: AuthState) {
         } else {
             setIsLoading(false);
         }
-    }, [authState, loadPullRequests]);
+    }, [authState, requestPullRequestReload]);
 
     // Request fresh data when popup opens
     useEffect(() => {

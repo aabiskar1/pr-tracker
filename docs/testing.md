@@ -74,6 +74,8 @@ Use unit tests for rules that can be evaluated without a real browser:
 - refresh and notification eligibility;
 - popup refresh/query completion, rejected runtime messages, cooldown/error
   completion without `DATA_UPDATED`, and loading cleanup without fixed delays;
+- storage-authoritative popup reloads, semantic-only `DATA_UPDATED`, and
+  serialized trailing reload coverage for distinct committed changes;
 - old/new PR comparison and duplicate prevention; and
 - preference/default/validation decisions.
 

@@ -116,6 +116,30 @@ const deferred = <T>() => {
     return { promise, resolve, reject };
 };
 
+type RuntimeMessageListener = (message: unknown) => void;
+type StorageChangeListener = (
+    changes: Record<string, browser.Storage.StorageChange>
+) => void;
+
+const activateReloadListeners = () => {
+    hookHarness.effects[0]();
+    hookHarness.effects[1]();
+    hookHarness.effects[2]();
+    return {
+        runtimeListener: vi.mocked(browser.runtime.onMessage.addListener).mock
+            .calls[0][0] as RuntimeMessageListener,
+        storageListener: vi.mocked(browser.storage.onChanged.addListener).mock
+            .calls[0][0] as StorageChangeListener,
+    };
+};
+
+const encryptedAppDataChange = (version: number) => ({
+    encryptedAppData: {
+        oldValue: [version - 1],
+        newValue: [version],
+    },
+});
+
 describe('usePullRequests preference persistence', () => {
     beforeEach(() => {
         hookHarness.stateIndex = 0;
@@ -246,11 +270,31 @@ describe('usePullRequests preference persistence', () => {
     });
 
     it('saves a custom query to encrypted preferences and requests a matching refresh', async () => {
-        vi.useFakeTimers();
-        const stored = appData({ notificationsEnabled: true });
-        vi.mocked(decryptAppData).mockResolvedValue(stored);
         const query = 'is:pr org:acme review-requested:octo-user';
+        const queryOnlyData = appData({
+            notificationsEnabled: true,
+            customQuery: query,
+        });
+        const refreshedData = {
+            ...queryOnlyData,
+            pullRequests: [pullRequest(3)],
+        };
+        vi.mocked(decryptAppData)
+            .mockResolvedValueOnce(queryOnlyData)
+            .mockResolvedValueOnce(refreshedData);
         const preferences = renderPreferences({ 6: query });
+        const { storageListener } = activateReloadListeners();
+        vi.mocked(browser.runtime.sendMessage).mockImplementation(
+            async (message) => {
+                const typedMessage = message as Record<string, unknown>;
+                if (typedMessage.type === 'UPDATE_APP_DATA') {
+                    storageListener(encryptedAppDataChange(1));
+                } else if (typedMessage.type === 'CHECK_PRS') {
+                    storageListener(encryptedAppDataChange(2));
+                }
+                return true;
+            }
+        );
 
         await preferences.handleSaveCustomQuery();
 
@@ -266,13 +310,16 @@ describe('usePullRequests preference persistence', () => {
             manual: true,
             customQuery: query,
         });
-        expect(decryptAppData).toHaveBeenCalledOnce();
+        await vi.waitFor(() => {
+            expect(decryptAppData).toHaveBeenCalledTimes(2);
+            expect(hookHarness.setters[0]).toHaveBeenLastCalledWith([
+                { ...pullRequest(3), hidden: false },
+            ]);
+        });
         expect(hookHarness.setters[2].mock.calls).toEqual([[true], [false]]);
-        expect(vi.getTimerCount()).toBe(0);
     });
 
     it('removes a custom query from encrypted preferences and requests the default searches', async () => {
-        vi.useFakeTimers();
         const stored = appData({
             customQuery: 'is:pr org:acme',
             notificationsEnabled: false,
@@ -299,12 +346,11 @@ describe('usePullRequests preference persistence', () => {
             manual: true,
             customQuery: null,
         });
-        expect(decryptAppData).toHaveBeenCalledOnce();
+        expect(decryptAppData).not.toHaveBeenCalled();
         expect(hookHarness.setters[2].mock.calls).toEqual([[true], [false]]);
-        expect(vi.getTimerCount()).toBe(0);
     });
 
-    it('awaits refresh completion before reloading storage and clearing loading', async () => {
+    it('awaits refresh completion without manufacturing a reload when storage is unchanged', async () => {
         vi.useFakeTimers();
         const completion = deferred<unknown>();
         vi.mocked(browser.runtime.sendMessage).mockReturnValueOnce(
@@ -321,7 +367,7 @@ describe('usePullRequests preference persistence', () => {
         completion.resolve(true);
         await refresh;
 
-        expect(decryptAppData).toHaveBeenCalledOnce();
+        expect(decryptAppData).not.toHaveBeenCalled();
         expect(hookHarness.setters[2].mock.calls).toEqual([[true], [false]]);
         expect(vi.getTimerCount()).toBe(0);
     });
@@ -333,13 +379,10 @@ describe('usePullRequests preference persistence', () => {
         'clears loading after a completed background failure without waiting for DATA_UPDATED: %s',
         async (message) => {
             const preferences = renderPreferences();
-            hookHarness.effects[0]();
-            hookHarness.effects[1]();
-            const listener = vi.mocked(browser.runtime.onMessage.addListener)
-                .mock.calls[0][0] as (message: unknown) => void;
+            const { runtimeListener } = activateReloadListeners();
             vi.mocked(browser.runtime.sendMessage).mockImplementationOnce(
                 async () => {
-                    listener({ type: 'SHOW_ERROR', message });
+                    runtimeListener({ type: 'SHOW_ERROR', message });
                     return true;
                 }
             );
@@ -351,7 +394,7 @@ describe('usePullRequests preference persistence', () => {
                 [true],
                 [false],
             ]);
-            expect(decryptAppData).toHaveBeenCalledOnce();
+            expect(decryptAppData).not.toHaveBeenCalled();
         }
     );
 
@@ -376,7 +419,7 @@ describe('usePullRequests preference persistence', () => {
         ).resolves.toBeUndefined();
 
         expect(browser.runtime.sendMessage).toHaveBeenCalledTimes(2);
-        expect(decryptAppData).toHaveBeenCalledOnce();
+        expect(decryptAppData).not.toHaveBeenCalled();
         expect(hookHarness.setters[2].mock.calls).toEqual([
             [true],
             [false],
@@ -403,6 +446,136 @@ describe('usePullRequests preference persistence', () => {
         );
         expect(hookHarness.setters[2].mock.calls).toEqual([[true], [false]]);
         expect(decryptAppData).not.toHaveBeenCalled();
+    });
+
+    it('keeps DATA_UPDATED as a semantic signal without reloading storage', () => {
+        renderPreferences();
+        const { runtimeListener } = activateReloadListeners();
+
+        runtimeListener({ type: 'DATA_UPDATED', timestamp: Date.now() });
+
+        expect(decryptAppData).not.toHaveBeenCalled();
+        expect(decryptHiddenPrIds).not.toHaveBeenCalled();
+    });
+
+    it('reloads once for a successful manual refresh despite DATA_UPDATED', async () => {
+        const refreshedData = {
+            ...appData(),
+            pullRequests: [pullRequest(4)],
+        };
+        vi.mocked(decryptAppData).mockResolvedValue(refreshedData);
+        const preferences = renderPreferences();
+        const { runtimeListener, storageListener } = activateReloadListeners();
+        vi.mocked(browser.runtime.sendMessage).mockImplementationOnce(
+            async () => {
+                storageListener(encryptedAppDataChange(1));
+                runtimeListener({
+                    type: 'DATA_UPDATED',
+                    timestamp: Date.now(),
+                });
+                return true;
+            }
+        );
+
+        await preferences.refreshPullRequests();
+
+        await vi.waitFor(() => {
+            expect(decryptAppData).toHaveBeenCalledOnce();
+            expect(hookHarness.setters[0]).toHaveBeenCalledWith([
+                { ...pullRequest(4), hidden: false },
+            ]);
+        });
+        expect(hookHarness.setters[2].mock.calls).toEqual([[true], [false]]);
+    });
+
+    it('reloads for an external encrypted app-data storage change', async () => {
+        const externalData = {
+            ...appData(),
+            pullRequests: [pullRequest(5)],
+        };
+        vi.mocked(decryptAppData).mockResolvedValue(externalData);
+        renderPreferences();
+        const { storageListener } = activateReloadListeners();
+
+        storageListener(encryptedAppDataChange(1));
+
+        await vi.waitFor(() => {
+            expect(decryptAppData).toHaveBeenCalledOnce();
+            expect(hookHarness.setters[0]).toHaveBeenCalledWith([
+                { ...pullRequest(5), hidden: false },
+            ]);
+        });
+    });
+
+    it('applies two sequential committed storage changes', async () => {
+        const firstData = {
+            ...appData(),
+            pullRequests: [pullRequest(6)],
+        };
+        const latestData = {
+            ...appData(),
+            pullRequests: [pullRequest(7)],
+        };
+        vi.mocked(decryptAppData)
+            .mockResolvedValueOnce(firstData)
+            .mockResolvedValueOnce(latestData);
+        renderPreferences();
+        const { storageListener } = activateReloadListeners();
+
+        storageListener(encryptedAppDataChange(1));
+        await vi.waitFor(() => {
+            expect(decryptAppData).toHaveBeenCalledOnce();
+        });
+        storageListener(encryptedAppDataChange(2));
+
+        await vi.waitFor(() => {
+            expect(decryptAppData).toHaveBeenCalledTimes(2);
+            expect(hookHarness.setters[0]).toHaveBeenLastCalledWith([
+                { ...pullRequest(7), hidden: false },
+            ]);
+        });
+    });
+
+    it('serializes an in-flight load and one trailing storage reload', async () => {
+        const firstLoad = deferred<AppData>();
+        const secondLoad = deferred<AppData>();
+        let activeLoads = 0;
+        let maxActiveLoads = 0;
+        vi.mocked(decryptAppData)
+            .mockImplementationOnce(async () => {
+                activeLoads += 1;
+                maxActiveLoads = Math.max(maxActiveLoads, activeLoads);
+                const result = await firstLoad.promise;
+                activeLoads -= 1;
+                return result;
+            })
+            .mockImplementationOnce(async () => {
+                activeLoads += 1;
+                maxActiveLoads = Math.max(maxActiveLoads, activeLoads);
+                const result = await secondLoad.promise;
+                activeLoads -= 1;
+                return result;
+            });
+        renderPreferences();
+        const { storageListener } = activateReloadListeners();
+
+        storageListener(encryptedAppDataChange(1));
+        storageListener(encryptedAppDataChange(2));
+
+        expect(decryptAppData).toHaveBeenCalledOnce();
+        firstLoad.resolve({ ...appData(), pullRequests: [pullRequest(8)] });
+        await vi.waitFor(() => {
+            expect(decryptAppData).toHaveBeenCalledTimes(2);
+        });
+        secondLoad.resolve({ ...appData(), pullRequests: [pullRequest(9)] });
+
+        await vi.waitFor(() => {
+            expect(hookHarness.setters[0]).toHaveBeenLastCalledWith([
+                { ...pullRequest(9), hidden: false },
+            ]);
+        });
+        expect(maxActiveLoads).toBe(1);
+        expect(decryptAppData).toHaveBeenCalledTimes(2);
     });
 
     it.each([
