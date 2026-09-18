@@ -7,6 +7,9 @@ import {
     hasEncryptionSetup,
     clearSecureStorage,
 } from '../services/secureStorage';
+import { persistGitHubRateLimitCooldown } from '../background/githubRateLimit';
+import { analyzeGitHubHttpError } from '../utils/githubApiError';
+import { formatGitHubCooldownTime } from '../utils/githubRateLimit';
 
 export type AuthState =
     | 'initializing'
@@ -79,16 +82,75 @@ export function useAuth() {
     }, []);
 
     const validateToken = async (tokenToCheck: string) => {
+        let response: Response;
         try {
-            const response = await fetch('https://api.github.com/user', {
+            response = await fetch('https://api.github.com/user', {
                 headers: {
                     Authorization: `token ${tokenToCheck}`,
                     Accept: 'application/vnd.github.v3+json',
                 },
             });
+        } catch (error) {
+            console.error(
+                'Error reaching GitHub during token validation:',
+                error
+            );
+            setTokenError(
+                'Unable to reach GitHub. Check your connection and try again.'
+            );
+            return false;
+        }
 
+        try {
             if (!response.ok) {
-                throw new Error('Invalid token');
+                const errorInfo = await analyzeGitHubHttpError(response);
+                if (errorInfo.isRateLimit) {
+                    if (errorInfo.rateLimit) {
+                        try {
+                            await persistGitHubRateLimitCooldown(
+                                errorInfo.rateLimit
+                            );
+                        } catch (error) {
+                            console.error(
+                                'Error persisting GitHub rate-limit cooldown:',
+                                error
+                            );
+                        }
+
+                        const retryTime = formatGitHubCooldownTime(
+                            errorInfo.rateLimit.nextAllowedAt
+                        );
+                        throw new Error(
+                            `GitHub is rate limiting requests. Please try again after ${retryTime}.`
+                        );
+                    }
+
+                    throw new Error(
+                        'GitHub is temporarily rate limiting requests. Please try again shortly.'
+                    );
+                }
+
+                if (response.status === 401) {
+                    throw new Error(
+                        'Invalid GitHub token. Please check the token and try again.'
+                    );
+                }
+
+                if (response.status === 403) {
+                    throw new Error(
+                        'GitHub rejected this request. Check that the token has the required permissions.'
+                    );
+                }
+
+                if (response.status >= 500) {
+                    throw new Error(
+                        'GitHub is temporarily unavailable. Please try again.'
+                    );
+                }
+
+                throw new Error(
+                    `GitHub could not validate this token (status ${response.status}). Please try again.`
+                );
             }
 
             const scopes =
@@ -107,7 +169,9 @@ export function useAuth() {
             if (error instanceof Error) {
                 setTokenError(error.message);
             } else {
-                setTokenError('Failed to validate token');
+                setTokenError(
+                    'Unable to validate the GitHub token. Please try again.'
+                );
             }
             return false;
         }

@@ -1,6 +1,15 @@
 import browser from 'webextension-polyfill';
-import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
+import {
+    afterEach,
+    beforeEach,
+    describe,
+    expect,
+    it,
+    vi,
+    type Mock,
+} from 'vitest';
 import { useAuth } from '../../src/hooks/useAuth';
+import { persistGitHubRateLimitCooldown } from '../../src/background/githubRateLimit';
 import {
     clearSecureStorage,
     encryptToken,
@@ -49,6 +58,10 @@ vi.mock('../../src/services/secureStorage', () => ({
     clearSecureStorage: vi.fn(),
 }));
 
+vi.mock('../../src/background/githubRateLimit', () => ({
+    persistGitHubRateLimitCooldown: vi.fn(),
+}));
+
 const TOKEN = 'ghp_sanitized_token';
 const PASSWORD = 'password123';
 
@@ -82,6 +95,19 @@ const scopedResponse = (scopes: string | null, body: unknown = {}) => {
     };
 };
 
+const errorResponse = (
+    status: number,
+    body: unknown = {},
+    headers: HeadersInit = {}
+) =>
+    new Response(JSON.stringify(body), {
+        status,
+        headers: {
+            'Content-Type': 'application/json',
+            ...headers,
+        },
+    });
+
 describe('useAuth token validation and state transitions', () => {
     beforeEach(() => {
         hookHarness.stateIndex = 0;
@@ -97,8 +123,15 @@ describe('useAuth token validation and state transitions', () => {
         vi.mocked(encryptToken).mockResolvedValue(undefined);
         vi.mocked(validatePassword).mockResolvedValue(false);
         vi.mocked(clearSecureStorage).mockResolvedValue(undefined);
+        vi.mocked(persistGitHubRateLimitCooldown).mockResolvedValue(undefined);
         vi.spyOn(console, 'log').mockImplementation(() => undefined);
         vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+        vi.unstubAllGlobals();
+        vi.restoreAllMocks();
     });
 
     it.each(['repo', 'gist, repo, read:user', '  gist ,  repo  , workflow '])(
@@ -164,17 +197,142 @@ describe('useAuth token validation and state transitions', () => {
     it('reports a 401 response as an invalid token', async () => {
         vi.stubGlobal(
             'fetch',
-            vi.fn(async () => ({
-                ok: false,
-                status: 401,
-                headers: new Headers(),
-            }))
+            vi.fn(async () => errorResponse(401))
         );
         const auth = renderAuth({ 0: TOKEN });
 
         await auth.handleTokenSubmit(formEvent());
 
-        expect(hookHarness.setters[6]).toHaveBeenCalledWith('Invalid token');
+        expect(hookHarness.setters[6]).toHaveBeenCalledWith(
+            'Invalid GitHub token. Please check the token and try again.'
+        );
+        expect(hookHarness.setters[4]).not.toHaveBeenCalled();
+        expect(persistGitHubRateLimitCooldown).not.toHaveBeenCalled();
+    });
+
+    it('reports and persists a primary 403 rate limit without invalidating the token', async () => {
+        const now = new Date('2030-06-07T08:09:10.000Z');
+        vi.useFakeTimers();
+        vi.setSystemTime(now);
+        const reset = now.getTime() + 120_000;
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async () =>
+                errorResponse(
+                    403,
+                    { message: 'API rate limit exceeded' },
+                    {
+                        'x-ratelimit-remaining': '0',
+                        'x-ratelimit-reset': String(reset / 1000),
+                        'x-ratelimit-resource': 'core',
+                    }
+                )
+            )
+        );
+        const auth = renderAuth({ 0: TOKEN });
+
+        await auth.handleTokenSubmit(formEvent());
+
+        const message = hookHarness.setters[6].mock.calls.at(-1)?.[0];
+        expect(message).toContain('GitHub is rate limiting requests');
+        expect(message).toContain('Please try again after');
+        expect(message).not.toContain('Invalid');
+        expect(persistGitHubRateLimitCooldown).toHaveBeenCalledWith({
+            classification: 'primary',
+            nextAllowedAt: reset,
+            deadlineSource: 'reset',
+            resource: 'core',
+        });
+        expect(hookHarness.setters[4]).not.toHaveBeenCalled();
+    });
+
+    it('uses shared Retry-After classification for a secondary limit', async () => {
+        const now = new Date('2030-06-07T08:09:10.000Z');
+        vi.useFakeTimers();
+        vi.setSystemTime(now);
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async () =>
+                errorResponse(
+                    403,
+                    {
+                        message: 'You have exceeded a secondary rate limit.',
+                    },
+                    { 'retry-after': '90' }
+                )
+            )
+        );
+        const auth = renderAuth({ 0: TOKEN });
+
+        await auth.handleTokenSubmit(formEvent());
+
+        const message = hookHarness.setters[6].mock.calls.at(-1)?.[0];
+        expect(message).toContain('GitHub is rate limiting requests');
+        expect(message).not.toContain('Invalid');
+        expect(persistGitHubRateLimitCooldown).toHaveBeenCalledWith({
+            classification: 'secondary',
+            nextAllowedAt: now.getTime() + 90_000,
+            deadlineSource: 'retry-after',
+        });
+        expect(hookHarness.setters[4]).not.toHaveBeenCalled();
+    });
+
+    it('recognizes a 429 without reporting invalid credentials', async () => {
+        const now = new Date('2030-06-07T08:09:10.000Z');
+        vi.useFakeTimers();
+        vi.setSystemTime(now);
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async () =>
+                errorResponse(429, { message: 'Too many requests' })
+            )
+        );
+        const auth = renderAuth({ 0: TOKEN });
+
+        await auth.handleTokenSubmit(formEvent());
+
+        const message = hookHarness.setters[6].mock.calls.at(-1)?.[0];
+        expect(message).toContain('GitHub is rate limiting requests');
+        expect(message).not.toContain('Invalid');
+        expect(persistGitHubRateLimitCooldown).toHaveBeenCalledWith({
+            classification: 'generic',
+            nextAllowedAt: now.getTime() + 60_000,
+            deadlineSource: 'secondary-fallback',
+        });
+        expect(hookHarness.setters[4]).not.toHaveBeenCalled();
+    });
+
+    it('reports an ordinary 403 as a permission failure', async () => {
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async () =>
+                errorResponse(403, { message: 'Resource not accessible' })
+            )
+        );
+        const auth = renderAuth({ 0: TOKEN });
+
+        await auth.handleTokenSubmit(formEvent());
+
+        expect(hookHarness.setters[6]).toHaveBeenCalledWith(
+            'GitHub rejected this request. Check that the token has the required permissions.'
+        );
+        expect(persistGitHubRateLimitCooldown).not.toHaveBeenCalled();
+        expect(hookHarness.setters[4]).not.toHaveBeenCalled();
+    });
+
+    it('reports a GitHub server failure as temporary', async () => {
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async () => errorResponse(503))
+        );
+        const auth = renderAuth({ 0: TOKEN });
+
+        await auth.handleTokenSubmit(formEvent());
+
+        expect(hookHarness.setters[6]).toHaveBeenCalledWith(
+            'GitHub is temporarily unavailable. Please try again.'
+        );
+        expect(persistGitHubRateLimitCooldown).not.toHaveBeenCalled();
         expect(hookHarness.setters[4]).not.toHaveBeenCalled();
     });
 
@@ -190,7 +348,7 @@ describe('useAuth token validation and state transitions', () => {
         await auth.handleTokenSubmit(formEvent());
 
         expect(hookHarness.setters[6]).toHaveBeenCalledWith(
-            'network unavailable'
+            'Unable to reach GitHub. Check your connection and try again.'
         );
         expect(hookHarness.setters[4]).not.toHaveBeenCalled();
         expect(hookHarness.setters[5]).toHaveBeenLastCalledWith(false);

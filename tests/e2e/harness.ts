@@ -160,7 +160,12 @@ export async function installGitHubApiMock(
 
 export async function mockTokenValidation(
     page: Page,
-    options: { status?: number; scopes?: string } = {}
+    options: {
+        status?: number;
+        scopes?: string;
+        headers?: Record<string, string>;
+        body?: unknown;
+    } = {}
 ) {
     const handler = async (request: HTTPRequest) => {
         if (request.url() !== 'https://api.github.com/user') {
@@ -170,8 +175,11 @@ export async function mockTokenValidation(
         await request.respond({
             status: options.status ?? 200,
             contentType: 'application/json',
-            headers: { 'x-oauth-scopes': options.scopes ?? 'repo' },
-            body: JSON.stringify({ login: 'fixture-user' }),
+            headers: {
+                'x-oauth-scopes': options.scopes ?? 'repo',
+                ...options.headers,
+            },
+            body: JSON.stringify(options.body ?? { login: 'fixture-user' }),
         });
     };
     await page.setRequestInterception(true);

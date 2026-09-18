@@ -84,8 +84,33 @@ describe('authentication journeys', () => {
 
         await page.type('#githubToken', 'invalid-fixture-token');
         await page.click('[aria-label="Save Token"]');
-        await waitForText(page, '[role="alert"]', 'Invalid token');
+        await waitForText(page, '[role="alert"]', 'Invalid GitHub token');
         expect(await page.$('#githubToken')).not.toBeNull();
+        await stopMock();
+    });
+
+    it('shows a rate-limit error without leaving the login screen', async () => {
+        const page = await openCleanPopup();
+        pages.push(page);
+        const stopMock = await mockTokenValidation(page, {
+            status: 429,
+            headers: { 'retry-after': '90' },
+            body: {
+                message: 'You have exceeded a secondary rate limit.',
+            },
+        });
+
+        await page.type('#githubToken', TEST_TOKEN);
+        await page.click('[aria-label="Save Token"]');
+        await waitForText(page, '[role="alert"]', 'rate limiting requests');
+        expect(await page.$('#githubToken')).not.toBeNull();
+        expect(await page.$('#newPassword')).toBeNull();
+        await expect(
+            page.$eval(
+                '#githubToken',
+                (input) => (input as HTMLInputElement).value
+            )
+        ).resolves.toBe(TEST_TOKEN);
         await stopMock();
     });
 
