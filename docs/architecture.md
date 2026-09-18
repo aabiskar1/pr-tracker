@@ -58,9 +58,13 @@ document does not prescribe an unscoped rewrite.
 Manual refresh and custom-query actions use the existing `CHECK_PRS`
 request/response boundary as their completion signal. The background responds
 only after its serialized refresh (or immediate cooldown suppression) settles;
-the popup then reloads encrypted storage and clears loading in structured
-cleanup. `DATA_UPDATED` and storage-change listeners remain supplementary UI
-reload triggers rather than prerequisites for ending the requested operation.
+the popup then clears loading in structured cleanup. Encrypted app-data storage
+changes are the authoritative popup reload signal, so failed or cooldown-
+suppressed refreshes do not manufacture a read. `DATA_UPDATED` remains a
+semantic notification without duplicating the storage-driven reload. Popup
+loads are serialized locally, with at most one trailing pass when another
+committed storage change arrives during an active decrypt, so later states are
+not lost and decrypt work never runs in parallel.
 
 ## Background and service-worker layer
 

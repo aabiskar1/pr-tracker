@@ -104,7 +104,7 @@ describe('popup state journeys', () => {
         expect(await page.$$('li img')).not.toHaveLength(0);
     });
 
-    it('keeps search active after a background refresh and DATA_UPDATED reload', async () => {
+    it('keeps search active after a background refresh storage reload', async () => {
         const page = await openSeededPopup(github);
         pages.push(page);
         await resetManualRefreshThrottle();
