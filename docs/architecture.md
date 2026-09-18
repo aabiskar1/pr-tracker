@@ -55,6 +55,13 @@ fetches GitHub directly from `useAuth`. Pure domain decisions should gradually
 move to framework-independent functions when those areas are changed, but this
 document does not prescribe an unscoped rewrite.
 
+Manual refresh and custom-query actions use the existing `CHECK_PRS`
+request/response boundary as their completion signal. The background responds
+only after its serialized refresh (or immediate cooldown suppression) settles;
+the popup then reloads encrypted storage and clears loading in structured
+cleanup. `DATA_UPDATED` and storage-change listeners remain supplementary UI
+reload triggers rather than prerequisites for ending the requested operation.
+
 ## Background and service-worker layer
 
 The background context is split across `entrypoints/background.ts` and

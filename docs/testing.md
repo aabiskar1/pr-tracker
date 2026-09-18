@@ -72,6 +72,8 @@ Use unit tests for rules that can be evaluated without a real browser:
 - PR filtering, text matching, and sorting;
 - review and CI status reduction;
 - refresh and notification eligibility;
+- popup refresh/query completion, rejected runtime messages, cooldown/error
+  completion without `DATA_UPDATED`, and loading cleanup without fixed delays;
 - old/new PR comparison and duplicate prevention; and
 - preference/default/validation decisions.
 
