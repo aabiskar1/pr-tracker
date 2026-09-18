@@ -19,6 +19,10 @@ const DEFAULT_FILTERS: FilterState = {
     ciStatus: ['passing', 'failing', 'pending'],
 };
 
+const REFRESH_COMMUNICATION_ERROR = 'Unable to refresh PRs. Please try again.';
+const QUERY_COMMUNICATION_ERROR =
+    'Unable to update the custom query. Please try again.';
+
 export function usePullRequests(password: string, authState: AuthState) {
     const [pullRequests, setPullRequests] = useState<PullRequest[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
@@ -103,6 +107,38 @@ export function usePullRequests(password: string, authState: AuthState) {
         }
     }, [password, authState]);
 
+    const requestPullRequestRefresh = async (
+        query?: string | null
+    ): Promise<void> => {
+        const completed = await browser.runtime.sendMessage({
+            type: 'CHECK_PRS',
+            password,
+            manual: true,
+            ...(typeof query === 'undefined' ? {} : { customQuery: query }),
+        });
+        if (completed !== true) {
+            throw new Error('Background refresh did not complete');
+        }
+        await loadPullRequests();
+    };
+
+    const runLoadingOperation = async (
+        operation: () => Promise<void>,
+        userMessage: string,
+        logMessage: string
+    ): Promise<void> => {
+        setIsLoading(true);
+        setGlobalError('');
+        try {
+            await operation();
+        } catch (error) {
+            console.error(logMessage, error);
+            setGlobalError(userMessage);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     useEffect(() => {
         loadPullRequestsRef.current = loadPullRequests;
     }, [loadPullRequests]);
@@ -174,7 +210,13 @@ export function usePullRequests(password: string, authState: AuthState) {
     // Initial load
     useEffect(() => {
         if (authState === 'authenticated') {
-            loadPullRequests().then(() => setIsLoading(false));
+            void (async () => {
+                try {
+                    await loadPullRequests();
+                } finally {
+                    setIsLoading(false);
+                }
+            })();
         } else {
             setIsLoading(false);
         }
@@ -336,31 +378,19 @@ export function usePullRequests(password: string, authState: AuthState) {
         setCustomQuery(customQueryInput);
         setIsCustomQueryActive(true);
 
-        if (password && authState === 'authenticated') {
-            try {
-                await persistAppDataMutation({
-                    kind: 'set-custom-query',
-                    customQuery: customQueryInput,
-                });
-            } catch (error) {
-                console.error(
-                    'Failed to update custom query in encrypted storage:',
-                    error
-                );
-            }
-        }
-
-        setIsLoading(true);
-        await browser.runtime.sendMessage({
-            type: 'CHECK_PRS',
-            password,
-            manual: true,
-            customQuery: customQueryInput,
-        });
-        setTimeout(async () => {
-            await loadPullRequests();
-            setIsLoading(false);
-        }, 1500);
+        await runLoadingOperation(
+            async () => {
+                if (password && authState === 'authenticated') {
+                    await persistAppDataMutation({
+                        kind: 'set-custom-query',
+                        customQuery: customQueryInput,
+                    });
+                }
+                await requestPullRequestRefresh(customQueryInput);
+            },
+            QUERY_COMMUNICATION_ERROR,
+            'Failed to update the custom query:'
+        );
     };
 
     const handleResetCustomQuery = async () => {
@@ -368,31 +398,19 @@ export function usePullRequests(password: string, authState: AuthState) {
         setCustomQueryInput('');
         setIsCustomQueryActive(false);
 
-        if (password && authState === 'authenticated') {
-            try {
-                await persistAppDataMutation({
-                    kind: 'set-custom-query',
-                    customQuery: null,
-                });
-            } catch (error) {
-                console.error(
-                    'Failed to clear custom query in encrypted storage:',
-                    error
-                );
-            }
-        }
-
-        setIsLoading(true);
-        await browser.runtime.sendMessage({
-            type: 'CHECK_PRS',
-            password,
-            manual: true,
-            customQuery: null,
-        });
-        setTimeout(async () => {
-            await loadPullRequests();
-            setIsLoading(false);
-        }, 1500);
+        await runLoadingOperation(
+            async () => {
+                if (password && authState === 'authenticated') {
+                    await persistAppDataMutation({
+                        kind: 'set-custom-query',
+                        customQuery: null,
+                    });
+                }
+                await requestPullRequestRefresh(null);
+            },
+            QUERY_COMMUNICATION_ERROR,
+            'Failed to reset the custom query:'
+        );
     };
 
     const handleToggleNotifications = async () => {
@@ -440,16 +458,11 @@ export function usePullRequests(password: string, authState: AuthState) {
     };
 
     const refreshPullRequests = async () => {
-        setIsLoading(true);
-        await browser.runtime.sendMessage({
-            type: 'CHECK_PRS',
-            password,
-            manual: true,
-        });
-        setTimeout(async () => {
-            await loadPullRequests();
-            setIsLoading(false);
-        }, 1500);
+        await runLoadingOperation(
+            () => requestPullRequestRefresh(),
+            REFRESH_COMMUNICATION_ERROR,
+            'Failed to request a pull-request refresh:'
+        );
     };
 
     return {

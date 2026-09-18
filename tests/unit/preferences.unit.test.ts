@@ -106,6 +106,16 @@ const renderPreferences = (stateValues: Record<number, unknown> = {}) => {
     return PreferencesHookHarness();
 };
 
+const deferred = <T>() => {
+    let resolve!: (value: T) => void;
+    let reject!: (reason?: unknown) => void;
+    const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+        resolve = resolvePromise;
+        reject = rejectPromise;
+    });
+    return { promise, resolve, reject };
+};
+
 describe('usePullRequests preference persistence', () => {
     beforeEach(() => {
         hookHarness.stateIndex = 0;
@@ -256,6 +266,9 @@ describe('usePullRequests preference persistence', () => {
             manual: true,
             customQuery: query,
         });
+        expect(decryptAppData).toHaveBeenCalledOnce();
+        expect(hookHarness.setters[2].mock.calls).toEqual([[true], [false]]);
+        expect(vi.getTimerCount()).toBe(0);
     });
 
     it('removes a custom query from encrypted preferences and requests the default searches', async () => {
@@ -286,6 +299,110 @@ describe('usePullRequests preference persistence', () => {
             manual: true,
             customQuery: null,
         });
+        expect(decryptAppData).toHaveBeenCalledOnce();
+        expect(hookHarness.setters[2].mock.calls).toEqual([[true], [false]]);
+        expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it('awaits refresh completion before reloading storage and clearing loading', async () => {
+        vi.useFakeTimers();
+        const completion = deferred<unknown>();
+        vi.mocked(browser.runtime.sendMessage).mockReturnValueOnce(
+            completion.promise
+        );
+        const preferences = renderPreferences();
+
+        const refresh = preferences.refreshPullRequests();
+
+        expect(hookHarness.setters[2]).toHaveBeenCalledWith(true);
+        expect(decryptAppData).not.toHaveBeenCalled();
+        expect(hookHarness.setters[2]).not.toHaveBeenCalledWith(false);
+
+        completion.resolve(true);
+        await refresh;
+
+        expect(decryptAppData).toHaveBeenCalledOnce();
+        expect(hookHarness.setters[2].mock.calls).toEqual([[true], [false]]);
+        expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it.each([
+        'GitHub rate limited until 09:10. Showing cached pull requests.',
+        'GitHub data could not be refreshed completely. Your cached pull requests were preserved.',
+    ])(
+        'clears loading after a completed background failure without waiting for DATA_UPDATED: %s',
+        async (message) => {
+            const preferences = renderPreferences();
+            hookHarness.effects[0]();
+            hookHarness.effects[1]();
+            const listener = vi.mocked(browser.runtime.onMessage.addListener)
+                .mock.calls[0][0] as (message: unknown) => void;
+            vi.mocked(browser.runtime.sendMessage).mockImplementationOnce(
+                async () => {
+                    listener({ type: 'SHOW_ERROR', message });
+                    return true;
+                }
+            );
+
+            await preferences.refreshPullRequests();
+
+            expect(hookHarness.setters[9]).toHaveBeenCalledWith(message);
+            expect(hookHarness.setters[2].mock.calls).toEqual([
+                [true],
+                [false],
+            ]);
+            expect(decryptAppData).toHaveBeenCalledOnce();
+        }
+    );
+
+    it('handles a rejected refresh message and permits a later attempt', async () => {
+        vi.mocked(browser.runtime.sendMessage)
+            .mockRejectedValueOnce(new Error('message port closed'))
+            .mockResolvedValueOnce(true);
+        const preferences = renderPreferences();
+
+        await expect(
+            preferences.refreshPullRequests()
+        ).resolves.toBeUndefined();
+
+        expect(hookHarness.setters[9]).toHaveBeenCalledWith(
+            'Unable to refresh PRs. Please try again.'
+        );
+        expect(hookHarness.setters[2].mock.calls).toEqual([[true], [false]]);
+        expect(decryptAppData).not.toHaveBeenCalled();
+
+        await expect(
+            preferences.refreshPullRequests()
+        ).resolves.toBeUndefined();
+
+        expect(browser.runtime.sendMessage).toHaveBeenCalledTimes(2);
+        expect(decryptAppData).toHaveBeenCalledOnce();
+        expect(hookHarness.setters[2].mock.calls).toEqual([
+            [true],
+            [false],
+            [true],
+            [false],
+        ]);
+    });
+
+    it('clears loading and keeps custom-query controls usable when refresh messaging rejects', async () => {
+        const query = 'is:pr org:acme label:urgent';
+        vi.mocked(browser.runtime.sendMessage)
+            .mockResolvedValueOnce(true)
+            .mockRejectedValueOnce(new Error('background unavailable'));
+        const preferences = renderPreferences({ 6: query });
+
+        await expect(
+            preferences.handleSaveCustomQuery()
+        ).resolves.toBeUndefined();
+
+        expect(hookHarness.setters[5]).toHaveBeenCalledWith(query);
+        expect(hookHarness.setters[7]).toHaveBeenCalledWith(true);
+        expect(hookHarness.setters[9]).toHaveBeenCalledWith(
+            'Unable to update the custom query. Please try again.'
+        );
+        expect(hookHarness.setters[2].mock.calls).toEqual([[true], [false]]);
+        expect(decryptAppData).not.toHaveBeenCalled();
     });
 
     it.each([

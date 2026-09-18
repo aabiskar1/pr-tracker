@@ -2,6 +2,7 @@ import browser from 'webextension-polyfill';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { constants } from '../../src/background/state';
 import { createPeriodicAlarm } from '@/src/background/alarms';
+import { checkPullRequests } from '@/src/background/prManager';
 import {
     applyAppDataMutation,
     parseAppDataMutation,
@@ -64,6 +65,16 @@ const loadBackground = async () => {
     await import('../../entrypoints/background');
     return vi.mocked(browser.runtime.onMessage.addListener).mock
         .calls[0][0] as unknown as MessageListener;
+};
+
+const deferred = <T>() => {
+    let resolve!: (value: T) => void;
+    let reject!: (reason?: unknown) => void;
+    const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+        resolve = resolvePromise;
+        reject = rejectPromise;
+    });
+    return { promise, resolve, reject };
 };
 
 describe('background remembered-session wiring', () => {
@@ -230,6 +241,32 @@ describe('background remembered-session wiring', () => {
             'active-password',
             mutation
         );
+    });
+
+    it('answers CHECK_PRS only after the background refresh operation completes', async () => {
+        const completion = deferred<void>();
+        vi.mocked(checkPullRequests).mockReturnValueOnce(completion.promise);
+        const listener = await loadBackground();
+        const sendResponse = vi.fn();
+
+        listener(
+            {
+                type: 'CHECK_PRS',
+                password: 'active-password',
+                manual: true,
+                customQuery: 'is:pr org:acme',
+            },
+            {},
+            sendResponse
+        );
+
+        expect(checkPullRequests).toHaveBeenCalledWith(true, 'is:pr org:acme');
+        expect(sendResponse).not.toHaveBeenCalled();
+
+        completion.resolve();
+        await vi.waitFor(() => {
+            expect(sendResponse).toHaveBeenCalledWith(true);
+        });
     });
 
     it('rejects invalid or unauthenticated app-data mutation messages', async () => {
