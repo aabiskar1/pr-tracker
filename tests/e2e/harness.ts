@@ -45,14 +45,17 @@ function responseFor(url: string, scenario: GitHubScenario) {
     if (url.includes('/search/issues')) {
         const isReviewSearch =
             decodeURIComponent(url).includes('review-requested:');
+        const items = isReviewSearch
+            ? []
+            : scenario.pullRequests.map((pr) => ({
+                  pull_request: { url: prApiUrl(pr) },
+              }));
         return {
             status: scenario.searchStatus ?? 200,
             body: {
-                items: isReviewSearch
-                    ? []
-                    : scenario.pullRequests.map((pr) => ({
-                          pull_request: { url: prApiUrl(pr) },
-                      })),
+                total_count: items.length,
+                incomplete_results: false,
+                items,
             },
         };
     }

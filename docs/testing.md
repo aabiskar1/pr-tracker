@@ -57,6 +57,8 @@ Use unit tests for rules that can be evaluated without a real browser:
 - HTTP/status/error classification;
 - complete-refresh rejection for failed or unusable required PR details while
   optional review and CI data degrade to `pending`;
+- issue-search pagination, including later-page failures, incomplete results,
+  zero results, duplicate hits, and the 1,000-result API ceiling;
 - endpoint-specific request counts, including canonical-detail reuse and
   pre-detail deduplication of matching search results;
 - PR filtering, text matching, and sorting;

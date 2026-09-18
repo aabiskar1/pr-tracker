@@ -45,6 +45,19 @@ export const searchItem = (number: number) => ({
     },
 });
 
+export const searchResponse = (
+    items: ReturnType<typeof searchItem>[],
+    overrides: {
+        total_count?: number;
+        incomplete_results?: boolean;
+    } = {}
+): Response =>
+    jsonResponse({
+        total_count: overrides.total_count ?? items.length,
+        incomplete_results: overrides.incomplete_results ?? false,
+        items,
+    });
+
 export const prDetail = (
     number: number,
     overrides: Record<string, unknown> = {}
