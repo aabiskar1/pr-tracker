@@ -623,4 +623,41 @@ describe('fetchPullRequests search and transformation behavior', () => {
             requestedUrls.some((url) => url.includes('/repo-30/commits/'))
         ).toBe(false);
     });
+
+    it('keeps required-detail failure semantics when another PR has an optional rate limit', async () => {
+        installFetch((url) => {
+            if (isSearchUrl(url)) {
+                return searchResponse([searchItem(50), searchItem(51)]);
+            }
+            if (url === prUrl(50)) return jsonResponse(prDetail(50));
+            if (url === `${prUrl(50)}/reviews`) {
+                return jsonResponse({ message: 'secondary rate limit' }, 429, {
+                    'retry-after': '60',
+                });
+            }
+            if (
+                url.includes('/repo-50/commits/') &&
+                url.endsWith('/check-runs')
+            ) {
+                return jsonResponse({
+                    check_runs: [
+                        { status: 'completed', conclusion: 'success' },
+                    ],
+                });
+            }
+            if (url === prUrl(51)) {
+                return jsonResponse({ message: 'Service unavailable' }, 503);
+            }
+            throw new Error(`Unexpected URL: ${url}`);
+        });
+
+        await expect(
+            fetchPullRequests(
+                TOKEN,
+                USER,
+                'is:pr org:acme',
+                createNotificationMock()
+            )
+        ).resolves.toEqual({ status: 'failure' });
+    });
 });

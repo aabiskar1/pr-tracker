@@ -4,6 +4,7 @@ import type { GitHubRateLimitCooldown } from '../utils/githubRateLimit';
 export {
     deriveGitHubRateLimitCooldown,
     formatGitHubCooldownTime,
+    selectLatestGitHubRateLimitCooldown,
 } from '../utils/githubRateLimit';
 export type {
     GitHubRateLimitClassification,

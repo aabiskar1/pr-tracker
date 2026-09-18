@@ -231,7 +231,11 @@ async function runPullRequestCheck(
         }
         const uniquePRs = result.pullRequests;
 
-        await clearGitHubRateLimitCooldown();
+        if (result.rateLimit) {
+            await persistGitHubRateLimitCooldown(result.rateLimit);
+        } else {
+            await clearGitHubRateLimitCooldown();
+        }
 
         const count = uniquePRs.length;
         console.log(`Final count of unique PRs: ${count}`);

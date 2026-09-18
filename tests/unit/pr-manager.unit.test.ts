@@ -96,9 +96,13 @@ const appData = (overrides: Partial<AppData> = {}): AppData => ({
 });
 
 const clone = <T>(value: T): T => structuredClone(value);
-const successfulFetch = (pullRequests: PullRequest[]) => ({
+const successfulFetch = (
+    pullRequests: PullRequest[],
+    rateLimit?: GitHubRateLimitCooldown
+) => ({
     status: 'success' as const,
     pullRequests,
+    ...(rateLimit ? { rateLimit } : {}),
 });
 const deferred = <T>() => {
     let resolve!: (value: T) => void;
@@ -284,6 +288,51 @@ describe('background PR polling and notification decisions', () => {
         expect(clearGitHubRateLimitCooldown).not.toHaveBeenCalled();
         expect(setBadgeText).not.toHaveBeenCalled();
         expect(encryptAppData).not.toHaveBeenCalled();
+    });
+
+    it('persists an optional cooldown while completing the successful refresh', async () => {
+        const prs = [pullRequest(1), pullRequest(2)];
+        storedData = appData({ oldPullRequests: [pullRequest(1)] });
+        vi.mocked(fetchPullRequests).mockResolvedValue(
+            successfulFetch(prs, COOLDOWN)
+        );
+
+        await checkPullRequests(true);
+
+        expect(persistGitHubRateLimitCooldown).toHaveBeenCalledWith(COOLDOWN);
+        expect(clearGitHubRateLimitCooldown).not.toHaveBeenCalled();
+        expect(setBadgeText).toHaveBeenCalledWith('2');
+        expect(storedData.pullRequests).toEqual(prs);
+        expect(storedData.oldPullRequests).toEqual(prs);
+        expect(storedData.lastUpdated).toBe(FIXED_TIME.toISOString());
+        expect(browser.runtime.sendMessage).toHaveBeenCalledWith({
+            type: 'DATA_UPDATED',
+            timestamp: FIXED_TIME.getTime(),
+        });
+        expect(createNotification).toHaveBeenCalledWith(
+            undefined,
+            expect.objectContaining({
+                title: 'New Pull Requests',
+                message: 'You have 1 new pull request!',
+            })
+        );
+    });
+
+    it('suppresses the next refresh after a successful optional rate limit', async () => {
+        vi.mocked(getActiveGitHubRateLimitCooldown)
+            .mockResolvedValueOnce(null)
+            .mockResolvedValueOnce(COOLDOWN);
+        vi.mocked(fetchPullRequests).mockResolvedValue(
+            successfulFetch([pullRequest(1)], COOLDOWN)
+        );
+
+        await checkPullRequests(true);
+        await checkPullRequests(false);
+
+        expect(fetch).toHaveBeenCalledOnce();
+        expect(fetchPullRequests).toHaveBeenCalledOnce();
+        expect(persistGitHubRateLimitCooldown).toHaveBeenCalledWith(COOLDOWN);
+        expect(clearGitHubRateLimitCooldown).not.toHaveBeenCalled();
     });
 
     it('does not manufacture a cooldown for a non-rate-limit refresh failure', async () => {
