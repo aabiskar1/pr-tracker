@@ -168,24 +168,14 @@ async function getReviewStatus(
     }
 }
 
-async function getCIStatus(prUrl: string, token: string): Promise<CIStatus> {
+async function getCIStatus(
+    repoUrl: string,
+    headSha: string,
+    token: string
+): Promise<CIStatus> {
     try {
-        // First get the PR to find the head SHA
-        const prResponse = await fetch(prUrl, {
-            headers: {
-                Authorization: `token ${token}`,
-                Accept: 'application/vnd.github.v3+json',
-            },
-        });
-
-        if (!prResponse.ok) return 'pending';
-
-        const prData = await prResponse.json();
-        const sha = prData.head.sha;
-        const repoUrl = prData.base.repo.url;
-
         // Check runs
-        const checksUrl = `${repoUrl}/commits/${sha}/check-runs`;
+        const checksUrl = `${repoUrl}/commits/${headSha}/check-runs`;
         const response = await fetch(checksUrl, {
             headers: {
                 Authorization: `token ${token}`,
@@ -199,7 +189,7 @@ async function getCIStatus(prUrl: string, token: string): Promise<CIStatus> {
 
         if (data.check_runs.length === 0) {
             // Fallback to combined status
-            const statusUrl = `${repoUrl}/commits/${sha}/status`;
+            const statusUrl = `${repoUrl}/commits/${headSha}/status`;
             const statusResp = await fetch(statusUrl, {
                 headers: {
                     Authorization: `token ${token}`,
@@ -246,6 +236,39 @@ const nestedRecord = (
     const nested = value[key];
     return isRecord(nested) ? nested : undefined;
 };
+
+function getCIContext(
+    value: unknown
+): { repoUrl: string; headSha: string } | null {
+    if (!isRecord(value)) return null;
+
+    const head = nestedRecord(value, 'head');
+    const base = nestedRecord(value, 'base');
+    const repo = base ? nestedRecord(base, 'repo') : undefined;
+    if (
+        typeof head?.sha !== 'string' ||
+        head.sha.length === 0 ||
+        typeof repo?.url !== 'string' ||
+        repo.url.length === 0
+    ) {
+        return null;
+    }
+
+    return { repoUrl: repo.url, headSha: head.sha };
+}
+
+function deduplicateSearchItems(
+    items: GitHubIssueSearchItem[]
+): GitHubIssueSearchItem[] {
+    const seenUrls = new Set<string>();
+    return items.filter((item) => {
+        const url = item.pull_request?.url;
+        if (typeof url !== 'string' || url.length === 0) return true;
+        if (seenUrls.has(url)) return false;
+        seenUrls.add(url);
+        return true;
+    });
+}
 
 function mapPullRequestDetail(
     value: unknown,
@@ -423,8 +446,10 @@ export async function fetchPullRequests(
         prItems = [...(authoredData.items || []), ...(reviewData.items || [])];
     }
 
-    // Canonical PR details are required. Reviews and CI are degradable and
-    // already fall back to "pending" when their supporting requests fail.
+    prItems = deduplicateSearchItems(prItems);
+
+    // Canonical PR details are required and validated before optional review
+    // and CI requests begin. Supporting failures degrade to "pending".
     const getPRDetails = async (
         item: GitHubIssueSearchItem,
         token: string
@@ -442,16 +467,12 @@ export async function fetchPullRequests(
 
             const prUrl = item.pull_request.url;
 
-            const [prResponse, reviewStatus, ciStatus] = await Promise.all([
-                fetch(prUrl, {
-                    headers: {
-                        Authorization: `token ${token}`,
-                        Accept: 'application/vnd.github.v3+json',
-                    },
-                }),
-                getReviewStatus(prUrl, token),
-                getCIStatus(prUrl, token),
-            ]);
+            const prResponse = await fetch(prUrl, {
+                headers: {
+                    Authorization: `token ${token}`,
+                    Accept: 'application/vnd.github.v3+json',
+                },
+            });
 
             if (!prResponse.ok) {
                 console.error(
@@ -463,15 +484,30 @@ export async function fetchPullRequests(
             const prData: unknown = await prResponse.json();
             const pullRequest = mapPullRequestDetail(
                 prData,
-                reviewStatus,
-                ciStatus
+                'pending',
+                'pending'
             );
             if (!pullRequest) {
                 console.error('Required PR detail response was unusable');
                 return { status: 'failure' };
             }
 
-            return { status: 'success', pullRequest };
+            const ciContext = getCIContext(prData);
+            const [reviewStatus, ciStatus] = await Promise.all([
+                getReviewStatus(prUrl, token),
+                ciContext
+                    ? getCIStatus(ciContext.repoUrl, ciContext.headSha, token)
+                    : Promise.resolve<CIStatus>('pending'),
+            ]);
+
+            return {
+                status: 'success',
+                pullRequest: {
+                    ...pullRequest,
+                    review_status: reviewStatus,
+                    ci_status: ciStatus,
+                },
+            };
         } catch (error) {
             console.error('Error fetching PR details:', error);
             return { status: 'failure' };

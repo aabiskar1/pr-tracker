@@ -71,9 +71,11 @@ describe('fetchPullRequests search and transformation behavior', () => {
 
     it('combines default authored and review-requested searches and deduplicates IDs', async () => {
         const searchUrls: string[] = [];
+        const requestedUrls: string[] = [];
         const createNotification = createNotificationMock();
 
         installFetch((url, init) => {
+            requestedUrls.push(url);
             if (isSearchUrl(url)) {
                 searchUrls.push(url);
                 expect(init?.headers).toEqual({
@@ -150,6 +152,23 @@ describe('fetchPullRequests search and transformation behavior', () => {
         });
         expect(result[1].review_status).toBe('changes-requested');
         expect(createNotification).not.toHaveBeenCalled();
+        for (const number of [1, 2]) {
+            expect(
+                requestedUrls.filter((url) => url === prUrl(number))
+            ).toHaveLength(1);
+            expect(
+                requestedUrls.filter(
+                    (url) => url === `${prUrl(number)}/reviews`
+                )
+            ).toHaveLength(1);
+            expect(
+                requestedUrls.filter((url) =>
+                    url.includes(
+                        `/repo-${number}/commits/sha-${number}/check-runs`
+                    )
+                )
+            ).toHaveLength(1);
+        }
     });
 
     it('uses one URL-encoded custom search instead of the defaults', async () => {
@@ -470,8 +489,10 @@ describe('fetchPullRequests search and transformation behavior', () => {
 
     it('rejects the complete refresh when one of multiple required detail requests fails', async () => {
         const createNotification = createNotificationMock();
+        const requestedUrls: string[] = [];
 
         installFetch((url) => {
+            requestedUrls.push(url);
             if (isSearchUrl(url)) {
                 return jsonResponse({
                     items: [searchItem(30), searchItem(31)],
@@ -503,5 +524,12 @@ describe('fetchPullRequests search and transformation behavior', () => {
                 'could not be refreshed completely'
             ),
         });
+        expect(requestedUrls.filter((url) => url === prUrl(30))).toHaveLength(
+            1
+        );
+        expect(requestedUrls).not.toContain(`${prUrl(30)}/reviews`);
+        expect(
+            requestedUrls.some((url) => url.includes('/repo-30/commits/'))
+        ).toBe(false);
     });
 });
