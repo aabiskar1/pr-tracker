@@ -100,16 +100,28 @@ pages). An HTTP, network, invalid-JSON, malformed-response, or
 persisting a truncated result set.
 
 The collected search results are deduplicated by canonical PR API URL before
-per-PR requests begin. For every unique result, `api.ts` fetches and validates
-the full PR detail response first, then reuses its repository URL and head SHA
-while fetching reviews and check runs in parallel. If there are no check runs,
-it falls back to the combined commit status. The canonical detail endpoint is
-therefore called once per unique PR rather than again during CI resolution. The
-canonical PR detail response and the identity fields needed to construct a PR
-card are required: if any such request fails or is unusable, optional requests
-for that PR do not begin, the fetch returns an explicit failure, and the
-background manager preserves the last known good snapshot. Review, check-run,
-and combined status data remain optional and degrade to `pending`.
+per-PR requests begin. A reusable promise pool runs at most four per-PR work
+units concurrently. This conservative product-level bound keeps several PRs
+moving for responsive refreshes while avoiding unnecessary GitHub pressure; it
+is intentionally independent of GitHub's changeable secondary-limit ceilings.
+For every unique result, a work unit fetches and validates the full PR detail
+response first, then reuses its repository URL and head SHA while fetching
+reviews and check runs in parallel. If there are no check runs, it falls back
+to the combined commit status. Bounding work units changes scheduling, not the
+successful request count: the canonical detail endpoint is still called once
+per unique PR rather than again during CI resolution. The canonical PR detail
+response and the identity fields needed to construct a PR card are required:
+if any such request fails or is unusable, optional requests for that PR do not
+begin, the fetch returns an explicit failure, and the background manager
+preserves the last known good snapshot. Review, check-run, and combined status
+data remain optional and degrade to `pending`.
+
+An ordinary required-detail failure preserves the complete evaluation behavior
+for scheduled work. Once a required-detail rate limit is recognized, the pool
+stops starting queued PRs because the refresh is already untrustworthy;
+already-running work units settle without request cancellation. Rate-limit
+metadata from those results still participates in the existing preferred
+failure selection and persisted cooldown flow.
 
 Recognized rate limits on required refresh requests (`/user`, issue search, or
 canonical PR detail) record one conservative global GitHub cooldown in local

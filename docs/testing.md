@@ -57,6 +57,9 @@ Use unit tests for rules that can be evaluated without a real browser:
 - HTTP/status/error classification;
 - complete-refresh rejection for failed or unusable required PR details while
   optional review and CI data degrade to `pending`;
+- bounded per-PR scheduling, including barrier-controlled concurrency,
+  input/result ordering, rate-limit stop-scheduling, optional degradation, and
+  clean recovery after failures without timing sleeps;
 - issue-search pagination, including later-page failures, incomplete results,
   zero results, duplicate hits, and the 1,000-result API ceiling;
 - GitHub rate-limit classification, deadline precedence, persisted cooldown
@@ -88,6 +91,9 @@ that the UI, background context, storage, and browser APIs are connected.
   throttles, and password expiry.
 - Use fixed identifiers, timestamps, reviewers, and ordering in fixtures. Seeded
   data is acceptable when variation is intentional and reproducible.
+- Use deferred promises or explicit barriers to control concurrency tests;
+  assert which work has started before releasing capacity rather than waiting
+  for arbitrary time intervals.
 - Await observable state or events instead of relying on arbitrary delays where
   practical.
 - Isolate browser storage for each test or explicitly document scenarios that

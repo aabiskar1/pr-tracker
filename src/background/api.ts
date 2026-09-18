@@ -10,6 +10,7 @@ import {
     formatGitHubCooldownTime,
     type GitHubRateLimitCooldown,
 } from './githubRateLimit';
+import { mapWithConcurrency } from '../utils/mapWithConcurrency';
 
 export type PullRequestFetchResult =
     | { status: 'success'; pullRequests: PullRequest[] }
@@ -26,7 +27,11 @@ type ReviewStatus = 'approved' | 'changes-requested' | 'pending';
 type CIStatus = 'passing' | 'failing' | 'pending';
 type DetailedPullRequestResult =
     | { status: 'success'; pullRequest: PullRequest }
-    | { status: 'failure'; response?: Response };
+    | {
+          status: 'failure';
+          response?: Response;
+          rateLimit?: GitHubRateLimitCooldown;
+      };
 type SearchFetchResult =
     | { status: 'success'; items: GitHubIssueSearchItem[] }
     | { status: 'failure'; context: string; response?: Response };
@@ -36,6 +41,9 @@ const NOTIFICATION_ICON = 'icons/icon-128.png';
 const SEARCH_RESULTS_PER_PAGE = 100;
 const SEARCH_RESULT_LIMIT = 1000;
 const SEARCH_MAX_PAGES = SEARCH_RESULT_LIMIT / SEARCH_RESULTS_PER_PAGE;
+// Four PRs keep the popup refresh responsive while bounding the optional
+// review/CI fan-out far below GitHub's changeable secondary-limit ceilings.
+export const PR_DETAIL_CONCURRENCY = 4;
 
 // Error handling
 export async function analyzeHttpError(
@@ -631,7 +639,14 @@ export async function fetchPullRequests(
                 console.error(
                     `Required PR detail request failed with status: ${prResponse.status}`
                 );
-                return { status: 'failure', response: prResponse };
+                const errorInfo = await analyzeHttpError(prResponse);
+                return {
+                    status: 'failure',
+                    response: prResponse,
+                    ...(errorInfo.rateLimit
+                        ? { rateLimit: errorInfo.rateLimit }
+                        : {}),
+                };
             }
 
             const prData: unknown = await prResponse.json();
@@ -668,8 +683,14 @@ export async function fetchPullRequests(
     };
 
     console.log('Fetching detailed PR information...');
-    const detailResults = await Promise.all(
-        prItems.map((item: GitHubIssueSearchItem) => getPRDetails(item, token))
+    const detailResults = await mapWithConcurrency(
+        prItems,
+        PR_DETAIL_CONCURRENCY,
+        (item) => getPRDetails(item, token),
+        {
+            stopScheduling: (result) =>
+                result.status === 'failure' && Boolean(result.rateLimit),
+        }
     );
     const failedDetails = detailResults.filter(
         (
