@@ -26,7 +26,7 @@ type EndpointResult = {
 
 type Scenario = {
     reviews?: EndpointResult | Error;
-    ciDetail?: EndpointResult | Error;
+    canonicalDetail?: EndpointResult | Error;
     checks?: EndpointResult | Error;
     combinedStatus?: EndpointResult | Error;
 };
@@ -42,7 +42,6 @@ const endpointResponse = (
 const runScenario = async (scenario: Scenario = {}) => {
     const targetPrUrl = prUrl(40);
     const requestedUrls: string[] = [];
-    let directPrRequests = 0;
 
     installFetch((url) => {
         requestedUrls.push(url);
@@ -68,11 +67,7 @@ const runScenario = async (scenario: Scenario = {}) => {
             });
         }
         if (url === targetPrUrl) {
-            directPrRequests += 1;
-            if (directPrRequests === 1) {
-                return jsonResponse(prDetail(40));
-            }
-            return endpointResponse(scenario.ciDetail, prDetail(40));
+            return endpointResponse(scenario.canonicalDetail, prDetail(40));
         }
         throw new Error(`Unexpected URL: ${url}`);
     });
@@ -176,6 +171,41 @@ describe('fetchPullRequests CI-status reduction', () => {
         vi.restoreAllMocks();
     });
 
+    it('requests canonical detail, reviews, and check runs exactly once', async () => {
+        const { requestedUrls } = await runScenario();
+        const targetPrUrl = prUrl(40);
+
+        expect(requestedUrls.filter((url) => url === targetPrUrl)).toHaveLength(
+            1
+        );
+        expect(
+            requestedUrls.filter((url) => url === `${targetPrUrl}/reviews`)
+        ).toHaveLength(1);
+        expect(
+            requestedUrls.filter((url) => url.includes('/check-runs'))
+        ).toHaveLength(1);
+        expect(requestedUrls.some((url) => url.endsWith('/status'))).toBe(
+            false
+        );
+    });
+
+    it('requests canonical detail once and combined status only after empty checks', async () => {
+        const { requestedUrls } = await runScenario({
+            checks: { body: { check_runs: [] } },
+        });
+        const targetPrUrl = prUrl(40);
+
+        expect(requestedUrls.filter((url) => url === targetPrUrl)).toHaveLength(
+            1
+        );
+        expect(
+            requestedUrls.filter((url) => url.includes('/check-runs'))
+        ).toHaveLength(1);
+        expect(
+            requestedUrls.filter((url) => url.endsWith('/status'))
+        ).toHaveLength(1);
+    });
+
     it.each([
         {
             label: 'a failed check run',
@@ -235,9 +265,11 @@ describe('fetchPullRequests CI-status reduction', () => {
         }
     );
 
-    it('returns pending when the CI PR detail request fails', async () => {
+    it('returns pending when canonical detail lacks optional CI coordinates', async () => {
         const { pullRequest, requestedUrls } = await runScenario({
-            ciDetail: { body: { message: 'server error' }, status: 500 },
+            canonicalDetail: {
+                body: prDetail(40, { head: undefined }),
+            },
         });
 
         expect(pullRequest.ci_status).toBe('pending');

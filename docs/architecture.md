@@ -89,15 +89,17 @@ header for `repo`. Background refreshes call `/user` again, then either:
   PRs requesting that user's review; or
 - run the saved custom issue-search query.
 
-For every result, `api.ts` fetches full PR details, reviews, and check runs. If
-there are no check runs, it falls back to the combined commit status. It reduces
-the responses to the shared `PullRequest` shape, derives review and CI states,
-and deduplicates by GitHub PR ID. The canonical PR detail response and the
-identity fields needed to construct a PR card are required: if any such request
-fails or is unusable, the fetch returns an explicit failure and the background
-manager preserves the last known good snapshot. Review, check-run, combined
-status, and the CI helper's duplicate PR-detail requests are optional supporting
-data and continue to degrade to `pending`.
+Search results are deduplicated by canonical PR API URL before per-PR requests
+begin. For every unique result, `api.ts` fetches and validates the full PR detail
+response first, then reuses its repository URL and head SHA while fetching
+reviews and check runs in parallel. If there are no check runs, it falls back to
+the combined commit status. The canonical detail endpoint is therefore called
+once per unique PR rather than again during CI resolution. The canonical PR
+detail response and the identity fields needed to construct a PR card are
+required: if any such request fails or is unusable, optional requests for that
+PR do not begin, the fetch returns an explicit failure, and the background
+manager preserves the last known good snapshot. Review, check-run, and combined
+status data remain optional and degrade to `pending`.
 
 Current boundary note: transport, response interpretation, transformation,
 error notification, and browser messaging are not fully separated. Preserve
