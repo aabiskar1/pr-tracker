@@ -23,6 +23,7 @@ vi.mock('webextension-polyfill', () => ({
 type EndpointResult = {
     body: unknown;
     status?: number;
+    headers?: HeadersInit;
 };
 
 type Scenario = {
@@ -37,7 +38,11 @@ const endpointResponse = (
     defaultBody: unknown
 ): Response => {
     if (result instanceof Error) throw result;
-    return jsonResponse(result?.body ?? defaultBody, result?.status);
+    return jsonResponse(
+        result?.body ?? defaultBody,
+        result?.status,
+        result?.headers
+    );
 };
 
 const runScenario = async (scenario: Scenario = {}) => {
@@ -88,6 +93,7 @@ const runScenario = async (scenario: Scenario = {}) => {
     return {
         pullRequest: result.pullRequests[0],
         requestedUrls,
+        rateLimit: result.rateLimit,
     };
 };
 
@@ -98,6 +104,7 @@ describe('fetchPullRequests review-status reduction', () => {
     });
 
     afterEach(() => {
+        vi.useRealTimers();
         vi.unstubAllGlobals();
         vi.restoreAllMocks();
     });
@@ -141,11 +148,32 @@ describe('fetchPullRequests review-status reduction', () => {
     });
 
     it('returns pending when the review request fails', async () => {
-        const { pullRequest } = await runScenario({
+        const { pullRequest, rateLimit } = await runScenario({
             reviews: { body: { message: 'server error' }, status: 500 },
         });
 
         expect(pullRequest.review_status).toBe('pending');
+        expect(rateLimit).toBeUndefined();
+    });
+
+    it('keeps reviews pending and propagates a recognized rate limit', async () => {
+        vi.useFakeTimers();
+        vi.setSystemTime('2030-06-07T08:09:10.000Z');
+
+        const { pullRequest, rateLimit } = await runScenario({
+            reviews: {
+                body: { message: 'You have exceeded a secondary rate limit.' },
+                status: 429,
+                headers: { 'retry-after': '90' },
+            },
+        });
+
+        expect(pullRequest.review_status).toBe('pending');
+        expect(rateLimit).toEqual({
+            classification: 'secondary',
+            nextAllowedAt: new Date('2030-06-07T08:10:40.000Z').getTime(),
+            deadlineSource: 'retry-after',
+        });
     });
 
     it('returns pending when fetching reviews rejects', async () => {
@@ -168,6 +196,7 @@ describe('fetchPullRequests CI-status reduction', () => {
     });
 
     afterEach(() => {
+        vi.useRealTimers();
         vi.unstubAllGlobals();
         vi.restoreAllMocks();
     });
@@ -280,11 +309,59 @@ describe('fetchPullRequests CI-status reduction', () => {
     });
 
     it('returns pending when the check-run request fails', async () => {
-        const { pullRequest } = await runScenario({
+        const { pullRequest, rateLimit } = await runScenario({
             checks: { body: { message: 'server error' }, status: 502 },
         });
 
         expect(pullRequest.ci_status).toBe('pending');
+        expect(rateLimit).toBeUndefined();
+    });
+
+    it('keeps CI pending and propagates a check-run rate limit', async () => {
+        vi.useFakeTimers();
+        vi.setSystemTime('2030-06-07T08:09:10.000Z');
+
+        const { pullRequest, rateLimit } = await runScenario({
+            checks: {
+                body: { message: 'API rate limit exceeded' },
+                status: 403,
+                headers: {
+                    'x-ratelimit-remaining': '0',
+                    'x-ratelimit-reset': String(
+                        new Date('2030-06-07T08:11:10.000Z').getTime() / 1000
+                    ),
+                    'x-ratelimit-resource': 'core',
+                },
+            },
+        });
+
+        expect(pullRequest.ci_status).toBe('pending');
+        expect(rateLimit).toEqual({
+            classification: 'primary',
+            nextAllowedAt: new Date('2030-06-07T08:11:10.000Z').getTime(),
+            deadlineSource: 'reset',
+            resource: 'core',
+        });
+    });
+
+    it('keeps CI pending and propagates a combined-status rate limit', async () => {
+        vi.useFakeTimers();
+        vi.setSystemTime('2030-06-07T08:09:10.000Z');
+
+        const { pullRequest, rateLimit } = await runScenario({
+            checks: { body: { check_runs: [] } },
+            combinedStatus: {
+                body: { message: 'secondary rate limit' },
+                status: 429,
+                headers: { 'retry-after': '45' },
+            },
+        });
+
+        expect(pullRequest.ci_status).toBe('pending');
+        expect(rateLimit?.nextAllowedAt).toBe(
+            new Date('2030-06-07T08:09:55.000Z').getTime()
+        );
+        expect(rateLimit?.classification).toBe('secondary');
     });
 
     it('returns pending when a CI fetch rejects', async () => {
@@ -297,5 +374,84 @@ describe('fetchPullRequests CI-status reduction', () => {
             'Error fetching CI status:',
             expect.any(TypeError)
         );
+    });
+});
+
+describe('fetchPullRequests optional rate-limit aggregation', () => {
+    beforeEach(() => {
+        vi.useFakeTimers();
+        vi.setSystemTime('2030-06-07T08:09:10.000Z');
+        vi.spyOn(console, 'log').mockImplementation(() => undefined);
+        vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+        vi.unstubAllGlobals();
+        vi.restoreAllMocks();
+    });
+
+    it('selects the latest cooldown while completing every PR work unit', async () => {
+        const requestedDetails: number[] = [];
+        const reset = new Date('2030-06-07T08:14:10.000Z').getTime();
+
+        installFetch((url) => {
+            if (url.startsWith('https://api.github.com/search/issues?')) {
+                return searchResponse([searchItem(1), searchItem(2)]);
+            }
+            if (url === prUrl(1) || url === prUrl(2)) {
+                const number = url === prUrl(1) ? 1 : 2;
+                requestedDetails.push(number);
+                return jsonResponse(prDetail(number));
+            }
+            if (url === `${prUrl(1)}/reviews`) {
+                return jsonResponse({ message: 'secondary rate limit' }, 429, {
+                    'retry-after': '60',
+                });
+            }
+            if (url === `${prUrl(2)}/reviews`) return jsonResponse([]);
+            if (
+                url.includes('/repo-1/commits/') &&
+                url.endsWith('/check-runs')
+            ) {
+                return jsonResponse({ check_runs: [] });
+            }
+            if (url.includes('/repo-1/commits/') && url.endsWith('/status')) {
+                return jsonResponse({ state: 'success' });
+            }
+            if (
+                url.includes('/repo-2/commits/') &&
+                url.endsWith('/check-runs')
+            ) {
+                return jsonResponse(
+                    { message: 'API rate limit exceeded' },
+                    403,
+                    {
+                        'x-ratelimit-remaining': '0',
+                        'x-ratelimit-reset': String(reset / 1000),
+                        'x-ratelimit-resource': 'core',
+                    }
+                );
+            }
+            throw new Error(`Unexpected URL: ${url}`);
+        });
+
+        const result = await fetchPullRequests(
+            TOKEN,
+            USER,
+            'is:pr org:acme',
+            createNotificationMock()
+        );
+
+        expect(result.status).toBe('success');
+        if (result.status === 'failure') throw new Error('Expected success');
+        expect(result.pullRequests.map(({ id }) => id)).toEqual([1, 2]);
+        expect(requestedDetails).toEqual([1, 2]);
+        expect(result.rateLimit).toEqual({
+            classification: 'primary',
+            nextAllowedAt: reset,
+            deadlineSource: 'reset',
+            resource: 'core',
+        });
     });
 });

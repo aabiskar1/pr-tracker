@@ -114,7 +114,9 @@ response and the identity fields needed to construct a PR card are required:
 if any such request fails or is unusable, optional requests for that PR do not
 begin, the fetch returns an explicit failure, and the background manager
 preserves the last known good snapshot. Review, check-run, and combined status
-data remain optional and degrade to `pending`.
+data remain optional and degrade to `pending`. When an optional failure is a
+recognized rate limit, the work unit also retains its structured cooldown
+metadata; ordinary optional failures retain no cooldown.
 
 An ordinary required-detail failure preserves the complete evaluation behavior
 for scheduled work. Once a required-detail rate limit is recognized, the pool
@@ -131,8 +133,13 @@ one-minute fallback guidance. Before `/user`, the background reads that
 persisted state, silently suppresses automatic polling while it is active, and
 reports the deadline to a manual caller while continuing to show cached data.
 The MV3 worker does not sleep or retry in place. Expiry permits a normal
-refresh, and a successful refresh clears the cooldown. Optional review and CI
-failures still degrade to `pending` and do not establish a cooldown.
+refresh. A success without a new rate limit clears the prior cooldown, while a
+success containing optional rate-limit metadata persists the latest known
+`nextAllowedAt` across all optional requests. That refresh still finishes all
+bounded PR work units and persists the complete, trustworthy PR snapshot; the
+cooldown suppresses only subsequent refreshes. This deliberately avoids
+stopping queued work on an optional failure, which would leave incomplete PR
+identity coverage.
 
 Current boundary note: transport, response interpretation, transformation,
 error notification, and browser messaging are not fully separated. Preserve

@@ -9,19 +9,34 @@ import {
     analyzeGitHubHttpError,
     type GitHubApiErrorInfo,
 } from '../utils/githubApiError';
-import type { GitHubRateLimitCooldown } from '../utils/githubRateLimit';
+import {
+    selectLatestGitHubRateLimitCooldown,
+    type GitHubRateLimitCooldown,
+} from '../utils/githubRateLimit';
 import { mapWithConcurrency } from '../utils/mapWithConcurrency';
 
 export type PullRequestFetchResult =
-    | { status: 'success'; pullRequests: PullRequest[] }
+    | {
+          status: 'success';
+          pullRequests: PullRequest[];
+          rateLimit?: GitHubRateLimitCooldown;
+      }
     | { status: 'failure'; rateLimit?: GitHubRateLimitCooldown };
 
 export type ApiErrorInfo = GitHubApiErrorInfo;
 
 type ReviewStatus = 'approved' | 'changes-requested' | 'pending';
 type CIStatus = 'passing' | 'failing' | 'pending';
+type OptionalStatusResult<TStatus extends string> = {
+    status: TStatus;
+    rateLimit?: GitHubRateLimitCooldown;
+};
 type DetailedPullRequestResult =
-    | { status: 'success'; pullRequest: PullRequest }
+    | {
+          status: 'success';
+          pullRequest: PullRequest;
+          rateLimit?: GitHubRateLimitCooldown;
+      }
     | {
           status: 'failure';
           response?: Response;
@@ -86,7 +101,7 @@ export async function handleApiError(
 async function getReviewStatus(
     prUrl: string,
     token: string
-): Promise<ReviewStatus> {
+): Promise<OptionalStatusResult<ReviewStatus>> {
     try {
         const reviewsUrl = `${prUrl}/reviews`;
         const response = await fetch(reviewsUrl, {
@@ -96,7 +111,15 @@ async function getReviewStatus(
             },
         });
 
-        if (!response.ok) return 'pending';
+        if (!response.ok) {
+            const errorInfo = await analyzeHttpError(response);
+            return {
+                status: 'pending',
+                ...(errorInfo.rateLimit
+                    ? { rateLimit: errorInfo.rateLimit }
+                    : {}),
+            };
+        }
 
         const reviews: GitHubReview[] = await response.json();
 
@@ -107,12 +130,13 @@ async function getReviewStatus(
         });
 
         const states = Array.from(latestReviews.values());
-        if (states.includes('CHANGES_REQUESTED')) return 'changes-requested';
-        if (states.includes('APPROVED')) return 'approved';
-        return 'pending';
+        if (states.includes('CHANGES_REQUESTED'))
+            return { status: 'changes-requested' };
+        if (states.includes('APPROVED')) return { status: 'approved' };
+        return { status: 'pending' };
     } catch (error) {
         console.error('Error fetching review status:', error);
-        return 'pending';
+        return { status: 'pending' };
     }
 }
 
@@ -120,7 +144,7 @@ async function getCIStatus(
     repoUrl: string,
     headSha: string,
     token: string
-): Promise<CIStatus> {
+): Promise<OptionalStatusResult<CIStatus>> {
     try {
         // Check runs
         const checksUrl = `${repoUrl}/commits/${headSha}/check-runs`;
@@ -131,7 +155,15 @@ async function getCIStatus(
             },
         });
 
-        if (!response.ok) return 'pending';
+        if (!response.ok) {
+            const errorInfo = await analyzeHttpError(response);
+            return {
+                status: 'pending',
+                ...(errorInfo.rateLimit
+                    ? { rateLimit: errorInfo.rateLimit }
+                    : {}),
+            };
+        }
 
         const data: GitHubChecksResponse = await response.json();
 
@@ -150,27 +182,36 @@ async function getCIStatus(
                     statusData.state === 'failure' ||
                     statusData.state === 'error'
                 )
-                    return 'failing';
-                if (statusData.state === 'success') return 'passing';
+                    return { status: 'failing' };
+                if (statusData.state === 'success')
+                    return { status: 'passing' };
+            } else {
+                const errorInfo = await analyzeHttpError(statusResp);
+                return {
+                    status: 'pending',
+                    ...(errorInfo.rateLimit
+                        ? { rateLimit: errorInfo.rateLimit }
+                        : {}),
+                };
             }
-            return 'pending';
+            return { status: 'pending' };
         }
 
         const hasFailure = data.check_runs.some(
             (run) =>
                 run.conclusion === 'failure' || run.conclusion === 'timed_out'
         );
-        if (hasFailure) return 'failing';
+        if (hasFailure) return { status: 'failing' };
 
         const allPassed = data.check_runs.every(
             (run) => run.status === 'completed' && run.conclusion === 'success'
         );
-        if (allPassed) return 'passing';
+        if (allPassed) return { status: 'passing' };
 
-        return 'pending';
+        return { status: 'pending' };
     } catch (error) {
         console.error('Error fetching CI status:', error);
-        return 'pending';
+        return { status: 'pending' };
     }
 }
 
@@ -579,20 +620,27 @@ export async function fetchPullRequests(
             }
 
             const ciContext = getCIContext(prData);
-            const [reviewStatus, ciStatus] = await Promise.all([
+            const [reviewResult, ciResult] = await Promise.all([
                 getReviewStatus(prUrl, token),
                 ciContext
                     ? getCIStatus(ciContext.repoUrl, ciContext.headSha, token)
-                    : Promise.resolve<CIStatus>('pending'),
+                    : Promise.resolve<OptionalStatusResult<CIStatus>>({
+                          status: 'pending',
+                      }),
+            ]);
+            const rateLimit = selectLatestGitHubRateLimitCooldown([
+                reviewResult.rateLimit,
+                ciResult.rateLimit,
             ]);
 
             return {
                 status: 'success',
                 pullRequest: {
                     ...pullRequest,
-                    review_status: reviewStatus,
-                    ci_status: ciStatus,
+                    review_status: reviewResult.status,
+                    ci_status: ciResult.status,
                 },
+                ...(rateLimit ? { rateLimit } : {}),
             };
         } catch (error) {
             console.error('Error fetching PR details:', error);
@@ -647,5 +695,13 @@ export async function fetchPullRequests(
         ).values()
     );
 
-    return { status: 'success', pullRequests: uniquePRs };
+    const rateLimit = selectLatestGitHubRateLimitCooldown(
+        successfulDetails.map((result) => result.rateLimit)
+    );
+
+    return {
+        status: 'success',
+        pullRequests: uniquePRs,
+        ...(rateLimit ? { rateLimit } : {}),
+    };
 }

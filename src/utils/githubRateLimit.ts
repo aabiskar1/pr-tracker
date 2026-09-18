@@ -12,6 +12,19 @@ export type GitHubRateLimitCooldown = {
     resource?: string;
 };
 
+export function selectLatestGitHubRateLimitCooldown(
+    cooldowns: readonly (GitHubRateLimitCooldown | undefined)[]
+): GitHubRateLimitCooldown | undefined {
+    return cooldowns.reduce<GitHubRateLimitCooldown | undefined>(
+        (latest, cooldown) =>
+            cooldown &&
+            (!latest || cooldown.nextAllowedAt > latest.nextAllowedAt)
+                ? cooldown
+                : latest,
+        undefined
+    );
+}
+
 const SECONDARY_FALLBACK_MS = 60 * 1000;
 const MAX_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000;
 

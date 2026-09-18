@@ -7,6 +7,7 @@ import {
     getActiveGitHubRateLimitCooldown,
     loadGitHubRateLimitCooldown,
     persistGitHubRateLimitCooldown,
+    selectLatestGitHubRateLimitCooldown,
     type GitHubRateLimitCooldown,
 } from '../../src/background/githubRateLimit';
 
@@ -37,6 +38,25 @@ const response = (status: number, headers: HeadersInit = {}): Response =>
     new Response('', { status, headers });
 
 describe('GitHub rate-limit metadata', () => {
+    it('selects the cooldown with the latest deadline', () => {
+        const earlier: GitHubRateLimitCooldown = {
+            classification: 'secondary',
+            nextAllowedAt: NOW + 60_000,
+            deadlineSource: 'retry-after',
+        };
+        const later: GitHubRateLimitCooldown = {
+            classification: 'primary',
+            nextAllowedAt: RESET,
+            deadlineSource: 'reset',
+            resource: 'core',
+        };
+
+        expect(
+            selectLatestGitHubRateLimitCooldown([undefined, earlier, later])
+        ).toBe(later);
+        expect(selectLatestGitHubRateLimitCooldown([])).toBeUndefined();
+    });
+
     it.each([403, 429])(
         'classifies an exhausted %s response as primary',
         (status) => {

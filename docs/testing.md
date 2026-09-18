@@ -64,6 +64,9 @@ Use unit tests for rules that can be evaluated without a real browser:
   zero results, duplicate hits, and the 1,000-result API ceiling;
 - GitHub rate-limit classification, deadline precedence, persisted cooldown
   restoration, active-refresh suppression, expiry, and successful recovery;
+- optional review/CI rate limits retaining `pending`, selecting the latest
+  deadline, persisting a successful complete snapshot, and suppressing the
+  subsequent refresh without retrying the current one;
 - endpoint-specific request counts, including canonical-detail reuse and
   pre-detail deduplication of matching search results;
 - PR filtering, text matching, and sorting;
