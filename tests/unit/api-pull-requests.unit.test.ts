@@ -376,9 +376,10 @@ describe('fetchPullRequests search and transformation behavior', () => {
         expect(result[0].author).toBeUndefined();
     });
 
-    it('skips missing or malformed pull-request links while retaining valid items', async () => {
+    it('rejects a refresh containing missing or unusable required PR identity data', async () => {
         const malformedUrl = 'not-a-valid-pr-url';
         const incompleteUrl = prUrl(21);
+        const createNotification = createNotificationMock();
 
         installFetch((url) => {
             if (isSearchUrl(url)) {
@@ -402,44 +403,105 @@ describe('fetchPullRequests search and transformation behavior', () => {
             return successfulSupportingResponse(url);
         });
 
-        const result = expectSuccessfulPullRequests(
-            await fetchPullRequests(
-                TOKEN,
-                USER,
-                'is:pr org:acme',
-                createNotificationMock()
-            )
-        );
-
-        expect(result.map((pr) => pr.id)).toEqual([22]);
+        await expect(
+            fetchPullRequests(TOKEN, USER, 'is:pr org:acme', createNotification)
+        ).resolves.toEqual({ status: 'failure' });
+        expect(createNotification).toHaveBeenCalledTimes(1);
     });
 
-    it('retains valid PRs when fetching another item detail throws', async () => {
+    it.each([
+        {
+            label: '404 response',
+            response: () => jsonResponse({ message: 'Not Found' }, 404),
+        },
+        {
+            label: '500 response',
+            response: () => jsonResponse({ message: 'Server failure' }, 500),
+        },
+        {
+            label: 'invalid JSON',
+            response: () =>
+                new Response('{not-json', {
+                    status: 200,
+                    headers: { 'Content-Type': 'application/json' },
+                }),
+        },
+        {
+            label: 'malformed payload',
+            response: () => jsonResponse({ id: 40 }),
+        },
+    ])('rejects a required detail $label', async ({ response }) => {
+        const createNotification = createNotificationMock();
+
+        installFetch((url) => {
+            if (isSearchUrl(url)) {
+                return jsonResponse({ items: [searchItem(40)] });
+            }
+            if (url.endsWith('/reviews')) return jsonResponse([]);
+            if (url === prUrl(40)) return response();
+            return jsonResponse({ check_runs: [] }, 500);
+        });
+
+        await expect(
+            fetchPullRequests(TOKEN, USER, 'is:pr org:acme', createNotification)
+        ).resolves.toEqual({ status: 'failure' });
+        expect(createNotification).toHaveBeenCalledTimes(1);
+    });
+
+    it('rejects a required detail network failure', async () => {
+        const createNotification = createNotificationMock();
+
+        installFetch((url) => {
+            if (isSearchUrl(url)) {
+                return jsonResponse({ items: [searchItem(41)] });
+            }
+            if (url.endsWith('/reviews')) return jsonResponse([]);
+            if (url === prUrl(41)) {
+                return Promise.reject(new TypeError('network unavailable'));
+            }
+            return jsonResponse({ check_runs: [] }, 500);
+        });
+
+        await expect(
+            fetchPullRequests(TOKEN, USER, 'is:pr org:acme', createNotification)
+        ).resolves.toEqual({ status: 'failure' });
+        expect(createNotification).toHaveBeenCalledTimes(1);
+    });
+
+    it('rejects the complete refresh when one of multiple required detail requests fails', async () => {
+        const createNotification = createNotificationMock();
+
         installFetch((url) => {
             if (isSearchUrl(url)) {
                 return jsonResponse({
                     items: [searchItem(30), searchItem(31)],
                 });
             }
-            if (url.startsWith(prUrl(30))) {
-                throw new TypeError('detail request failed');
+            if (url === prUrl(30)) {
+                return jsonResponse({ message: 'Service unavailable' }, 503);
             }
             return successfulSupportingResponse(url);
         });
 
-        const result = expectSuccessfulPullRequests(
-            await fetchPullRequests(
-                TOKEN,
-                USER,
-                'is:pr org:acme',
-                createNotificationMock()
-            )
+        await expect(
+            fetchPullRequests(TOKEN, USER, 'is:pr org:acme', createNotification)
+        ).resolves.toEqual({ status: 'failure' });
+        expect(createNotification).toHaveBeenCalledTimes(1);
+        expect(createNotification).toHaveBeenCalledWith(
+            undefined,
+            expect.objectContaining({
+                title: 'PR Tracker Error',
+                message: expect.stringContaining(
+                    'could not be refreshed completely'
+                ),
+            }),
+            false
         );
-
-        expect(result.map((pr) => pr.id)).toEqual([31]);
-        expect(console.error).toHaveBeenCalledWith(
-            'Error fetching PR details:',
-            expect.any(TypeError)
-        );
+        expect(browser.runtime.sendMessage).toHaveBeenCalledWith({
+            type: 'SHOW_ERROR',
+            message: expect.stringContaining(
+                'could not be refreshed completely'
+            ),
+        });
     });
 });
