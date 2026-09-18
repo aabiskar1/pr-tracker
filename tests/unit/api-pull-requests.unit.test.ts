@@ -14,6 +14,7 @@ import {
     prUrl,
     queryFromSearchUrl,
     searchItem,
+    searchResponse,
 } from './api-test-helpers';
 
 vi.mock('webextension-polyfill', () => ({
@@ -84,11 +85,9 @@ describe('fetchPullRequests search and transformation behavior', () => {
                 });
                 const query = queryFromSearchUrl(url);
                 if (query.includes('author:')) {
-                    return jsonResponse({ items: [searchItem(1)] });
+                    return searchResponse([searchItem(1)]);
                 }
-                return jsonResponse({
-                    items: [searchItem(1), searchItem(2)],
-                });
+                return searchResponse([searchItem(1), searchItem(2)]);
             }
             if (url.endsWith('/reviews')) {
                 const number = prNumberFromUrl(url);
@@ -124,9 +123,16 @@ describe('fetchPullRequests search and transformation behavior', () => {
             'is:open is:pr author:octo-user archived:false',
             'is:open is:pr review-requested:octo-user archived:false',
         ]);
-        expect(searchUrls.every((url) => url.endsWith('&per_page=100'))).toBe(
-            true
-        );
+        expect(
+            searchUrls.every(
+                (url) => new URL(url).searchParams.get('per_page') === '100'
+            )
+        ).toBe(true);
+        expect(
+            searchUrls.every(
+                (url) => new URL(url).searchParams.get('page') === '1'
+            )
+        ).toBe(true);
         expect(result).toHaveLength(2);
         expect(result.map((pr) => pr.id)).toEqual([1, 2]);
         expect(result[0]).toEqual({
@@ -179,7 +185,7 @@ describe('fetchPullRequests search and transformation behavior', () => {
         installFetch((url) => {
             if (isSearchUrl(url)) {
                 searchUrls.push(url);
-                return jsonResponse({ items: [searchItem(3)] });
+                return searchResponse([searchItem(3)]);
             }
             return successfulSupportingResponse(url);
         });
@@ -205,7 +211,7 @@ describe('fetchPullRequests search and transformation behavior', () => {
         installFetch((url) => {
             if (isSearchUrl(url)) {
                 queries.push(queryFromSearchUrl(url));
-                return jsonResponse({ items: [] });
+                return searchResponse([]);
             }
             throw new Error(`Unexpected URL: ${url}`);
         });
@@ -259,7 +265,7 @@ describe('fetchPullRequests search and transformation behavior', () => {
                 const query = queryFromSearchUrl(url);
                 return query.includes('author:')
                     ? jsonResponse({ message: 'Service unavailable' }, 503)
-                    : jsonResponse({ items: [] });
+                    : searchResponse([]);
             }
             throw new Error(`Unexpected URL: ${url}`);
         });
@@ -290,35 +296,36 @@ describe('fetchPullRequests search and transformation behavior', () => {
         });
     });
 
-    it('preserves the current rejected promise behavior for a custom-search network failure', async () => {
+    it('reports a custom-search network failure', async () => {
+        const createNotification = createNotificationMock();
+
         installFetch(() =>
             Promise.reject(new TypeError('network unavailable'))
         );
 
         await expect(
-            fetchPullRequests(
-                TOKEN,
-                USER,
-                'is:pr org:acme',
-                createNotificationMock()
-            )
-        ).rejects.toThrow('network unavailable');
+            fetchPullRequests(TOKEN, USER, 'is:pr org:acme', createNotification)
+        ).resolves.toEqual({ status: 'failure' });
+        expect(createNotification).toHaveBeenCalledTimes(1);
     });
 
-    it('returns no PRs for a search payload without an items collection', async () => {
+    it('rejects a search payload without an items collection', async () => {
+        const createNotification = createNotificationMock();
+
         installFetch((url) => {
-            if (isSearchUrl(url)) return jsonResponse({ total_count: 0 });
+            if (isSearchUrl(url)) {
+                return jsonResponse({
+                    total_count: 0,
+                    incomplete_results: false,
+                });
+            }
             throw new Error(`Unexpected URL: ${url}`);
         });
 
         await expect(
-            fetchPullRequests(
-                TOKEN,
-                USER,
-                'is:pr org:acme',
-                createNotificationMock()
-            )
-        ).resolves.toEqual({ status: 'success', pullRequests: [] });
+            fetchPullRequests(TOKEN, USER, 'is:pr org:acme', createNotification)
+        ).resolves.toEqual({ status: 'failure' });
+        expect(createNotification).toHaveBeenCalledTimes(1);
     });
 
     it('maps field fallbacks and all repository-name resolution paths', async () => {
@@ -357,9 +364,11 @@ describe('fetchPullRequests search and transformation behavior', () => {
 
         installFetch((url) => {
             if (isSearchUrl(url)) {
-                return jsonResponse({
-                    items: [searchItem(10), searchItem(11), searchItem(12)],
-                });
+                return searchResponse([
+                    searchItem(10),
+                    searchItem(11),
+                    searchItem(12),
+                ]);
             }
             if (url.endsWith('/reviews')) return jsonResponse([]);
             if (url.includes('/check-runs')) {
@@ -403,6 +412,8 @@ describe('fetchPullRequests search and transformation behavior', () => {
         installFetch((url) => {
             if (isSearchUrl(url)) {
                 return jsonResponse({
+                    total_count: 5,
+                    incomplete_results: false,
                     items: [
                         { id: 18 },
                         { id: 19, pull_request: {} },
@@ -454,7 +465,7 @@ describe('fetchPullRequests search and transformation behavior', () => {
 
         installFetch((url) => {
             if (isSearchUrl(url)) {
-                return jsonResponse({ items: [searchItem(40)] });
+                return searchResponse([searchItem(40)]);
             }
             if (url.endsWith('/reviews')) return jsonResponse([]);
             if (url === prUrl(40)) return response();
@@ -472,7 +483,7 @@ describe('fetchPullRequests search and transformation behavior', () => {
 
         installFetch((url) => {
             if (isSearchUrl(url)) {
-                return jsonResponse({ items: [searchItem(41)] });
+                return searchResponse([searchItem(41)]);
             }
             if (url.endsWith('/reviews')) return jsonResponse([]);
             if (url === prUrl(41)) {
@@ -494,9 +505,7 @@ describe('fetchPullRequests search and transformation behavior', () => {
         installFetch((url) => {
             requestedUrls.push(url);
             if (isSearchUrl(url)) {
-                return jsonResponse({
-                    items: [searchItem(30), searchItem(31)],
-                });
+                return searchResponse([searchItem(30), searchItem(31)]);
             }
             if (url === prUrl(30)) {
                 return jsonResponse({ message: 'Service unavailable' }, 503);

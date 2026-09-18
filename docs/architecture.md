@@ -89,17 +89,24 @@ header for `repo`. Background refreshes call `/user` again, then either:
   PRs requesting that user's review; or
 - run the saved custom issue-search query.
 
-Search results are deduplicated by canonical PR API URL before per-PR requests
-begin. For every unique result, `api.ts` fetches and validates the full PR detail
-response first, then reuses its repository URL and head SHA while fetching
-reviews and check runs in parallel. If there are no check runs, it falls back to
-the combined commit status. The canonical detail endpoint is therefore called
-once per unique PR rather than again during CI resolution. The canonical PR
-detail response and the identity fields needed to construct a PR card are
-required: if any such request fails or is unusable, optional requests for that
-PR do not begin, the fetch returns an explicit failure, and the background
-manager preserves the last known good snapshot. Review, check-run, and combined
-status data remain optional and degrade to `pending`.
+Each issue-search query is fetched sequentially in 100-result pages before any
+per-PR requests begin. Pagination stops when the first page's `total_count` has
+been collected or at GitHub's documented 1,000-result search ceiling (10
+pages). An HTTP, network, invalid-JSON, malformed-response, or
+`incomplete_results` failure on any page fails the complete refresh rather than
+persisting a truncated result set.
+
+The collected search results are deduplicated by canonical PR API URL before
+per-PR requests begin. For every unique result, `api.ts` fetches and validates
+the full PR detail response first, then reuses its repository URL and head SHA
+while fetching reviews and check runs in parallel. If there are no check runs,
+it falls back to the combined commit status. The canonical detail endpoint is
+therefore called once per unique PR rather than again during CI resolution. The
+canonical PR detail response and the identity fields needed to construct a PR
+card are required: if any such request fails or is unusable, optional requests
+for that PR do not begin, the fetch returns an explicit failure, and the
+background manager preserves the last known good snapshot. Review, check-run,
+and combined status data remain optional and degrade to `pending`.
 
 Current boundary note: transport, response interpretation, transformation,
 error notification, and browser messaging are not fully separated. Preserve

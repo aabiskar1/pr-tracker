@@ -15,9 +15,15 @@ type CIStatus = 'passing' | 'failing' | 'pending';
 type DetailedPullRequestResult =
     | { status: 'success'; pullRequest: PullRequest }
     | { status: 'failure'; response?: Response };
+type SearchFetchResult =
+    | { status: 'success'; items: GitHubIssueSearchItem[] }
+    | { status: 'failure'; context: string; response?: Response };
 
 // Constants
 const NOTIFICATION_ICON = 'icons/icon-128.png';
+const SEARCH_RESULTS_PER_PAGE = 100;
+const SEARCH_RESULT_LIMIT = 1000;
+const SEARCH_MAX_PAGES = SEARCH_RESULT_LIMIT / SEARCH_RESULTS_PER_PAGE;
 
 // Error handling
 export async function analyzeHttpError(
@@ -368,6 +374,128 @@ async function reportIncompleteRefresh(
     browser.runtime.sendMessage({ type: 'SHOW_ERROR', message });
 }
 
+function parseSearchResponse(value: unknown): {
+    totalCount: number;
+    incompleteResults: boolean;
+    items: GitHubIssueSearchItem[];
+} | null {
+    if (!isRecord(value)) return null;
+
+    const totalCount = value.total_count;
+    const incompleteResults = value.incomplete_results;
+    const items = value.items;
+    if (
+        typeof totalCount !== 'number' ||
+        !Number.isInteger(totalCount) ||
+        totalCount < 0 ||
+        typeof incompleteResults !== 'boolean' ||
+        !Array.isArray(items) ||
+        items.length > SEARCH_RESULTS_PER_PAGE
+    ) {
+        return null;
+    }
+
+    return {
+        totalCount,
+        incompleteResults,
+        items: items as GitHubIssueSearchItem[],
+    };
+}
+
+async function fetchSearchResults(
+    query: string,
+    token: string,
+    context: string
+): Promise<SearchFetchResult> {
+    const items: GitHubIssueSearchItem[] = [];
+    let targetCount: number | null = null;
+
+    for (let page = 1; page <= SEARCH_MAX_PAGES; page += 1) {
+        const pageContext = `${context} (page ${page})`;
+        let response: Response;
+        try {
+            response = await fetch(
+                `https://api.github.com/search/issues?q=${encodeURIComponent(query)}&per_page=${SEARCH_RESULTS_PER_PAGE}&page=${page}`,
+                {
+                    headers: {
+                        Authorization: `token ${token}`,
+                        Accept: 'application/vnd.github.v3+json',
+                    },
+                }
+            );
+        } catch (error) {
+            console.error(`${pageContext} failed:`, error);
+            return { status: 'failure', context: pageContext };
+        }
+
+        if (!response.ok) {
+            return { status: 'failure', context: pageContext, response };
+        }
+
+        let rawData: unknown;
+        try {
+            rawData = await response.json();
+        } catch (error) {
+            console.error(`${pageContext} returned invalid JSON:`, error);
+            return { status: 'failure', context: pageContext };
+        }
+
+        const data = parseSearchResponse(rawData);
+        if (!data) {
+            console.error(`${pageContext} returned an unusable response`);
+            return { status: 'failure', context: pageContext };
+        }
+        if (data.incompleteResults) {
+            console.error(`${pageContext} returned incomplete results`);
+            return { status: 'failure', context: pageContext };
+        }
+
+        if (targetCount === null) {
+            targetCount = Math.min(data.totalCount, SEARCH_RESULT_LIMIT);
+            if (data.items.length > targetCount) {
+                console.error(`${pageContext} returned an inconsistent count`);
+                return { status: 'failure', context: pageContext };
+            }
+        }
+
+        items.push(...data.items);
+        if (items.length >= targetCount) {
+            return { status: 'success', items: items.slice(0, targetCount) };
+        }
+
+        if (data.items.length < SEARCH_RESULTS_PER_PAGE) {
+            console.error(`${pageContext} ended before the reported count`);
+            return { status: 'failure', context: pageContext };
+        }
+    }
+
+    return { status: 'success', items: items.slice(0, SEARCH_RESULT_LIMIT) };
+}
+
+async function reportSearchFailure(
+    result: Extract<SearchFetchResult, { status: 'failure' }>,
+    createNotification: (
+        id: string | undefined,
+        options: {
+            type: 'basic';
+            iconUrl: string;
+            title: string;
+            message: string;
+        },
+        forceShow?: boolean
+    ) => Promise<void>
+): Promise<void> {
+    if (result.response) {
+        await handleApiError(
+            result.response,
+            createNotification,
+            result.context
+        );
+        return;
+    }
+    await reportIncompleteRefresh(createNotification);
+}
+
 export async function fetchPullRequests(
     token: string,
     user: { login: string; avatar_url: string },
@@ -386,64 +514,35 @@ export async function fetchPullRequests(
     let prItems: GitHubIssueSearchItem[] = [];
 
     if (customQuery && customQuery.trim()) {
-        const customResp = await fetch(
-            `https://api.github.com/search/issues?q=${encodeURIComponent(customQuery)}&per_page=100`,
-            {
-                headers: {
-                    Authorization: `token ${token}`,
-                    Accept: 'application/vnd.github.v3+json',
-                },
-            }
+        const customResult = await fetchSearchResults(
+            customQuery,
+            token,
+            'Custom PR search'
         );
-        if (!customResp.ok) {
-            await handleApiError(
-                customResp,
-                createNotification,
-                'Custom PR search'
-            );
+        if (customResult.status === 'failure') {
+            await reportSearchFailure(customResult, createNotification);
             return { status: 'failure' };
         }
-        const customData = await customResp.json();
-        prItems = customData.items || [];
+        prItems = customResult.items;
     } else {
         const searchQuery = `is:open is:pr author:${user.login} archived:false`;
         const assignedQuery = `is:open is:pr review-requested:${user.login} archived:false`;
 
-        const [authoredResponse, reviewResponse] = await Promise.all([
-            fetch(
-                `https://api.github.com/search/issues?q=${encodeURIComponent(searchQuery)}&per_page=100`,
-                {
-                    headers: {
-                        Authorization: `token ${token}`,
-                        Accept: 'application/vnd.github.v3+json',
-                    },
-                }
-            ),
-            fetch(
-                `https://api.github.com/search/issues?q=${encodeURIComponent(assignedQuery)}&per_page=100`,
-                {
-                    headers: {
-                        Authorization: `token ${token}`,
-                        Accept: 'application/vnd.github.v3+json',
-                    },
-                }
-            ),
+        const [authoredResult, reviewResult] = await Promise.all([
+            fetchSearchResults(searchQuery, token, 'Authored PR search'),
+            fetchSearchResults(assignedQuery, token, 'Review PR search'),
         ]);
 
-        if (!authoredResponse.ok || !reviewResponse.ok) {
-            const failedResponse = !authoredResponse.ok
-                ? authoredResponse
-                : reviewResponse;
-            const context = !authoredResponse.ok
-                ? 'Authored PR search'
-                : 'Review PR search';
-            await handleApiError(failedResponse, createNotification, context);
+        if (authoredResult.status === 'failure') {
+            await reportSearchFailure(authoredResult, createNotification);
+            return { status: 'failure' };
+        }
+        if (reviewResult.status === 'failure') {
+            await reportSearchFailure(reviewResult, createNotification);
             return { status: 'failure' };
         }
 
-        const authoredData = await authoredResponse.json();
-        const reviewData = await reviewResponse.json();
-        prItems = [...(authoredData.items || []), ...(reviewData.items || [])];
+        prItems = [...authoredResult.items, ...reviewResult.items];
     }
 
     prItems = deduplicateSearchItems(prItems);

@@ -9,6 +9,7 @@ import {
     prDetail,
     prUrl,
     searchItem,
+    searchResponse,
 } from './api-test-helpers';
 
 vi.mock('webextension-polyfill', () => ({
@@ -46,7 +47,7 @@ const runScenario = async (scenario: Scenario = {}) => {
     installFetch((url) => {
         requestedUrls.push(url);
         if (url.startsWith('https://api.github.com/search/issues?')) {
-            return jsonResponse({ items: [searchItem(40)] });
+            return searchResponse([searchItem(40)]);
         }
         if (url === `${targetPrUrl}/reviews`) {
             return endpointResponse(scenario.reviews, []);
