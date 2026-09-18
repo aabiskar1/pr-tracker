@@ -4,6 +4,13 @@ import { checkPullRequests } from '../../src/background/prManager';
 import { constants, state } from '../../src/background/state';
 import { fetchPullRequests, handleApiError } from '../../src/background/api';
 import {
+    clearGitHubRateLimitCooldown,
+    formatGitHubCooldownTime,
+    getActiveGitHubRateLimitCooldown,
+    persistGitHubRateLimitCooldown,
+    type GitHubRateLimitCooldown,
+} from '../../src/background/githubRateLimit';
+import {
     createNotification,
     setBadgeText,
 } from '../../src/background/notifications';
@@ -40,7 +47,18 @@ vi.mock('../../src/services/secureStorage', () => ({
 
 vi.mock('../../src/background/api', () => ({
     fetchPullRequests: vi.fn(),
-    handleApiError: vi.fn(async () => undefined),
+    handleApiError: vi.fn(async () => ({
+        message: 'Request failed',
+        isRateLimit: false,
+        isAuth: false,
+    })),
+}));
+
+vi.mock('../../src/background/githubRateLimit', () => ({
+    clearGitHubRateLimitCooldown: vi.fn(async () => undefined),
+    formatGitHubCooldownTime: vi.fn(() => '09:10'),
+    getActiveGitHubRateLimitCooldown: vi.fn(async () => null),
+    persistGitHubRateLimitCooldown: vi.fn(async () => undefined),
 }));
 
 vi.mock('../../src/background/notifications', () => ({
@@ -51,6 +69,12 @@ vi.mock('../../src/background/notifications', () => ({
 const PASSWORD = 'active-password';
 const TOKEN = 'sanitized-token';
 const FIXED_TIME = new Date('2030-06-07T08:09:10.000Z');
+const COOLDOWN: GitHubRateLimitCooldown = {
+    classification: 'primary',
+    nextAllowedAt: FIXED_TIME.getTime() + 60_000,
+    deadlineSource: 'reset',
+    resource: 'core',
+};
 
 const pullRequest = (id: number): PullRequest => ({
     id,
@@ -110,6 +134,7 @@ describe('background PR polling and notification decisions', () => {
         });
         vi.mocked(decryptHiddenPrIds).mockResolvedValue([]);
         vi.mocked(fetchPullRequests).mockResolvedValue(successfulFetch([]));
+        vi.mocked(getActiveGitHubRateLimitCooldown).mockResolvedValue(null);
         vi.mocked(browser.storage.session.get).mockResolvedValue({});
         vi.mocked(browser.storage.local.get).mockResolvedValue({});
         vi.mocked(browser.runtime.sendMessage).mockResolvedValue(undefined);
@@ -173,7 +198,55 @@ describe('background PR polling and notification decisions', () => {
             },
         });
         expect(encryptAppData).toHaveBeenCalledTimes(2);
+        expect(clearGitHubRateLimitCooldown).toHaveBeenCalledOnce();
         expect(state.isCheckingPRs).toBe(false);
+    });
+
+    it('silently suppresses an automatic refresh during an active cooldown', async () => {
+        const originalData = clone(storedData);
+        vi.mocked(getActiveGitHubRateLimitCooldown).mockResolvedValue(COOLDOWN);
+
+        await checkPullRequests(false);
+
+        expect(fetch).not.toHaveBeenCalled();
+        expect(fetchPullRequests).not.toHaveBeenCalled();
+        expect(setBadgeText).not.toHaveBeenCalled();
+        expect(encryptAppData).not.toHaveBeenCalled();
+        expect(browser.runtime.sendMessage).not.toHaveBeenCalled();
+        expect(createNotification).not.toHaveBeenCalled();
+        expect(storedData).toEqual(originalData);
+    });
+
+    it('explains an active cooldown without making a manual refresh request', async () => {
+        const originalData = clone(storedData);
+        vi.mocked(getActiveGitHubRateLimitCooldown).mockResolvedValue(COOLDOWN);
+
+        await checkPullRequests(true);
+
+        expect(fetch).not.toHaveBeenCalled();
+        expect(fetchPullRequests).not.toHaveBeenCalled();
+        expect(setBadgeText).not.toHaveBeenCalled();
+        expect(encryptAppData).not.toHaveBeenCalled();
+        expect(browser.runtime.sendMessage).toHaveBeenCalledOnce();
+        expect(browser.runtime.sendMessage).toHaveBeenCalledWith({
+            type: 'SHOW_ERROR',
+            message:
+                'GitHub rate limited until 09:10. Showing cached pull requests.',
+        });
+        expect(formatGitHubCooldownTime).toHaveBeenCalledWith(
+            COOLDOWN.nextAllowedAt
+        );
+        expect(storedData).toEqual(originalData);
+    });
+
+    it('allows an expired cooldown to proceed and clears it after recovery', async () => {
+        vi.mocked(getActiveGitHubRateLimitCooldown).mockResolvedValue(null);
+
+        await checkPullRequests(true);
+
+        expect(fetch).toHaveBeenCalledOnce();
+        expect(fetchPullRequests).toHaveBeenCalledOnce();
+        expect(clearGitHubRateLimitCooldown).toHaveBeenCalledOnce();
     });
 
     it('preserves cached success state when the top-level search fails', async () => {
@@ -197,6 +270,28 @@ describe('background PR polling and notification decisions', () => {
         expect(createNotification).not.toHaveBeenCalled();
         expect(state.lastNewPRNotificationTime).toBe(0);
         expect(state.isCheckingPRs).toBe(false);
+    });
+
+    it('persists a new cooldown when a post-expiry search is rate limited', async () => {
+        vi.mocked(fetchPullRequests).mockResolvedValue({
+            status: 'failure',
+            rateLimit: COOLDOWN,
+        });
+
+        await checkPullRequests(true);
+
+        expect(persistGitHubRateLimitCooldown).toHaveBeenCalledWith(COOLDOWN);
+        expect(clearGitHubRateLimitCooldown).not.toHaveBeenCalled();
+        expect(setBadgeText).not.toHaveBeenCalled();
+        expect(encryptAppData).not.toHaveBeenCalled();
+    });
+
+    it('does not manufacture a cooldown for a non-rate-limit refresh failure', async () => {
+        vi.mocked(fetchPullRequests).mockResolvedValue({ status: 'failure' });
+
+        await checkPullRequests(true);
+
+        expect(persistGitHubRateLimitCooldown).not.toHaveBeenCalled();
     });
 
     it('preserves cached and notification state when required PR details are incomplete', async () => {
@@ -542,6 +637,27 @@ describe('background PR polling and notification decisions', () => {
             'User info fetch'
         );
         expect(fetchPullRequests).not.toHaveBeenCalled();
+        expect(persistGitHubRateLimitCooldown).not.toHaveBeenCalled();
+    });
+
+    it('persists a required user-request cooldown before stopping', async () => {
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async () => new Response('rate limited', { status: 429 }))
+        );
+        vi.mocked(handleApiError).mockResolvedValue({
+            message: 'GitHub API rate limit exceeded.',
+            isRateLimit: true,
+            isAuth: false,
+            rateLimit: COOLDOWN,
+        });
+
+        await checkPullRequests(true);
+
+        expect(persistGitHubRateLimitCooldown).toHaveBeenCalledWith(COOLDOWN);
+        expect(fetchPullRequests).not.toHaveBeenCalled();
+        expect(setBadgeText).not.toHaveBeenCalled();
+        expect(encryptAppData).not.toHaveBeenCalled();
     });
 
     it('reports unexpected polling failures to the notification and popup paths', async () => {

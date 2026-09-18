@@ -257,6 +257,45 @@ describe('fetchPullRequests search and transformation behavior', () => {
         });
     });
 
+    it('propagates rate-limit metadata from a required search failure', async () => {
+        const now = new Date('2030-06-07T08:09:10.000Z');
+        vi.useFakeTimers();
+        vi.setSystemTime(now);
+        const reset = now.getTime() + 120_000;
+
+        installFetch((url) => {
+            if (isSearchUrl(url)) {
+                return jsonResponse(
+                    { message: 'API rate limit exceeded' },
+                    403,
+                    {
+                        'x-ratelimit-remaining': '0',
+                        'x-ratelimit-reset': String(reset / 1000),
+                        'x-ratelimit-resource': 'search',
+                    }
+                );
+            }
+            throw new Error(`Unexpected URL: ${url}`);
+        });
+
+        await expect(
+            fetchPullRequests(
+                TOKEN,
+                USER,
+                'is:pr repo:acme/private',
+                createNotificationMock()
+            )
+        ).resolves.toEqual({
+            status: 'failure',
+            rateLimit: {
+                classification: 'primary',
+                nextAllowedAt: reset,
+                deadlineSource: 'reset',
+                resource: 'search',
+            },
+        });
+    });
+
     it('reports a failed default search without returning an empty success', async () => {
         const createNotification = createNotificationMock();
 
@@ -496,6 +535,49 @@ describe('fetchPullRequests search and transformation behavior', () => {
             fetchPullRequests(TOKEN, USER, 'is:pr org:acme', createNotification)
         ).resolves.toEqual({ status: 'failure' });
         expect(createNotification).toHaveBeenCalledTimes(1);
+    });
+
+    it('propagates a required detail rate limit when another detail also fails', async () => {
+        const now = new Date('2030-06-07T08:09:10.000Z');
+        vi.useFakeTimers();
+        vi.setSystemTime(now);
+
+        installFetch((url) => {
+            if (isSearchUrl(url)) {
+                return searchResponse([searchItem(42), searchItem(43)]);
+            }
+            if (url === prUrl(42)) {
+                return jsonResponse({ message: 'Service unavailable' }, 500);
+            }
+            if (url === prUrl(43)) {
+                return jsonResponse(
+                    { message: 'You have exceeded a secondary rate limit.' },
+                    429,
+                    {
+                        'retry-after': '90',
+                        'x-ratelimit-resource': 'core',
+                    }
+                );
+            }
+            throw new Error(`Unexpected URL: ${url}`);
+        });
+
+        await expect(
+            fetchPullRequests(
+                TOKEN,
+                USER,
+                'is:pr org:acme',
+                createNotificationMock()
+            )
+        ).resolves.toEqual({
+            status: 'failure',
+            rateLimit: {
+                classification: 'secondary',
+                nextAllowedAt: now.getTime() + 90_000,
+                deadlineSource: 'retry-after',
+                resource: 'core',
+            },
+        });
     });
 
     it('rejects the complete refresh when one of multiple required detail requests fails', async () => {

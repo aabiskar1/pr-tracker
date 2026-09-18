@@ -59,6 +59,8 @@ Use unit tests for rules that can be evaluated without a real browser:
   optional review and CI data degrade to `pending`;
 - issue-search pagination, including later-page failures, incomplete results,
   zero results, duplicate hits, and the 1,000-result API ceiling;
+- GitHub rate-limit classification, deadline precedence, persisted cooldown
+  restoration, active-refresh suppression, expiry, and successful recovery;
 - endpoint-specific request counts, including canonical-detail reuse and
   pre-detail deduplication of matching search results;
 - PR filtering, text matching, and sorting;
@@ -132,8 +134,8 @@ intent is covered by direct state and user-visible assertions above.
 - Popup close/reopen/reload and remembered-session restoration are covered.
 - Deliberately terminating/restarting the MV3 service worker is not covered;
   doing so reliably with the current harness would require fragile Chrome
-  internals. Background restart/session restoration remains protected at unit
-  level.
+  internals. Background restart/session restoration and persisted GitHub
+  cooldown restoration remain protected at unit level.
 - Screenshot capture remains opt-in and live-token based. It is not run in CI.
 
 ## Regression workflow
