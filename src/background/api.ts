@@ -5,10 +5,22 @@ import type {
     GitHubChecksResponse,
     PullRequest,
 } from '../types';
+import {
+    deriveGitHubRateLimitCooldown,
+    formatGitHubCooldownTime,
+    type GitHubRateLimitCooldown,
+} from './githubRateLimit';
 
 export type PullRequestFetchResult =
     | { status: 'success'; pullRequests: PullRequest[] }
-    | { status: 'failure' };
+    | { status: 'failure'; rateLimit?: GitHubRateLimitCooldown };
+
+export type ApiErrorInfo = {
+    message: string;
+    isRateLimit: boolean;
+    isAuth: boolean;
+    rateLimit?: GitHubRateLimitCooldown;
+};
 
 type ReviewStatus = 'approved' | 'changes-requested' | 'pending';
 type CIStatus = 'passing' | 'failing' | 'pending';
@@ -28,33 +40,37 @@ const SEARCH_MAX_PAGES = SEARCH_RESULT_LIMIT / SEARCH_RESULTS_PER_PAGE;
 // Error handling
 export async function analyzeHttpError(
     response: Response
-): Promise<{ message: string; isRateLimit: boolean; isAuth: boolean }> {
+): Promise<ApiErrorInfo> {
     const status = response.status;
-    const rateLimitRemaining = response.headers.get('X-RateLimit-Remaining');
-    const rateLimitReset = response.headers.get('X-RateLimit-Reset');
     let body = '';
     try {
         body = await response.clone().text();
     } catch {
         /* ignore */
     }
-    const lowerBody = body.toLowerCase();
+    const rateLimit = deriveGitHubRateLimitCooldown(response, body);
+    if (rateLimit) {
+        const resetTime = formatGitHubCooldownTime(rateLimit.nextAllowedAt);
+        return {
+            message: `GitHub API rate limit exceeded (resets at ${resetTime}). Please wait before trying again.`,
+            isRateLimit: true,
+            isAuth: false,
+            rateLimit,
+        };
+    }
 
-    const isRateLimit =
-        (status === 403 && rateLimitRemaining === '0') ||
+    const lowerBody = body.toLowerCase();
+    const isRecognizedWithoutDeadline =
+        (status === 403 &&
+            response.headers.get('x-ratelimit-remaining') === '0') ||
         status === 429 ||
         lowerBody.includes('secondary rate limit') ||
         lowerBody.includes('abuse detection') ||
         lowerBody.includes('rate limit');
-    if (isRateLimit) {
-        const resetTime = rateLimitReset
-            ? new Date(parseInt(rateLimitReset) * 1000)
-            : null;
-        const resetTimeStr = resetTime
-            ? ` (resets at ${resetTime.toLocaleTimeString()})`
-            : '';
+    if (isRecognizedWithoutDeadline) {
         return {
-            message: `GitHub API rate limit exceeded${resetTimeStr}. Please wait before trying again.`,
+            message:
+                'GitHub API rate limit exceeded. Please wait before trying again.',
             isRateLimit: true,
             isAuth: false,
         };
@@ -114,7 +130,7 @@ export async function handleApiError(
         forceShow?: boolean
     ) => Promise<void>,
     context: string = 'API request'
-): Promise<{ message: string; isRateLimit: boolean; isAuth: boolean }> {
+): Promise<ApiErrorInfo> {
     const errorInfo = await analyzeHttpError(response);
     console.error(
         `${context} failed with status: ${response.status}`,
@@ -357,7 +373,7 @@ async function reportIncompleteRefresh(
         forceShow?: boolean
     ) => Promise<void>,
     response?: Response
-): Promise<void> {
+): Promise<ApiErrorInfo | null> {
     const errorInfo = response ? await analyzeHttpError(response) : null;
     const message = `GitHub data could not be refreshed completely. Your cached pull requests were preserved. Please try again.${errorInfo ? ` ${errorInfo.message}` : ''}`;
 
@@ -372,6 +388,7 @@ async function reportIncompleteRefresh(
         errorInfo?.isAuth ?? false
     );
     browser.runtime.sendMessage({ type: 'SHOW_ERROR', message });
+    return errorInfo;
 }
 
 function parseSearchResponse(value: unknown): {
@@ -484,16 +501,29 @@ async function reportSearchFailure(
         },
         forceShow?: boolean
     ) => Promise<void>
-): Promise<void> {
+): Promise<ApiErrorInfo | null> {
     if (result.response) {
-        await handleApiError(
+        return handleApiError(
             result.response,
             createNotification,
             result.context
         );
-        return;
     }
-    await reportIncompleteRefresh(createNotification);
+    return reportIncompleteRefresh(createNotification);
+}
+
+async function preferRateLimitedFailure<T extends { response?: Response }>(
+    failures: T[]
+): Promise<T> {
+    for (const failure of failures) {
+        if (
+            failure.response &&
+            (await analyzeHttpError(failure.response)).rateLimit
+        ) {
+            return failure;
+        }
+    }
+    return failures[0]!;
 }
 
 export async function fetchPullRequests(
@@ -520,8 +550,16 @@ export async function fetchPullRequests(
             'Custom PR search'
         );
         if (customResult.status === 'failure') {
-            await reportSearchFailure(customResult, createNotification);
-            return { status: 'failure' };
+            const errorInfo = await reportSearchFailure(
+                customResult,
+                createNotification
+            );
+            return {
+                status: 'failure',
+                ...(errorInfo?.rateLimit
+                    ? { rateLimit: errorInfo.rateLimit }
+                    : {}),
+            };
         }
         prItems = customResult.items;
     } else {
@@ -533,13 +571,29 @@ export async function fetchPullRequests(
             fetchSearchResults(assignedQuery, token, 'Review PR search'),
         ]);
 
-        if (authoredResult.status === 'failure') {
-            await reportSearchFailure(authoredResult, createNotification);
-            return { status: 'failure' };
-        }
-        if (reviewResult.status === 'failure') {
-            await reportSearchFailure(reviewResult, createNotification);
-            return { status: 'failure' };
+        if (
+            authoredResult.status === 'failure' ||
+            reviewResult.status === 'failure'
+        ) {
+            const searchFailures = [authoredResult, reviewResult].filter(
+                (
+                    result
+                ): result is Extract<
+                    SearchFetchResult,
+                    { status: 'failure' }
+                > => result.status === 'failure'
+            );
+            const failure = await preferRateLimitedFailure(searchFailures);
+            const errorInfo = await reportSearchFailure(
+                failure,
+                createNotification
+            );
+            return {
+                status: 'failure',
+                ...(errorInfo?.rateLimit
+                    ? { rateLimit: errorInfo.rateLimit }
+                    : {}),
+            };
         }
 
         prItems = [...authoredResult.items, ...reviewResult.items];
@@ -617,7 +671,7 @@ export async function fetchPullRequests(
     const detailResults = await Promise.all(
         prItems.map((item: GitHubIssueSearchItem) => getPRDetails(item, token))
     );
-    const failedDetail = detailResults.find(
+    const failedDetails = detailResults.filter(
         (
             result
         ): result is Extract<
@@ -625,12 +679,16 @@ export async function fetchPullRequests(
             { status: 'failure' }
         > => result.status === 'failure'
     );
-    if (failedDetail) {
-        await reportIncompleteRefresh(
+    if (failedDetails.length > 0) {
+        const failedDetail = await preferRateLimitedFailure(failedDetails);
+        const errorInfo = await reportIncompleteRefresh(
             createNotification,
             failedDetail.response
         );
-        return { status: 'failure' };
+        return {
+            status: 'failure',
+            ...(errorInfo?.rateLimit ? { rateLimit: errorInfo.rateLimit } : {}),
+        };
     }
 
     const successfulDetails = detailResults.filter(

@@ -9,6 +9,12 @@ import { fetchPullRequests, handleApiError } from './api';
 import { createNotification, setBadgeText } from './notifications';
 import { state, constants } from './state';
 import { updateEncryptedAppData } from './appDataStore';
+import {
+    clearGitHubRateLimitCooldown,
+    formatGitHubCooldownTime,
+    getActiveGitHubRateLimitCooldown,
+    persistGitHubRateLimitCooldown,
+} from './githubRateLimit';
 
 let inFlightRefresh: Promise<void> | null = null;
 
@@ -50,6 +56,20 @@ async function runPullRequestCheck(
     customQueryFromMsg?: string | null
 ): Promise<void> {
     console.log('Starting PR check');
+
+    const activeCooldown = await getActiveGitHubRateLimitCooldown();
+    if (activeCooldown) {
+        if (isManualRefresh) {
+            const resetTime = formatGitHubCooldownTime(
+                activeCooldown.nextAllowedAt
+            );
+            browser.runtime.sendMessage({
+                type: 'SHOW_ERROR',
+                message: `GitHub rate limited until ${resetTime}. Showing cached pull requests.`,
+            });
+        }
+        return;
+    }
 
     // Additional rate limiting: prevent too frequent checks; throttle manual refreshes too
     if (!isManualRefresh && Date.now() - state.lastRefreshTime < 10000) {
@@ -162,11 +182,14 @@ async function runPullRequestCheck(
             console.error(
                 `User info fetch failed with status: ${userResponse.status}`
             );
-            await handleApiError(
+            const errorInfo = await handleApiError(
                 userResponse,
                 createNotification,
                 'User info fetch'
             );
+            if (errorInfo.rateLimit) {
+                await persistGitHubRateLimitCooldown(errorInfo.rateLimit);
+            }
             // Don't throw again if already handled - just return to stop execution
             return;
         }
@@ -201,9 +224,14 @@ async function runPullRequestCheck(
             createNotification
         );
         if (result.status === 'failure') {
+            if (result.rateLimit) {
+                await persistGitHubRateLimitCooldown(result.rateLimit);
+            }
             return;
         }
         const uniquePRs = result.pullRequests;
+
+        await clearGitHubRateLimitCooldown();
 
         const count = uniquePRs.length;
         console.log(`Final count of unique PRs: ${count}`);

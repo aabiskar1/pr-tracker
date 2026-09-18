@@ -68,6 +68,9 @@ The background context is split across `entrypoints/background.ts` and
 - `api.ts` queries GitHub and maps results into the shared `PullRequest` model.
   It also classifies HTTP errors and currently sends UI messages through a
   notification callback and `browser.runtime`.
+- `githubRateLimit.ts` derives structured cooldown metadata from recognized
+  rate-limit responses and persists the current GitHub cooldown separately
+  from encrypted application data.
 - `notifications.ts` reads the encrypted notification preference, throttles
   repeated notifications in memory, creates browser notifications, and handles
   the Chrome/Firefox badge API difference.
@@ -108,6 +111,17 @@ for that PR do not begin, the fetch returns an explicit failure, and the
 background manager preserves the last known good snapshot. Review, check-run,
 and combined status data remain optional and degrade to `pending`.
 
+Recognized rate limits on required refresh requests (`/user`, issue search, or
+canonical PR detail) record one conservative global GitHub cooldown in local
+extension storage. `Retry-After` takes precedence over an exhausted
+`x-ratelimit-reset`; recognized secondary limits otherwise use GitHub's
+one-minute fallback guidance. Before `/user`, the background reads that
+persisted state, silently suppresses automatic polling while it is active, and
+reports the deadline to a manual caller while continuing to show cached data.
+The MV3 worker does not sleep or retry in place. Expiry permits a normal
+refresh, and a successful refresh clears the cooldown. Optional review and CI
+failures still degrade to `pending` and do not establish a cooldown.
+
 Current boundary note: transport, response interpretation, transformation,
 error notification, and browser messaging are not fully separated. Preserve
 the behaviour, but prefer pure transformation/error-classification functions
@@ -121,6 +135,11 @@ contains the encrypted GitHub token, encryption metadata/test vector, encrypted
 application data, and separately encrypted hidden PR IDs. The application data
 contains current and previous PR snapshots plus preferences such as filters,
 sort order, custom query, and notification enablement.
+
+The non-sensitive GitHub cooldown metadata is also stored in
+`browser.storage.local` under its own key. It is deliberately outside the
+encrypted PR snapshot so it can gate network work before token decryption and
+survive background service-worker recreation.
 
 Encrypted application-data writes are owned by the background context. Popup
 preference and hidden-state actions send validated, operation-specific messages
