@@ -41,6 +41,10 @@ loading/empty/populated/error states, notification/filter/sort/query/theme and
 hidden-state persistence, manual refresh persistence, sign-out/reset, popup
 close/reopen/reload, and critical link targets.
 
+The manual-refresh E2E coverage also verifies that one failed canonical PR
+detail request preserves the encrypted cached and notification-comparison
+snapshots, and that the next complete refresh recovers normally.
+
 Behavioural fixtures contain no `Math.random()`, uncontrolled fixture time,
 live GitHub data, or arbitrary test delays. Screenshot demo fixtures remain
 separate and may vary because they are not regression assertions.
@@ -51,6 +55,8 @@ Use unit tests for rules that can be evaluated without a real browser:
 
 - GitHub response transformation and deduplication;
 - HTTP/status/error classification;
+- complete-refresh rejection for failed or unusable required PR details while
+  optional review and CI data degrade to `pending`;
 - PR filtering, text matching, and sorting;
 - review and CI status reduction;
 - refresh and notification eligibility;

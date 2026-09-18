@@ -199,6 +199,56 @@ describe('background PR polling and notification decisions', () => {
         expect(state.isCheckingPRs).toBe(false);
     });
 
+    it('preserves cached and notification state when required PR details are incomplete', async () => {
+        const cachedPrs = [pullRequest(1), pullRequest(2)];
+        const previousPrs = [pullRequest(1)];
+        storedData = appData({
+            pullRequests: cachedPrs,
+            oldPullRequests: previousPrs,
+        });
+        const originalData = clone(storedData);
+        vi.mocked(fetchPullRequests).mockResolvedValue({ status: 'failure' });
+
+        await checkPullRequests(true);
+
+        expect(storedData).toEqual(originalData);
+        expect(setBadgeText).not.toHaveBeenCalled();
+        expect(encryptAppData).not.toHaveBeenCalled();
+        expect(browser.runtime.sendMessage).not.toHaveBeenCalledWith(
+            expect.objectContaining({ type: 'DATA_UPDATED' })
+        );
+        expect(state.lastNewPRNotificationTime).toBe(0);
+    });
+
+    it('recovers normally after an incomplete detail refresh', async () => {
+        const cachedPrs = [pullRequest(1), pullRequest(2)];
+        const recoveredPrs = [...cachedPrs, pullRequest(3)];
+        storedData = appData({
+            pullRequests: cachedPrs,
+            oldPullRequests: cachedPrs,
+        });
+        vi.mocked(fetchPullRequests)
+            .mockResolvedValueOnce({ status: 'failure' })
+            .mockResolvedValueOnce(successfulFetch(recoveredPrs));
+
+        await checkPullRequests(true);
+        vi.advanceTimersByTime(4000);
+        await checkPullRequests(true);
+
+        expect(fetchPullRequests).toHaveBeenCalledTimes(2);
+        expect(setBadgeText).toHaveBeenCalledOnce();
+        expect(setBadgeText).toHaveBeenCalledWith('3');
+        expect(storedData.pullRequests).toEqual(recoveredPrs);
+        expect(storedData.oldPullRequests).toEqual(recoveredPrs);
+        expect(createNotification).toHaveBeenCalledWith(
+            undefined,
+            expect.objectContaining({
+                title: 'New Pull Requests',
+                message: 'You have 1 new pull request!',
+            })
+        );
+    });
+
     it('persists and publishes a successful empty search result', async () => {
         const cachedPrs = [pullRequest(1), pullRequest(2)];
         storedData = appData({

@@ -13,6 +13,7 @@ type GitHubScenario = {
     pullRequests: PullRequest[];
     userStatus?: number;
     searchStatus?: number;
+    detailStatusByPrId?: Record<number, number>;
 };
 
 type PausedRequest = {
@@ -82,6 +83,13 @@ function responseFor(url: string, scenario: GitHubScenario) {
     }
 
     if (url === prApiUrl(pr)) {
+        const detailStatus = scenario.detailStatusByPrId?.[pr.id];
+        if (detailStatus) {
+            return {
+                status: detailStatus,
+                body: { message: 'Controlled PR detail failure' },
+            };
+        }
         return {
             status: 200,
             body: {

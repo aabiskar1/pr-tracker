@@ -10,6 +10,12 @@ export type PullRequestFetchResult =
     | { status: 'success'; pullRequests: PullRequest[] }
     | { status: 'failure' };
 
+type ReviewStatus = 'approved' | 'changes-requested' | 'pending';
+type CIStatus = 'passing' | 'failing' | 'pending';
+type DetailedPullRequestResult =
+    | { status: 'success'; pullRequest: PullRequest }
+    | { status: 'failure'; response?: Response };
+
 // Constants
 const NOTIFICATION_ICON = 'icons/icon-128.png';
 
@@ -132,7 +138,7 @@ export async function handleApiError(
 async function getReviewStatus(
     prUrl: string,
     token: string
-): Promise<'approved' | 'changes-requested' | 'pending'> {
+): Promise<ReviewStatus> {
     try {
         const reviewsUrl = `${prUrl}/reviews`;
         const response = await fetch(reviewsUrl, {
@@ -162,10 +168,7 @@ async function getReviewStatus(
     }
 }
 
-async function getCIStatus(
-    prUrl: string,
-    token: string
-): Promise<'passing' | 'failing' | 'pending'> {
+async function getCIStatus(prUrl: string, token: string): Promise<CIStatus> {
     try {
         // First get the PR to find the head SHA
         const prResponse = await fetch(prUrl, {
@@ -231,6 +234,115 @@ async function getCIStatus(
         console.error('Error fetching CI status:', error);
         return 'pending';
     }
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+    typeof value === 'object' && value !== null;
+
+const nestedRecord = (
+    value: Record<string, unknown>,
+    key: string
+): Record<string, unknown> | undefined => {
+    const nested = value[key];
+    return isRecord(nested) ? nested : undefined;
+};
+
+function mapPullRequestDetail(
+    value: unknown,
+    reviewStatus: ReviewStatus,
+    ciStatus: CIStatus
+): PullRequest | null {
+    if (!isRecord(value)) return null;
+
+    const id = value.id;
+    const htmlUrl = value.html_url;
+    if (
+        typeof id !== 'number' ||
+        !Number.isFinite(id) ||
+        typeof htmlUrl !== 'string' ||
+        htmlUrl.length === 0
+    ) {
+        return null;
+    }
+
+    const base = nestedRecord(value, 'base');
+    const baseRepo = base ? nestedRecord(base, 'repo') : undefined;
+    const repository = nestedRecord(value, 'repository');
+    let repositoryName =
+        typeof baseRepo?.name === 'string'
+            ? baseRepo.name
+            : typeof repository?.name === 'string'
+              ? repository.name
+              : undefined;
+
+    if (!repositoryName) {
+        try {
+            repositoryName = new URL(htmlUrl).pathname.split('/')[2];
+        } catch {
+            return null;
+        }
+    }
+    if (!repositoryName) return null;
+
+    const requestedReviewers = Array.isArray(value.requested_reviewers)
+        ? value.requested_reviewers.filter(
+              (reviewer): reviewer is { login: string; avatar_url: string } =>
+                  isRecord(reviewer) &&
+                  typeof reviewer.login === 'string' &&
+                  typeof reviewer.avatar_url === 'string'
+          )
+        : [];
+    const user = nestedRecord(value, 'user');
+    const author =
+        typeof user?.login === 'string' && typeof user.avatar_url === 'string'
+            ? { login: user.login, avatar_url: user.avatar_url }
+            : undefined;
+
+    return {
+        id,
+        title: typeof value.title === 'string' ? value.title : 'Untitled PR',
+        html_url: htmlUrl,
+        repository: { name: repositoryName },
+        state: typeof value.state === 'string' ? value.state : 'open',
+        draft: typeof value.draft === 'boolean' ? value.draft : false,
+        created_at:
+            typeof value.created_at === 'string'
+                ? value.created_at
+                : new Date().toISOString(),
+        requested_reviewers: requestedReviewers,
+        review_status: reviewStatus,
+        ci_status: ciStatus,
+        author,
+    };
+}
+
+async function reportIncompleteRefresh(
+    createNotification: (
+        id: string | undefined,
+        options: {
+            type: 'basic';
+            iconUrl: string;
+            title: string;
+            message: string;
+        },
+        forceShow?: boolean
+    ) => Promise<void>,
+    response?: Response
+): Promise<void> {
+    const errorInfo = response ? await analyzeHttpError(response) : null;
+    const message = `GitHub data could not be refreshed completely. Your cached pull requests were preserved. Please try again.${errorInfo ? ` ${errorInfo.message}` : ''}`;
+
+    await createNotification(
+        undefined,
+        {
+            type: 'basic',
+            iconUrl: NOTIFICATION_ICON,
+            title: 'PR Tracker Error',
+            message,
+        },
+        errorInfo?.isAuth ?? false
+    );
+    browser.runtime.sendMessage({ type: 'SHOW_ERROR', message });
 }
 
 export async function fetchPullRequests(
@@ -311,98 +423,95 @@ export async function fetchPullRequests(
         prItems = [...(authoredData.items || []), ...(reviewData.items || [])];
     }
 
-    // Get full PR details
-    const getPRDetails = async (item: GitHubIssueSearchItem, token: string) => {
+    // Canonical PR details are required. Reviews and CI are degradable and
+    // already fall back to "pending" when their supporting requests fail.
+    const getPRDetails = async (
+        item: GitHubIssueSearchItem,
+        token: string
+    ): Promise<DetailedPullRequestResult> => {
         try {
             if (
                 !item.pull_request ||
                 typeof item.pull_request !== 'object' ||
-                !('url' in item.pull_request)
+                !('url' in item.pull_request) ||
+                typeof item.pull_request.url !== 'string'
             ) {
                 console.error('Item missing pull_request URL');
-                return null;
+                return { status: 'failure' };
             }
 
-            const prUrl = item.pull_request.url as string;
+            const prUrl = item.pull_request.url;
 
-            const [prData, reviewStatus, ciStatus] = await Promise.all([
+            const [prResponse, reviewStatus, ciStatus] = await Promise.all([
                 fetch(prUrl, {
                     headers: {
                         Authorization: `token ${token}`,
                         Accept: 'application/vnd.github.v3+json',
                     },
-                }).then((r) => r.json()),
+                }),
                 getReviewStatus(prUrl, token),
                 getCIStatus(prUrl, token),
             ]);
 
-            return {
-                ...prData,
-                review_status: reviewStatus,
-                ci_status: ciStatus,
-            };
+            if (!prResponse.ok) {
+                console.error(
+                    `Required PR detail request failed with status: ${prResponse.status}`
+                );
+                return { status: 'failure', response: prResponse };
+            }
+
+            const prData: unknown = await prResponse.json();
+            const pullRequest = mapPullRequestDetail(
+                prData,
+                reviewStatus,
+                ciStatus
+            );
+            if (!pullRequest) {
+                console.error('Required PR detail response was unusable');
+                return { status: 'failure' };
+            }
+
+            return { status: 'success', pullRequest };
         } catch (error) {
             console.error('Error fetching PR details:', error);
-            return null;
+            return { status: 'failure' };
         }
     };
 
     console.log('Fetching detailed PR information...');
-    const detailedPRs = (
-        await Promise.all(
-            prItems.map((item: GitHubIssueSearchItem) =>
-                getPRDetails(item, token)
-            )
-        )
-    ).filter(Boolean);
+    const detailResults = await Promise.all(
+        prItems.map((item: GitHubIssueSearchItem) => getPRDetails(item, token))
+    );
+    const failedDetail = detailResults.find(
+        (
+            result
+        ): result is Extract<
+            DetailedPullRequestResult,
+            { status: 'failure' }
+        > => result.status === 'failure'
+    );
+    if (failedDetail) {
+        await reportIncompleteRefresh(
+            createNotification,
+            failedDetail.response
+        );
+        return { status: 'failure' };
+    }
 
-    // Combine and deduplicate PRs
-    const allPRs = detailedPRs;
-
-    // Map each PR to our simplified format
+    const successfulDetails = detailResults.filter(
+        (
+            result
+        ): result is Extract<
+            DetailedPullRequestResult,
+            { status: 'success' }
+        > => result.status === 'success'
+    );
     const uniquePRs = Array.from(
         new Map(
-            allPRs
-                .map((pr) => {
-                    try {
-                        const repoName =
-                            pr.base && pr.base.repo && pr.base.repo.name
-                                ? pr.base.repo.name
-                                : pr.repository && pr.repository.name
-                                  ? pr.repository.name
-                                  : pr.html_url.split('/')[4];
-
-                        return [
-                            pr.id,
-                            {
-                                id: pr.id,
-                                title: pr.title || 'Untitled PR',
-                                html_url: pr.html_url,
-                                repository: {
-                                    name: repoName,
-                                },
-                                state: pr.state || 'open',
-                                draft: pr.draft || false,
-                                created_at:
-                                    pr.created_at || new Date().toISOString(),
-                                requested_reviewers:
-                                    pr.requested_reviewers || [],
-                                review_status: pr.review_status,
-                                ci_status: pr.ci_status,
-                                author: pr.user
-                                    ? {
-                                          login: pr.user.login,
-                                          avatar_url: pr.user.avatar_url,
-                                      }
-                                    : undefined,
-                            },
-                        ];
-                    } catch (err) {
-                        console.error('Error processing PR:', err);
-                        return null;
-                    }
-                })
-                .filter(Boolean) as [number, PullRequest][]
+            successfulDetails.map((result) => [
+                result.pullRequest.id,
+                result.pullRequest,
+            ])
         ).values()
     );
 
