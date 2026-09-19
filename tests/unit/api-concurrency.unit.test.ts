@@ -317,4 +317,54 @@ describe('fetchPullRequests per-PR concurrency', () => {
             ).toBe(true);
         }
     });
+
+    it('does not start queued PR units after session invalidation', async () => {
+        const itemCount = PR_DETAIL_CONCURRENCY + 2;
+        const detailGates = Array.from({ length: PR_DETAIL_CONCURRENCY }, () =>
+            deferred<Response>()
+        );
+        const startedDetails: number[] = [];
+        installFetch(async (url, init) => {
+            if (url.startsWith('https://api.github.com/search/issues?')) {
+                return searchResponse(
+                    Array.from({ length: itemCount }, (_, index) =>
+                        searchItem(index + 1)
+                    )
+                );
+            }
+            if (/\/pulls\/\d+$/.test(url)) {
+                const number = prNumberFromUrl(url);
+                startedDetails.push(number);
+                expect(init?.signal).toBeInstanceOf(AbortSignal);
+                return detailGates[number - 1]!.promise;
+            }
+            throw new Error(`Unexpected URL: ${url}`);
+        });
+        const controller = new AbortController();
+        let valid = true;
+        const result = fetchPullRequests(
+            TOKEN,
+            USER,
+            'is:pr org:acme',
+            createNotificationMock(),
+            {
+                signal: controller.signal,
+                isValid: () => valid,
+            }
+        );
+        await vi.waitFor(() => {
+            expect(startedDetails).toEqual([1, 2, 3, 4]);
+        });
+
+        valid = false;
+        controller.abort();
+        detailGates.forEach((gate, index) =>
+            gate.resolve(jsonResponse(prDetail(index + 1)))
+        );
+
+        await expect(result).rejects.toMatchObject({
+            name: 'RefreshSessionInvalidatedError',
+        });
+        expect(startedDetails).toEqual([1, 2, 3, 4]);
+    });
 });

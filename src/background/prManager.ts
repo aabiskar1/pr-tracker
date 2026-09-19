@@ -15,8 +15,45 @@ import {
     getActiveGitHubRateLimitCooldown,
     persistGitHubRateLimitCooldown,
 } from './githubRateLimit';
+import {
+    assertRefreshSessionValid,
+    isRefreshSessionInvalidated,
+    type RefreshSessionContext,
+} from './refreshSession';
 
-let inFlightRefresh: Promise<void> | null = null;
+type InFlightRefresh = {
+    controller: AbortController;
+    generation: number;
+    promise: Promise<void>;
+};
+
+let inFlightRefresh: InFlightRefresh | null = null;
+
+function retireInFlightRefresh(): void {
+    const retiredRefresh = inFlightRefresh;
+    if (!retiredRefresh) return;
+
+    retiredRefresh.controller.abort();
+    if (inFlightRefresh === retiredRefresh) {
+        inFlightRefresh = null;
+        state.isCheckingPRs = false;
+    }
+}
+
+export function activatePullRequestSession(): void {
+    state.sessionGeneration += 1;
+    state.sessionLocked = false;
+    retireInFlightRefresh();
+    state.lastRefreshTime = 0;
+    delete (globalThis as { _prTrackerLastManual?: number })
+        ._prTrackerLastManual;
+}
+
+export function invalidatePullRequestSession(): void {
+    state.sessionGeneration += 1;
+    state.sessionLocked = true;
+    retireInFlightRefresh();
+}
 
 export function resetPullRequestManagerStateForTests(): boolean {
     if (inFlightRefresh || state.isCheckingPRs) return false;
@@ -44,30 +81,64 @@ export function checkPullRequests(
     isManualRefresh = false,
     customQueryFromMsg?: string | null
 ): Promise<void> {
-    if (inFlightRefresh) {
-        console.log('PR check already in progress, reusing it...');
-        return inFlightRefresh;
+    if (state.sessionLocked) {
+        console.log('Session is locked, skipping PR check');
+        return Promise.resolve();
     }
 
+    const generation = state.sessionGeneration;
+    if (inFlightRefresh?.generation === generation) {
+        console.log('PR check already in progress, reusing it...');
+        return inFlightRefresh.promise;
+    }
+
+    const controller = new AbortController();
+    const refreshSession: RefreshSessionContext = {
+        signal: controller.signal,
+        isValid: () =>
+            state.sessionGeneration === generation && !state.sessionLocked,
+    };
     state.isCheckingPRs = true;
-    const operation = runPullRequestCheck(isManualRefresh, customQueryFromMsg);
+    const operation = runPullRequestCheck(
+        isManualRefresh,
+        customQueryFromMsg,
+        refreshSession
+    ).catch((error) => {
+        if (isRefreshSessionInvalidated(error, refreshSession)) {
+            console.log('PR check stopped because its session was invalidated');
+            return;
+        }
+        throw error;
+    });
     const trackedOperation = operation.finally(() => {
-        if (inFlightRefresh === trackedOperation) {
+        if (inFlightRefresh?.promise === trackedOperation) {
             inFlightRefresh = null;
             state.isCheckingPRs = false;
         }
     });
-    inFlightRefresh = trackedOperation;
+    inFlightRefresh = { controller, generation, promise: trackedOperation };
     return trackedOperation;
 }
 
 async function runPullRequestCheck(
     isManualRefresh: boolean,
-    customQueryFromMsg?: string | null
+    customQueryFromMsg: string | null | undefined,
+    refreshSession: RefreshSessionContext
 ): Promise<void> {
     console.log('Starting PR check');
+    const sessionNotification = (
+        id: string | undefined,
+        options: {
+            type: 'basic';
+            iconUrl: string;
+            title: string;
+            message: string;
+        },
+        forceShow = false
+    ) => createNotification(id, options, forceShow, refreshSession);
 
     const activeCooldown = await getActiveGitHubRateLimitCooldown();
+    assertRefreshSessionValid(refreshSession);
     if (activeCooldown) {
         if (isManualRefresh) {
             const resetTime = formatGitHubCooldownTime(
@@ -106,11 +177,13 @@ async function runPullRequestCheck(
     }
 
     try {
+        assertRefreshSessionValid(refreshSession);
         // Only proceed if we have the password or can get it from session storage
         if (!state.sessionPassword) {
             const data = (await browser.storage.session.get([
                 'sessionPassword',
             ])) as Record<string, unknown>;
+            assertRefreshSessionValid(refreshSession);
             if (
                 data.sessionPassword &&
                 typeof data.sessionPassword === 'string'
@@ -131,8 +204,10 @@ async function runPullRequestCheck(
                         title: 'PR Tracker Error',
                         message: errorMsg,
                     },
-                    true
+                    true,
+                    refreshSession
                 ); // Force show session errors
+                assertRefreshSessionValid(refreshSession);
                 browser.runtime.sendMessage({
                     type: 'SHOW_ERROR',
                     message: errorMsg,
@@ -164,8 +239,10 @@ async function runPullRequestCheck(
                     title: 'PR Tracker Error',
                     message: errorMsg,
                 },
-                true
+                true,
+                refreshSession
             ); // Force show session errors
+            assertRefreshSessionValid(refreshSession);
             browser.runtime.sendMessage({
                 type: 'SHOW_ERROR',
                 message: errorMsg,
@@ -173,7 +250,9 @@ async function runPullRequestCheck(
             return;
         }
 
-        const token = await decryptToken(state.sessionPassword);
+        const sessionPassword = state.sessionPassword;
+        const token = await decryptToken(sessionPassword);
+        assertRefreshSessionValid(refreshSession);
         if (!token) {
             console.log(
                 'Could not decrypt token - session may not be established yet'
@@ -183,36 +262,42 @@ async function runPullRequestCheck(
 
         // Get user info
         const userResponse = await fetch('https://api.github.com/user', {
+            signal: refreshSession.signal,
             headers: {
                 Authorization: `token ${token}`,
                 Accept: 'application/vnd.github.v3+json',
             },
         });
+        assertRefreshSessionValid(refreshSession);
         if (!userResponse.ok) {
             console.error(
                 `User info fetch failed with status: ${userResponse.status}`
             );
             const errorInfo = await handleApiError(
                 userResponse,
-                createNotification,
-                'User info fetch'
+                sessionNotification,
+                'User info fetch',
+                refreshSession
             );
+            assertRefreshSessionValid(refreshSession);
             if (errorInfo.rateLimit) {
                 await persistGitHubRateLimitCooldown(errorInfo.rateLimit);
+                assertRefreshSessionValid(refreshSession);
             }
             // Don't throw again if already handled - just return to stop execution
             return;
         }
 
         const user = await userResponse.json();
+        assertRefreshSessionValid(refreshSession);
 
         // --- Custom Query Support ---
         let customQuery = customQueryFromMsg;
         if (typeof customQuery === 'undefined') {
             try {
-                const encryptedData = await decryptAppData<AppData>(
-                    state.sessionPassword
-                );
+                const encryptedData =
+                    await decryptAppData<AppData>(sessionPassword);
+                assertRefreshSessionValid(refreshSession);
                 if (
                     encryptedData &&
                     encryptedData.preferences &&
@@ -220,7 +305,10 @@ async function runPullRequestCheck(
                 ) {
                     customQuery = encryptedData.preferences.customQuery;
                 }
-            } catch {
+            } catch (error) {
+                if (isRefreshSessionInvalidated(error, refreshSession)) {
+                    throw error;
+                }
                 console.log(
                     'Failed to get custom query from encrypted storage'
                 );
@@ -231,11 +319,14 @@ async function runPullRequestCheck(
             token,
             user,
             customQuery || undefined,
-            createNotification
+            sessionNotification,
+            refreshSession
         );
+        assertRefreshSessionValid(refreshSession);
         if (result.status === 'failure') {
             if (result.rateLimit) {
                 await persistGitHubRateLimitCooldown(result.rateLimit);
+                assertRefreshSessionValid(refreshSession);
             }
             return;
         }
@@ -246,28 +337,38 @@ async function runPullRequestCheck(
         } else {
             await clearGitHubRateLimitCooldown();
         }
+        assertRefreshSessionValid(refreshSession);
 
         const count = uniquePRs.length;
         console.log(`Final count of unique PRs: ${count}`);
+        assertRefreshSessionValid(refreshSession);
         await setBadgeText(count > 0 ? count.toString() : '');
+        assertRefreshSessionValid(refreshSession);
 
         console.log('Saving PRs to storage');
         const refreshedData = await updateEncryptedAppData(
-            state.sessionPassword,
+            sessionPassword,
             (appData) => {
                 appData.pullRequests = uniquePRs;
                 appData.lastUpdated = new Date().toISOString();
-            }
+            },
+            { isValid: refreshSession.isValid }
         );
+        assertRefreshSessionValid(refreshSession);
 
         // Notify popup about data update
         try {
+            assertRefreshSessionValid(refreshSession);
             await browser.runtime.sendMessage({
                 type: 'DATA_UPDATED',
                 timestamp: Date.now(),
             });
+            assertRefreshSessionValid(refreshSession);
             console.log('Sent DATA_UPDATED message to popup');
-        } catch {
+        } catch (error) {
+            if (isRefreshSessionInvalidated(error, refreshSession)) {
+                throw error;
+            }
             // Popup might not be open, which is fine
             console.log(
                 'Could not send DATA_UPDATED message (popup may be closed)'
@@ -286,11 +387,15 @@ async function runPullRequestCheck(
         // Merge hidden status from decoupled storage (source of truth)
         let hiddenPrIds = new Set<number>();
         try {
-            const ids = await decryptHiddenPrIds(state.sessionPassword);
+            const ids = await decryptHiddenPrIds(sessionPassword);
+            assertRefreshSessionValid(refreshSession);
             if (ids && ids.length > 0) {
                 hiddenPrIds = new Set(ids);
             }
         } catch (error) {
+            if (isRefreshSessionInvalidated(error, refreshSession)) {
+                throw error;
+            }
             console.error(
                 'Failed to load hidden PR IDs from secure storage:',
                 error
@@ -310,6 +415,7 @@ async function runPullRequestCheck(
             const pref = await browser.storage.local.get(
                 'prtracker-notify-on-first-run'
             );
+            assertRefreshSessionValid(refreshSession);
             notifyOnFirstRun = pref['prtracker-notify-on-first-run'] === true;
         }
 
@@ -329,16 +435,25 @@ async function runPullRequestCheck(
             if (!isNotificationThrottled) {
                 try {
                     // Use undefined for ID to enable throttling based on title+message
-                    await createNotification(undefined, {
-                        type: 'basic',
-                        iconUrl: constants.NOTIFICATION_ICON,
-                        title: 'New Pull Requests',
-                        message: `You have ${newPrs.length} new pull request${newPrs.length > 1 ? 's' : ''}!`,
-                    }); // Don't force - respect user preference for new PR notifications
+                    await createNotification(
+                        undefined,
+                        {
+                            type: 'basic',
+                            iconUrl: constants.NOTIFICATION_ICON,
+                            title: 'New Pull Requests',
+                            message: `You have ${newPrs.length} new pull request${newPrs.length > 1 ? 's' : ''}!`,
+                        },
+                        false,
+                        refreshSession
+                    ); // Don't force - respect user preference for new PR notifications
+                    assertRefreshSessionValid(refreshSession);
 
                     // Update the timestamp after successful notification
                     state.lastNewPRNotificationTime = now;
                 } catch (error) {
+                    if (isRefreshSessionInvalidated(error, refreshSession)) {
+                        throw error;
+                    }
                     console.error('Failed to send notification:', error);
                 }
             }
@@ -346,17 +461,29 @@ async function runPullRequestCheck(
 
         // Update oldPullRequests in storage AFTER notification logic
         try {
-            await updateEncryptedAppData(state.sessionPassword, (appData) => {
-                appData.oldPullRequests = uniquePRs;
-            });
+            await updateEncryptedAppData(
+                sessionPassword,
+                (appData) => {
+                    appData.oldPullRequests = uniquePRs;
+                },
+                { isValid: refreshSession.isValid }
+            );
+            assertRefreshSessionValid(refreshSession);
             console.log('Updated oldPullRequests in encrypted storage');
         } catch (error) {
+            if (isRefreshSessionInvalidated(error, refreshSession)) {
+                throw error;
+            }
             console.error(
                 'Failed to update oldPullRequests in encrypted storage:',
                 error
             );
         }
     } catch (error) {
+        if (isRefreshSessionInvalidated(error, refreshSession)) {
+            console.log('PR check stopped because its session was invalidated');
+            return;
+        }
         console.error('Error checking pull requests:', error);
         const message =
             error instanceof Error
@@ -370,8 +497,10 @@ async function runPullRequestCheck(
                 title: 'PR Tracker Error',
                 message,
             },
-            false
+            false,
+            refreshSession
         );
+        if (!refreshSession.isValid()) return;
         browser.runtime.sendMessage({ type: 'SHOW_ERROR', message });
     }
 }

@@ -8,6 +8,9 @@ import {
 import type { AppData, AppDataMutation } from '../types';
 
 type AppDataMutator = (data: AppData) => void | Promise<void>;
+type AppDataUpdateOptions = {
+    isValid?: () => boolean;
+};
 
 const FilterStateSchema = z
     .object({
@@ -72,17 +75,26 @@ export function parseAppDataMutation(value: unknown): AppDataMutation | null {
 
 export function updateEncryptedAppData(
     password: string,
-    mutator: AppDataMutator
+    mutator: AppDataMutator,
+    options: AppDataUpdateOptions = {}
 ): Promise<AppData> {
+    const assertValid = () => {
+        if (options.isValid && !options.isValid()) {
+            throw new Error('App-data update belongs to an invalid session');
+        }
+    };
     const mutation = mutationQueue.then(async () => {
+        assertValid();
         const currentData = await decryptAppData<AppData>(password);
+        assertValid();
         if (currentData === null) {
             throw new Error('Failed to decrypt app data for update');
         }
 
         const latestData = normalizeAppData(currentData);
         await mutator(latestData);
-        await encryptAppData(latestData, password);
+        assertValid();
+        await encryptAppData(latestData, password, assertValid);
         return latestData;
     });
 
@@ -91,6 +103,10 @@ export function updateEncryptedAppData(
         () => undefined
     );
     return mutation;
+}
+
+export function waitForAppDataMutations(): Promise<void> {
+    return mutationQueue;
 }
 
 export function applyAppDataMutation(

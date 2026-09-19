@@ -85,13 +85,26 @@ The background context is split across `entrypoints/background.ts` and
 - `notifications.ts` reads the encrypted notification preference, throttles
   repeated notifications in memory, creates browser notifications, and handles
   the Chrome/Firefox badge API difference.
-- `state.ts` holds process-local session password and refresh/notification
-  throttle state plus timing constants.
+- `state.ts` holds process-local session password, lock/generation state, and
+  refresh/notification throttle state plus timing constants.
 
 The background process may be stopped and recreated by the browser. Session
 password state is therefore restored from `browser.storage.session` when the
 background context starts. In-memory refresh and notification throttle values
 do not survive a background restart.
+
+An explicit sign-out is a session lock, not account deletion. The background
+increments a session generation and aborts the generation's active refresh
+before clearing its in-memory password. Each refresh owns an `AbortController`
+and captures its starting generation. A refresh whose generation is no longer
+current cannot dispatch another GitHub request, report an API error, update the
+badge, write current or comparison PR state, persist its cooldown result,
+notify the popup, or create a notification. Its detached in-flight bookkeeping
+also cannot clear or be reused by a newly unlocked session. Sign-out awaits
+remembered-session removal, refresh/expiry alarm cleanup, and any app-data
+mutation already submitted before it acknowledges success. The encrypted PAT,
+encrypted application data, and preferences remain available for the next
+password-based unlock.
 
 ## GitHub API and data access
 
@@ -136,6 +149,15 @@ already-running work units settle without request cancellation. Rate-limit
 metadata from those results still participates in the existing preferred
 failure selection and persisted cooldown flow.
 
+Session invalidation is separate from required-failure and rate-limit
+scheduling. The refresh session signal is passed through `/user`, paginated
+search, required details, reviews, checks, and combined-status requests.
+Invalidation aborts active fetches and is checked after asynchronous response
+or JSON work and before each later page, queued PR unit, optional request, or
+error side effect. It settles silently rather than being classified as a
+GitHub failure. This does not change the existing decision to let a default
+search peer continue merely because its sibling encountered a rate limit.
+
 Recognized rate limits on required refresh requests (`/user`, issue search, or
 canonical PR detail) record one conservative global GitHub cooldown in local
 extension storage. `Retry-After` takes precedence over an exhausted
@@ -179,6 +201,10 @@ decrypts the latest persisted value for each queued operation, applies only the
 owned fields, and re-encrypts the result. This single-writer boundary is needed
 because popup and background modules execute in separate JavaScript contexts;
 a module-local popup mutex would not coordinate with the service worker.
+Refresh-owned mutations carry a generation-validity guard that runs before
+decrypting, after mutation work, and immediately before the encrypted storage
+commit. Session cleanup can await the mutation queue, preventing an old
+session's submitted write from completing after sign-out acknowledgement.
 
 The user's encryption password is not persistently stored. When the user opts
 to remember it, the password and flag are held in `browser.storage.session` and

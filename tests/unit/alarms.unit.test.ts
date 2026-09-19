@@ -24,6 +24,7 @@ vi.mock('webextension-polyfill', () => ({
 
 vi.mock('../../src/background/prManager', () => ({
     checkPullRequests: vi.fn(),
+    invalidatePullRequestSession: vi.fn(),
 }));
 
 describe('Background Alarms', () => {

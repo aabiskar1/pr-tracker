@@ -273,7 +273,12 @@ export function useAuth() {
     const handleSignOut = async () => {
         setIsLoading(true);
         try {
-            await browser.runtime.sendMessage({ type: 'CLEAR_SESSION' });
+            const locked = await browser.runtime.sendMessage({
+                type: 'CLEAR_SESSION',
+            });
+            if (locked !== true) {
+                throw new Error('Background session lock did not complete');
+            }
 
             setToken('');
             setPassword('');

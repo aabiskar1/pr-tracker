@@ -14,6 +14,10 @@ import {
     type GitHubRateLimitCooldown,
 } from '../utils/githubRateLimit';
 import { mapWithConcurrency } from '../utils/mapWithConcurrency';
+import {
+    assertRefreshSessionValid,
+    type RefreshSessionContext,
+} from './refreshSession';
 
 export type PullRequestFetchResult =
     | {
@@ -70,9 +74,12 @@ export async function handleApiError(
         },
         forceShow?: boolean
     ) => Promise<void>,
-    context: string = 'API request'
+    context: string = 'API request',
+    refreshSession?: RefreshSessionContext
 ): Promise<ApiErrorInfo> {
+    assertRefreshSessionValid(refreshSession);
     const errorInfo = await analyzeHttpError(response);
+    assertRefreshSessionValid(refreshSession);
     console.error(
         `${context} failed with status: ${response.status}`,
         errorInfo
@@ -88,6 +95,7 @@ export async function handleApiError(
         },
         errorInfo.isAuth
     );
+    assertRefreshSessionValid(refreshSession);
 
     browser.runtime.sendMessage({
         type: 'SHOW_ERROR',
@@ -100,19 +108,24 @@ export async function handleApiError(
 // API Functions
 async function getReviewStatus(
     prUrl: string,
-    token: string
+    token: string,
+    refreshSession?: RefreshSessionContext
 ): Promise<OptionalStatusResult<ReviewStatus>> {
     try {
+        assertRefreshSessionValid(refreshSession);
         const reviewsUrl = `${prUrl}/reviews`;
         const response = await fetch(reviewsUrl, {
+            signal: refreshSession?.signal,
             headers: {
                 Authorization: `token ${token}`,
                 Accept: 'application/vnd.github.v3+json',
             },
         });
+        assertRefreshSessionValid(refreshSession);
 
         if (!response.ok) {
             const errorInfo = await analyzeHttpError(response);
+            assertRefreshSessionValid(refreshSession);
             return {
                 status: 'pending',
                 ...(errorInfo.rateLimit
@@ -122,6 +135,7 @@ async function getReviewStatus(
         }
 
         const reviews: GitHubReview[] = await response.json();
+        assertRefreshSessionValid(refreshSession);
 
         // Get latest review per user
         const latestReviews = new Map<number, string>();
@@ -135,6 +149,7 @@ async function getReviewStatus(
         if (states.includes('APPROVED')) return { status: 'approved' };
         return { status: 'pending' };
     } catch (error) {
+        assertRefreshSessionValid(refreshSession);
         console.error('Error fetching review status:', error);
         return { status: 'pending' };
     }
@@ -143,20 +158,25 @@ async function getReviewStatus(
 async function getCIStatus(
     repoUrl: string,
     headSha: string,
-    token: string
+    token: string,
+    refreshSession?: RefreshSessionContext
 ): Promise<OptionalStatusResult<CIStatus>> {
     try {
+        assertRefreshSessionValid(refreshSession);
         // Check runs
         const checksUrl = `${repoUrl}/commits/${headSha}/check-runs`;
         const response = await fetch(checksUrl, {
+            signal: refreshSession?.signal,
             headers: {
                 Authorization: `token ${token}`,
                 Accept: 'application/vnd.github.v3+json',
             },
         });
+        assertRefreshSessionValid(refreshSession);
 
         if (!response.ok) {
             const errorInfo = await analyzeHttpError(response);
+            assertRefreshSessionValid(refreshSession);
             return {
                 status: 'pending',
                 ...(errorInfo.rateLimit
@@ -166,18 +186,23 @@ async function getCIStatus(
         }
 
         const data: GitHubChecksResponse = await response.json();
+        assertRefreshSessionValid(refreshSession);
 
         if (data.check_runs.length === 0) {
             // Fallback to combined status
             const statusUrl = `${repoUrl}/commits/${headSha}/status`;
+            assertRefreshSessionValid(refreshSession);
             const statusResp = await fetch(statusUrl, {
+                signal: refreshSession?.signal,
                 headers: {
                     Authorization: `token ${token}`,
                     Accept: 'application/vnd.github.v3+json',
                 },
             });
+            assertRefreshSessionValid(refreshSession);
             if (statusResp.ok) {
                 const statusData = await statusResp.json();
+                assertRefreshSessionValid(refreshSession);
                 if (
                     statusData.state === 'failure' ||
                     statusData.state === 'error'
@@ -187,6 +212,7 @@ async function getCIStatus(
                     return { status: 'passing' };
             } else {
                 const errorInfo = await analyzeHttpError(statusResp);
+                assertRefreshSessionValid(refreshSession);
                 return {
                     status: 'pending',
                     ...(errorInfo.rateLimit
@@ -210,6 +236,7 @@ async function getCIStatus(
 
         return { status: 'pending' };
     } catch (error) {
+        assertRefreshSessionValid(refreshSession);
         console.error('Error fetching CI status:', error);
         return { status: 'pending' };
     }
@@ -339,9 +366,12 @@ async function reportIncompleteRefresh(
         },
         forceShow?: boolean
     ) => Promise<void>,
-    response?: Response
+    response?: Response,
+    refreshSession?: RefreshSessionContext
 ): Promise<ApiErrorInfo | null> {
+    assertRefreshSessionValid(refreshSession);
     const errorInfo = response ? await analyzeHttpError(response) : null;
+    assertRefreshSessionValid(refreshSession);
     const message = `GitHub data could not be refreshed completely. Your cached pull requests were preserved. Please try again.${errorInfo ? ` ${errorInfo.message}` : ''}`;
 
     await createNotification(
@@ -354,6 +384,7 @@ async function reportIncompleteRefresh(
         },
         errorInfo?.isAuth ?? false
     );
+    assertRefreshSessionValid(refreshSession);
     browser.runtime.sendMessage({ type: 'SHOW_ERROR', message });
     return errorInfo;
 }
@@ -389,25 +420,30 @@ function parseSearchResponse(value: unknown): {
 async function fetchSearchResults(
     query: string,
     token: string,
-    context: string
+    context: string,
+    refreshSession?: RefreshSessionContext
 ): Promise<SearchFetchResult> {
     const items: GitHubIssueSearchItem[] = [];
     let targetCount: number | null = null;
 
     for (let page = 1; page <= SEARCH_MAX_PAGES; page += 1) {
+        assertRefreshSessionValid(refreshSession);
         const pageContext = `${context} (page ${page})`;
         let response: Response;
         try {
             response = await fetch(
                 `https://api.github.com/search/issues?q=${encodeURIComponent(query)}&per_page=${SEARCH_RESULTS_PER_PAGE}&page=${page}`,
                 {
+                    signal: refreshSession?.signal,
                     headers: {
                         Authorization: `token ${token}`,
                         Accept: 'application/vnd.github.v3+json',
                     },
                 }
             );
+            assertRefreshSessionValid(refreshSession);
         } catch (error) {
+            assertRefreshSessionValid(refreshSession);
             console.error(`${pageContext} failed:`, error);
             return { status: 'failure', context: pageContext };
         }
@@ -419,7 +455,9 @@ async function fetchSearchResults(
         let rawData: unknown;
         try {
             rawData = await response.json();
+            assertRefreshSessionValid(refreshSession);
         } catch (error) {
+            assertRefreshSessionValid(refreshSession);
             console.error(`${pageContext} returned invalid JSON:`, error);
             return { status: 'failure', context: pageContext };
         }
@@ -467,16 +505,23 @@ async function reportSearchFailure(
             message: string;
         },
         forceShow?: boolean
-    ) => Promise<void>
+    ) => Promise<void>,
+    refreshSession?: RefreshSessionContext
 ): Promise<ApiErrorInfo | null> {
+    assertRefreshSessionValid(refreshSession);
     if (result.response) {
         return handleApiError(
             result.response,
             createNotification,
-            result.context
+            result.context,
+            refreshSession
         );
     }
-    return reportIncompleteRefresh(createNotification);
+    return reportIncompleteRefresh(
+        createNotification,
+        undefined,
+        refreshSession
+    );
 }
 
 async function preferRateLimitedFailure<T extends { response?: Response }>(
@@ -506,20 +551,24 @@ export async function fetchPullRequests(
             message: string;
         },
         forceShow?: boolean
-    ) => Promise<void>
+    ) => Promise<void>,
+    refreshSession?: RefreshSessionContext
 ): Promise<PullRequestFetchResult> {
+    assertRefreshSessionValid(refreshSession);
     let prItems: GitHubIssueSearchItem[] = [];
 
     if (customQuery && customQuery.trim()) {
         const customResult = await fetchSearchResults(
             customQuery,
             token,
-            'Custom PR search'
+            'Custom PR search',
+            refreshSession
         );
         if (customResult.status === 'failure') {
             const errorInfo = await reportSearchFailure(
                 customResult,
-                createNotification
+                createNotification,
+                refreshSession
             );
             return {
                 status: 'failure',
@@ -534,9 +583,20 @@ export async function fetchPullRequests(
         const assignedQuery = `is:open is:pr review-requested:${user.login} archived:false`;
 
         const [authoredResult, reviewResult] = await Promise.all([
-            fetchSearchResults(searchQuery, token, 'Authored PR search'),
-            fetchSearchResults(assignedQuery, token, 'Review PR search'),
+            fetchSearchResults(
+                searchQuery,
+                token,
+                'Authored PR search',
+                refreshSession
+            ),
+            fetchSearchResults(
+                assignedQuery,
+                token,
+                'Review PR search',
+                refreshSession
+            ),
         ]);
+        assertRefreshSessionValid(refreshSession);
 
         if (
             authoredResult.status === 'failure' ||
@@ -553,7 +613,8 @@ export async function fetchPullRequests(
             const failure = await preferRateLimitedFailure(searchFailures);
             const errorInfo = await reportSearchFailure(
                 failure,
-                createNotification
+                createNotification,
+                refreshSession
             );
             return {
                 status: 'failure',
@@ -575,6 +636,7 @@ export async function fetchPullRequests(
         token: string
     ): Promise<DetailedPullRequestResult> => {
         try {
+            assertRefreshSessionValid(refreshSession);
             if (
                 !item.pull_request ||
                 typeof item.pull_request !== 'object' ||
@@ -588,17 +650,20 @@ export async function fetchPullRequests(
             const prUrl = item.pull_request.url;
 
             const prResponse = await fetch(prUrl, {
+                signal: refreshSession?.signal,
                 headers: {
                     Authorization: `token ${token}`,
                     Accept: 'application/vnd.github.v3+json',
                 },
             });
+            assertRefreshSessionValid(refreshSession);
 
             if (!prResponse.ok) {
                 console.error(
                     `Required PR detail request failed with status: ${prResponse.status}`
                 );
                 const errorInfo = await analyzeHttpError(prResponse);
+                assertRefreshSessionValid(refreshSession);
                 return {
                     status: 'failure',
                     response: prResponse,
@@ -609,6 +674,7 @@ export async function fetchPullRequests(
             }
 
             const prData: unknown = await prResponse.json();
+            assertRefreshSessionValid(refreshSession);
             const pullRequest = mapPullRequestDetail(
                 prData,
                 'pending',
@@ -621,13 +687,19 @@ export async function fetchPullRequests(
 
             const ciContext = getCIContext(prData);
             const [reviewResult, ciResult] = await Promise.all([
-                getReviewStatus(prUrl, token),
+                getReviewStatus(prUrl, token, refreshSession),
                 ciContext
-                    ? getCIStatus(ciContext.repoUrl, ciContext.headSha, token)
+                    ? getCIStatus(
+                          ciContext.repoUrl,
+                          ciContext.headSha,
+                          token,
+                          refreshSession
+                      )
                     : Promise.resolve<OptionalStatusResult<CIStatus>>({
                           status: 'pending',
                       }),
             ]);
+            assertRefreshSessionValid(refreshSession);
             const rateLimit = selectLatestGitHubRateLimitCooldown([
                 reviewResult.rateLimit,
                 ciResult.rateLimit,
@@ -643,6 +715,7 @@ export async function fetchPullRequests(
                 ...(rateLimit ? { rateLimit } : {}),
             };
         } catch (error) {
+            assertRefreshSessionValid(refreshSession);
             console.error('Error fetching PR details:', error);
             return { status: 'failure' };
         }
@@ -658,6 +731,7 @@ export async function fetchPullRequests(
                 result.status === 'failure' && Boolean(result.rateLimit),
         }
     );
+    assertRefreshSessionValid(refreshSession);
     const failedDetails = detailResults.filter(
         (
             result
@@ -670,7 +744,8 @@ export async function fetchPullRequests(
         const failedDetail = await preferRateLimitedFailure(failedDetails);
         const errorInfo = await reportIncompleteRefresh(
             createNotification,
-            failedDetail.response
+            failedDetail.response,
+            refreshSession
         );
         return {
             status: 'failure',
