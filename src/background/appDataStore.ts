@@ -10,6 +10,7 @@ import type { AppData, AppDataMutation } from '../types';
 type AppDataMutator = (data: AppData) => void | Promise<void>;
 type AppDataUpdateOptions = {
     isValid?: () => boolean;
+    shouldWrite?: (data: AppData) => boolean;
 };
 
 const FilterStateSchema = z
@@ -65,6 +66,8 @@ function normalizeAppData(data: AppData | null): AppData {
         lastUpdated: data?.lastUpdated ?? new Date().toISOString(),
         preferences: data?.preferences ?? {},
         oldPullRequests: data?.oldPullRequests ?? [],
+        pendingNotificationPullRequestIds:
+            data?.pendingNotificationPullRequestIds ?? [],
     };
 }
 
@@ -94,6 +97,9 @@ export function updateEncryptedAppData(
         const latestData = normalizeAppData(currentData);
         await mutator(latestData);
         assertValid();
+        if (options.shouldWrite && !options.shouldWrite(latestData)) {
+            return latestData;
+        }
         await encryptAppData(latestData, password, assertValid);
         return latestData;
     });

@@ -185,8 +185,10 @@ and injectable transport or side-effect boundaries in future scoped work.
 the Web Crypto API with password-derived AES-GCM keys. `browser.storage.local`
 contains the encrypted GitHub token, encryption metadata/test vector, encrypted
 application data, and separately encrypted hidden PR IDs. The application data
-contains current and previous PR snapshots plus preferences such as filters,
-sort order, custom query, and notification enablement.
+contains current and previous PR snapshots, pending new-PR notification IDs,
+plus preferences such as filters, sort order, custom query, and notification
+enablement. Pending IDs remain inside the encrypted application-data envelope;
+older records without that field normalize it to an empty list.
 
 The non-sensitive GitHub cooldown metadata is also stored in
 `browser.storage.local` under its own key. It is deliberately outside the
@@ -225,15 +227,34 @@ can be restored. Automatic and manual refreshes have additional in-memory
 throttles in `prManager.ts`.
 
 After a successful fetch, the manager updates the badge, stores the current PR
-snapshot, compares it with `oldPullRequests`, and optionally notifies for new
-PRs. It then advances `oldPullRequests` for every complete, trustworthy refresh,
-including when notification display is throttled, disabled by preference, or
-fails. Failed and cooldown-suppressed refreshes preserve both snapshots.
+snapshot, compares it with `oldPullRequests`, and records genuinely new,
+notification-eligible PR IDs. The same serialized mutation advances
+`oldPullRequests`, prunes pending IDs that are absent from the latest complete
+snapshot, and merges new IDs without duplication. This happens for every
+complete, trustworthy refresh, including when display is throttled, disabled
+by preference, or fails. Failed and cooldown-suppressed refreshes preserve both
+snapshots and the pending set.
+
+Pending delivery is serialized separately from refresh execution and reads the
+latest encrypted current snapshot. It groups all still-relevant pending IDs in
+the existing notification format. Re-enabling notifications, restoring an
+authenticated remembered session, password unlock, and a successful refresh
+are safe replay opportunities; preference re-enablement does not require a
+GitHub request. Pending IDs are removed only after the browser notification API
+accepts the notification. Preference suppression, either throttle, API
+rejection, or session invalidation retains them for a later opportunity. Replay
+uses the active session generation, so a locked session cannot decrypt data,
+display, or commit delivery state. Hidden PRs remain eligible.
+
 First-run notifications are off unless the separate local flag is enabled.
-New-PR notifications respect the encrypted notification preference. Error
-notifications can be forced for selected authentication/session failures.
-Duplicate delivery is limited by both manager state and an in-memory key/time
-map in `notifications.ts`; those guards reset when the background context is
+An empty historical comparison snapshot therefore does not seed pending replay
+state unless that flag opted into first-run delivery. New-PR notifications
+respect the encrypted notification preference. Error notifications can be
+forced for selected authentication/session failures. The notification helper
+reports displayed, preference-disabled, throttled, failed, and invalidated
+outcomes so only browser-accepted delivery clears pending state. Duplicate
+delivery is also limited by manager state and an in-memory key/time map in
+`notifications.ts`; those guards reset when the background context is
 restarted.
 
 Desired direction: notification eligibility, snapshot comparison, first-run

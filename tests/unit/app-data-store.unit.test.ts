@@ -148,6 +148,18 @@ describe('background-owned encrypted app-data mutations', () => {
         expect(storedData.preferences?.sort).toBe('newest');
     });
 
+    it('can serialize a read-only operation without adding an encrypted write', async () => {
+        const result = await updateEncryptedAppData(PASSWORD, () => undefined, {
+            shouldWrite: () => false,
+        });
+
+        expect(result).toEqual({
+            ...storedData,
+            pendingNotificationPullRequestIds: [],
+        });
+        expect(encryptAppData).not.toHaveBeenCalled();
+    });
+
     it('rejects an invalidated refresh mutation before encryption and drains the queue', async () => {
         const mutationStarted = deferred<void>();
         const releaseMutation = deferred<void>();
@@ -224,6 +236,7 @@ describe('background-owned encrypted app-data mutations', () => {
 
         expect(storedData.pullRequests).toEqual([]);
         expect(storedData.oldPullRequests).toEqual([]);
+        expect(storedData.pendingNotificationPullRequestIds).toEqual([]);
         expect(storedData.lastUpdated).toEqual(expect.any(String));
         expect(storedData.preferences?.notificationsEnabled).toBe(false);
     });

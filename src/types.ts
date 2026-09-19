@@ -59,6 +59,7 @@ export type AppData = {
     lastUpdated: string;
     preferences?: AppPreferences;
     oldPullRequests?: PullRequest[];
+    pendingNotificationPullRequestIds?: number[];
 };
 
 export type FilterState = {

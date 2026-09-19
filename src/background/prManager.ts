@@ -4,7 +4,7 @@ import {
     decryptAppData,
     decryptHiddenPrIds,
 } from '../services/secureStorage';
-import type { PullRequest, AppData } from '../types';
+import type { AppData } from '../types';
 import { fetchPullRequests, handleApiError } from './api';
 import { createNotification, setBadgeText } from './notifications';
 import { state, constants } from './state';
@@ -20,6 +20,10 @@ import {
     isRefreshSessionInvalidated,
     type RefreshSessionContext,
 } from './refreshSession';
+import {
+    advancePullRequestNotificationState,
+    replayPendingPullRequestNotifications,
+} from './notificationReplay';
 
 type InFlightRefresh = {
     controller: AbortController;
@@ -135,7 +139,11 @@ async function runPullRequestCheck(
             message: string;
         },
         forceShow = false
-    ) => createNotification(id, options, forceShow, refreshSession);
+    ) => {
+        return createNotification(id, options, forceShow, refreshSession).then(
+            () => undefined
+        );
+    };
 
     const activeCooldown = await getActiveGitHubRateLimitCooldown();
     assertRefreshSessionValid(refreshSession);
@@ -379,10 +387,8 @@ async function runPullRequestCheck(
         const oldPrs = refreshedData.oldPullRequests ?? [];
 
         // Compare old and current PRs for new ones
-        const oldPrIds = new Set(oldPrs.map((pr: PullRequest) => pr.id));
-        const newPrs = uniquePRs.filter(
-            (pr: PullRequest) => !oldPrIds.has(pr.id)
-        );
+        const oldPrIds = new Set(oldPrs.map((pr) => pr.id));
+        const newPrs = uniquePRs.filter((pr) => !oldPrIds.has(pr.id));
 
         // Merge hidden status from decoupled storage (source of truth)
         let hiddenPrIds = new Set<number>();
@@ -419,66 +425,33 @@ async function runPullRequestCheck(
             notifyOnFirstRun = pref['prtracker-notify-on-first-run'] === true;
         }
 
-        const shouldNotify =
-            ((oldPrs.length > 0 && newPrs.length > 0) || notifyOnFirstRun) &&
-            newPrs.length > 0;
-
-        if (shouldNotify) {
-            // Send new PR notification
-
-            // Additional throttling for new PR notifications to prevent rapid-fire notifications
-            const now = Date.now();
-            const isNotificationThrottled =
-                now - state.lastNewPRNotificationTime <
-                constants.NOTIFICATION_THROTTLE_MS;
-
-            if (!isNotificationThrottled) {
-                try {
-                    // Use undefined for ID to enable throttling based on title+message
-                    await createNotification(
-                        undefined,
-                        {
-                            type: 'basic',
-                            iconUrl: constants.NOTIFICATION_ICON,
-                            title: 'New Pull Requests',
-                            message: `You have ${newPrs.length} new pull request${newPrs.length > 1 ? 's' : ''}!`,
-                        },
-                        false,
-                        refreshSession
-                    ); // Don't force - respect user preference for new PR notifications
-                    assertRefreshSessionValid(refreshSession);
-
-                    // Update the timestamp after successful notification
-                    state.lastNewPRNotificationTime = now;
-                } catch (error) {
-                    if (isRefreshSessionInvalidated(error, refreshSession)) {
-                        throw error;
-                    }
-                    console.error('Failed to send notification:', error);
-                }
-            }
-        }
-
-        // Update oldPullRequests in storage AFTER notification logic
         try {
-            await updateEncryptedAppData(
+            await advancePullRequestNotificationState(
                 sessionPassword,
-                (appData) => {
-                    appData.oldPullRequests = uniquePRs;
-                },
-                { isValid: refreshSession.isValid }
+                uniquePRs,
+                notifyOnFirstRun,
+                refreshSession
             );
             assertRefreshSessionValid(refreshSession);
-            console.log('Updated oldPullRequests in encrypted storage');
+            console.log(
+                'Updated oldPullRequests and pending notification state in encrypted storage'
+            );
         } catch (error) {
             if (isRefreshSessionInvalidated(error, refreshSession)) {
                 throw error;
             }
             console.error(
-                'Failed to update oldPullRequests in encrypted storage:',
+                'Failed to update oldPullRequests and pending notification state:',
                 error
             );
+            return;
         }
+
+        await replayPendingPullRequestNotifications(
+            sessionPassword,
+            refreshSession
+        );
+        assertRefreshSessionValid(refreshSession);
     } catch (error) {
         if (isRefreshSessionInvalidated(error, refreshSession)) {
             console.log('PR check stopped because its session was invalidated');

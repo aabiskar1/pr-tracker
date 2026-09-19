@@ -1,13 +1,16 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import type { Page } from 'puppeteer';
+import { openExtensionPopup } from './setup.js';
 import {
     installGitHubApiMock,
     openSeededPopup,
     readAppData,
+    resetManualRefreshThrottle,
     waitForDashboard,
     waitForText,
     type GitHubMock,
 } from './harness.js';
+import { POPULATED_PRS } from './fixtures.js';
 
 describe('preference persistence journeys', () => {
     let github: GitHubMock;
@@ -149,5 +152,93 @@ describe('preference persistence journeys', () => {
             .toBe(false);
         await waitForText(page, 'li', 'Add new authentication flow');
         expect(await page.$$('li')).toHaveLength(initialCount);
+    });
+
+    it('replays one grouped notification for PRs discovered while notifications were disabled', async () => {
+        const page = await openSeededPopup(github);
+        pages.push(page);
+        await page.click('[aria-label="Disable notifications"]');
+        await expect
+            .poll(
+                async () =>
+                    (await readAppData(page)).preferences?.notificationsEnabled
+            )
+            .toBe(false);
+
+        const missedPullRequests = [
+            ...POPULATED_PRS,
+            {
+                ...POPULATED_PRS[0],
+                id: 201,
+                title: 'First missed notification',
+                html_url: 'https://github.com/acme/auth-service/pull/201',
+            },
+            {
+                ...POPULATED_PRS[0],
+                id: 202,
+                title: 'Second missed notification',
+                html_url: 'https://github.com/acme/auth-service/pull/202',
+            },
+        ];
+        github.setScenario({ pullRequests: missedPullRequests });
+        await resetManualRefreshThrottle();
+        await page.click('[aria-label="Refresh Pull Requests"]');
+        await page.waitForSelector('[data-screen="loading"]');
+        await waitForDashboard(page);
+
+        await expect
+            .poll(
+                async () =>
+                    (await readAppData(page)).pendingNotificationPullRequestIds
+            )
+            .toEqual([201, 202]);
+        expect(
+            await page.evaluate(() => chrome.notifications.getAll())
+        ).toEqual({});
+
+        await page.close();
+        pages.splice(pages.indexOf(page), 1);
+        const reopened = await openExtensionPopup();
+        pages.push(reopened);
+        await waitForDashboard(reopened);
+        await reopened.waitForSelector('[aria-label="Enable notifications"]');
+        await reopened.click('[aria-label="Enable notifications"]');
+
+        await expect
+            .poll(() =>
+                reopened.evaluate(
+                    async () =>
+                        Object.keys(await chrome.notifications.getAll()).length
+                )
+            )
+            .toBe(1);
+        await expect
+            .poll(
+                async () =>
+                    (await readAppData(reopened))
+                        .pendingNotificationPullRequestIds
+            )
+            .toEqual([]);
+
+        await reopened.evaluate(async () => {
+            const notifications = await chrome.notifications.getAll();
+            await Promise.all(
+                Object.keys(notifications).map((id) =>
+                    chrome.notifications.clear(id)
+                )
+            );
+        });
+        await resetManualRefreshThrottle();
+        expect(
+            await reopened.evaluate(() =>
+                chrome.runtime.sendMessage({
+                    type: 'CHECK_PRS',
+                    manual: true,
+                })
+            )
+        ).toBe(true);
+        expect(
+            await reopened.evaluate(() => chrome.notifications.getAll())
+        ).toEqual({});
     });
 });

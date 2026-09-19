@@ -114,6 +114,7 @@ describe('secure storage', () => {
         const appData = {
             pullRequests: [],
             oldPullRequests: [],
+            pendingNotificationPullRequestIds: [17, 23],
             lastUpdated: '2026-01-02T03:04:05.000Z',
             preferences: {
                 notificationsEnabled: false,

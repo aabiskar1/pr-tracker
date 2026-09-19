@@ -8,6 +8,7 @@ vi.mock('webextension-polyfill', () => ({
         },
         notifications: {
             create: vi.fn(async () => 'notification-id'),
+            clear: vi.fn(async () => true),
         },
         action: {
             setBadgeText: vi.fn(async () => undefined),
@@ -117,7 +118,9 @@ describe('background notification delivery', () => {
             preferences: { notificationsEnabled: false },
         });
 
-        await createNotification(undefined, notification('New Pull Requests'));
+        await expect(
+            createNotification(undefined, notification('New Pull Requests'))
+        ).resolves.toBe('disabled');
 
         expect(browser.notifications.create).not.toHaveBeenCalled();
     });
@@ -172,14 +175,58 @@ describe('background notification delivery', () => {
         controller.abort();
         preference.resolve({ preferences: { notificationsEnabled: true } });
 
-        await expect(delivery).resolves.toBeUndefined();
+        await expect(delivery).resolves.toBe('invalidated');
         expect(browser.notifications.create).not.toHaveBeenCalled();
+    });
+
+    it('clears an accepted notification when its session is invalidated during browser delivery', async () => {
+        const { createNotification, state, decryptAppData } =
+            await loadNotifications();
+        const created = deferred<string>();
+        state.sessionPassword = 'active-password';
+        vi.mocked(decryptAppData).mockResolvedValue({
+            preferences: { notificationsEnabled: true },
+        });
+        vi.mocked(browser.notifications.create).mockReturnValueOnce(
+            created.promise
+        );
+        const controller = new AbortController();
+        let valid = true;
+        const context = { signal: controller.signal, isValid: () => valid };
+        const delivery = createNotification(
+            undefined,
+            notification('New Pull Requests'),
+            false,
+            context
+        );
+        await vi.waitFor(() => {
+            expect(browser.notifications.create).toHaveBeenCalledOnce();
+        });
+
+        valid = false;
+        controller.abort();
+        created.resolve('accepted-id');
+
+        await expect(delivery).resolves.toBe('invalidated');
+        expect(browser.notifications.clear).toHaveBeenCalledWith('accepted-id');
+
+        valid = true;
+        await expect(
+            createNotification(
+                undefined,
+                notification('New Pull Requests'),
+                false,
+                { signal: new AbortController().signal, isValid: () => true }
+            )
+        ).resolves.toBe('displayed');
     });
 
     it('uses an automatic browser ID when no notification ID is supplied', async () => {
         const { createNotification } = await loadNotifications();
 
-        await createNotification(undefined, notification('Build completed'));
+        await expect(
+            createNotification(undefined, notification('Build completed'))
+        ).resolves.toBe('displayed');
 
         expect(browser.notifications.create).toHaveBeenCalledWith({
             type: 'basic',
@@ -197,7 +244,7 @@ describe('background notification delivery', () => {
             notification('New Pull Requests', 'You have 1 new pull request!')
         );
         vi.advanceTimersByTime(constants.NOTIFICATION_THROTTLE_MS - 1);
-        await createNotification(
+        const throttled = await createNotification(
             undefined,
             notification('New Pull Requests', 'You have 2 new pull requests!')
         );
@@ -208,6 +255,7 @@ describe('background notification delivery', () => {
         );
 
         expect(browser.notifications.create).toHaveBeenCalledTimes(2);
+        expect(throttled).toBe('throttled');
     });
 
     it('allows the first notification in a new test scenario after reset', async () => {
@@ -263,11 +311,16 @@ describe('background notification delivery', () => {
                     'You have 1 new pull request!'
                 )
             )
-        ).resolves.toBeUndefined();
-        await createNotification(
-            undefined,
-            notification('New Pull Requests', 'You have 1 new pull request!')
-        );
+        ).resolves.toBe('failed');
+        await expect(
+            createNotification(
+                undefined,
+                notification(
+                    'New Pull Requests',
+                    'You have 1 new pull request!'
+                )
+            )
+        ).resolves.toBe('throttled');
 
         expect(browser.notifications.create).toHaveBeenCalledOnce();
         expect(consoleError).toHaveBeenCalledWith(

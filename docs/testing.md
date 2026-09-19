@@ -87,10 +87,12 @@ Use unit tests for rules that can be evaluated without a real browser:
 - storage-authoritative popup reloads, semantic-only `DATA_UPDATED`, and
   serialized trailing reload coverage for distinct committed changes;
 - old/new PR comparison, successful snapshot advancement despite notification
-  throttling or delivery failure, and duplicate prevention;
+  throttling or delivery failure, durable pending-ID migration and accumulation,
+  current-snapshot pruning, grouped one-time replay, hidden-PR eligibility,
+  throttle/API-failure retry, and duplicate prevention;
 - sign-out cleanup acknowledgement, guarded encrypted writes, notification
-  cancellation, and rejected lock responses remaining on the authenticated
-  popup; and
+  cancellation, pending replay after password-only unlock, and rejected lock
+  responses remaining on the authenticated popup; and
 - preference/default/validation decisions.
 
 Use E2E tests where extension integration is the behaviour under test:
@@ -99,6 +101,8 @@ Use E2E tests where extension integration is the behaviour under test:
 - popup/background runtime messaging;
 - storage persistence across popup or extension lifecycle events;
 - alarms and notifications as browser-observable effects;
+- notification preference disable/discovery/re-enable replay across popup
+  reopen, including one grouped browser notification and no later duplicate;
 - explicit sign-out during a paused automatic background request, proving the
   popup locks before the response is released, remembered state is removed,
   no later GitHub request or browser/storage side effect occurs, and password-
