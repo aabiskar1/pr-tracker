@@ -332,7 +332,7 @@ export function FilterBar({
                     >
                         <option value="newest">Newest First</option>
                         <option value="oldest">Oldest First</option>
-                        <option value="urgent">Most Urgent</option>
+                        <option value="urgent">Most Reviewers</option>
                         <option value="most-stale">Most Stale</option>
                     </select>
                     <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
