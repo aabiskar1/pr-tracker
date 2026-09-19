@@ -15,6 +15,7 @@ import {
     waitForAppDataMutations,
 } from '@/src/background/appDataStore';
 import { SessionStorageSchema } from '@/src/services/storageSchemas';
+import { replayPendingPullRequestNotificationsForActiveSession } from '@/src/background/notificationReplay';
 
 export default defineBackground(() => {
     // Initialize the remembered password state when the service worker starts
@@ -58,6 +59,8 @@ export default defineBackground(() => {
                         when: expiryTime,
                     });
                 }
+
+                await replayPendingPullRequestNotificationsForActiveSession();
             }
         } catch (error) {
             console.error('Error initializing remembered password:', error);
@@ -122,7 +125,13 @@ export default defineBackground(() => {
                 sendResponse(false);
             } else {
                 applyAppDataMutation(state.sessionPassword, mutation)
-                    .then(() => {
+                    .then(async () => {
+                        if (
+                            mutation.kind === 'set-notifications-enabled' &&
+                            mutation.enabled
+                        ) {
+                            await replayPendingPullRequestNotificationsForActiveSession();
+                        }
                         sendResponse(true);
                     })
                     .catch((error) => {
@@ -183,7 +192,15 @@ export default defineBackground(() => {
                         );
                     });
 
-                sendResponse(true);
+                replayPendingPullRequestNotificationsForActiveSession()
+                    .then(() => sendResponse(true))
+                    .catch((error) => {
+                        console.error(
+                            'Failed to check pending notifications after unlock:',
+                            error
+                        );
+                        sendResponse(true);
+                    });
             } else {
                 sendResponse(false);
             }

@@ -10,6 +10,13 @@ import {
 
 const notificationThrottle = new Map<string, number>();
 
+export type NotificationDeliveryResult =
+    | 'displayed'
+    | 'disabled'
+    | 'throttled'
+    | 'failed'
+    | 'invalidated';
+
 export function resetNotificationThrottleForTests(): void {
     notificationThrottle.clear();
 }
@@ -44,7 +51,7 @@ export async function createNotification(
     options: { type: 'basic'; iconUrl: string; title: string; message: string },
     forceShow: boolean = false,
     refreshSession?: RefreshSessionContext
-): Promise<void> {
+): Promise<NotificationDeliveryResult> {
     try {
         assertRefreshSessionValid(refreshSession);
         if (!forceShow && !(await areNotificationsEnabled())) {
@@ -53,7 +60,7 @@ export async function createNotification(
                 'Notifications disabled, skipping notification:',
                 options.title
             );
-            return;
+            return 'disabled';
         }
         assertRefreshSessionValid(refreshSession);
 
@@ -65,7 +72,7 @@ export async function createNotification(
         const lastShown = notificationThrottle.get(throttleKey) || 0;
         if (now - lastShown < constants.NOTIFICATION_THROTTLE_MS) {
             console.log('Notification throttled:', options.title);
-            return;
+            return 'throttled';
         }
         notificationThrottle.set(throttleKey, now);
         for (const [key, timestamp] of notificationThrottle.entries()) {
@@ -85,14 +92,33 @@ export async function createNotification(
             id || '(auto)'
         );
         assertRefreshSessionValid(refreshSession);
-        if (id) {
-            await browser.notifications.create(id, notificationOptions);
-        } else {
-            await browser.notifications.create(notificationOptions);
+        const createdId = id
+            ? await browser.notifications.create(id, notificationOptions)
+            : await browser.notifications.create(notificationOptions);
+        try {
+            assertRefreshSessionValid(refreshSession);
+        } catch (error) {
+            if (isRefreshSessionInvalidated(error, refreshSession)) {
+                notificationThrottle.delete(throttleKey);
+                try {
+                    await browser.notifications.clear(createdId);
+                } catch (clearError) {
+                    console.error(
+                        'Failed to clear notification from an invalidated session:',
+                        clearError
+                    );
+                }
+                return 'invalidated';
+            }
+            throw error;
         }
+        return 'displayed';
     } catch (error) {
-        if (isRefreshSessionInvalidated(error, refreshSession)) return;
+        if (isRefreshSessionInvalidated(error, refreshSession)) {
+            return 'invalidated';
+        }
         console.error('Failed to create notification:', error);
+        return 'failed';
     }
 }
 

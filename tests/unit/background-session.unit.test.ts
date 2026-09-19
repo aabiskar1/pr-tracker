@@ -13,6 +13,7 @@ import {
     waitForAppDataMutations,
 } from '@/src/background/appDataStore';
 import type { AppDataMutation } from '../../src/types';
+import { replayPendingPullRequestNotificationsForActiveSession } from '@/src/background/notificationReplay';
 
 vi.mock('webextension-polyfill', () => ({
     default: {
@@ -60,6 +61,12 @@ vi.mock('@/src/background/appDataStore', () => ({
     applyAppDataMutation: vi.fn(async () => undefined),
     parseAppDataMutation: vi.fn(),
     waitForAppDataMutations: vi.fn(async () => undefined),
+}));
+
+vi.mock('@/src/background/notificationReplay', () => ({
+    replayPendingPullRequestNotificationsForActiveSession: vi.fn(async () =>
+        Promise.resolve('no-pending')
+    ),
 }));
 
 type MessageListener = (
@@ -258,6 +265,9 @@ describe('background remembered-session wiring', () => {
         expect(createPeriodicAlarm).toHaveBeenCalledOnce();
         expect(sendResponse).toHaveBeenCalledWith(true);
         expect(activatePullRequestSession).toHaveBeenCalledOnce();
+        expect(
+            replayPendingPullRequestNotificationsForActiveSession
+        ).toHaveBeenCalledOnce();
     });
 
     it('routes a validated app-data mutation through the background owner', async () => {
@@ -280,6 +290,28 @@ describe('background remembered-session wiring', () => {
             'active-password',
             mutation
         );
+    });
+
+    it('replays pending notifications after enabling the preference without refreshing GitHub', async () => {
+        const listener = await loadBackground();
+        const { state } = await import('../../src/background/state');
+        state.sessionPassword = 'active-password';
+        const sendResponse = vi.fn();
+        const mutation: AppDataMutation = {
+            kind: 'set-notifications-enabled',
+            enabled: true,
+        };
+        vi.mocked(parseAppDataMutation).mockReturnValueOnce(mutation);
+
+        listener({ type: 'UPDATE_APP_DATA', mutation }, {}, sendResponse);
+
+        await vi.waitFor(() => {
+            expect(sendResponse).toHaveBeenCalledWith(true);
+        });
+        expect(
+            replayPendingPullRequestNotificationsForActiveSession
+        ).toHaveBeenCalledOnce();
+        expect(checkPullRequests).not.toHaveBeenCalled();
     });
 
     it('answers CHECK_PRS only after the background refresh operation completes', async () => {

@@ -67,7 +67,7 @@ vi.mock('../../src/background/githubRateLimit', () => ({
 }));
 
 vi.mock('../../src/background/notifications', () => ({
-    createNotification: vi.fn(async () => undefined),
+    createNotification: vi.fn(async () => 'displayed'),
     setBadgeText: vi.fn(async () => undefined),
 }));
 
@@ -97,6 +97,7 @@ const appData = (overrides: Partial<AppData> = {}): AppData => ({
     oldPullRequests: [],
     lastUpdated: '2030-06-01T00:00:00.000Z',
     preferences: { notificationsEnabled: true },
+    pendingNotificationPullRequestIds: [],
     ...overrides,
 });
 
@@ -182,6 +183,7 @@ describe('background PR polling and notification decisions', () => {
                 notificationsEnabled: true,
                 customQuery: 'is:pr org:acme',
             },
+            pendingNotificationPullRequestIds: [],
         });
         vi.mocked(fetchPullRequests).mockResolvedValue(successfulFetch(prs));
 
@@ -217,13 +219,15 @@ describe('background PR polling and notification decisions', () => {
                 notificationsEnabled: true,
                 customQuery: 'is:pr org:acme',
             },
+            pendingNotificationPullRequestIds: [],
         });
-        expect(encryptAppData).toHaveBeenCalledTimes(2);
+        expect(encryptAppData).toHaveBeenCalledTimes(3);
         expect(clearGitHubRateLimitCooldown).toHaveBeenCalledOnce();
         expect(state.isCheckingPRs).toBe(false);
     });
 
     it('silently suppresses an automatic refresh during an active cooldown', async () => {
+        storedData.pendingNotificationPullRequestIds = [7];
         const originalData = clone(storedData);
         vi.mocked(getActiveGitHubRateLimitCooldown).mockResolvedValue(COOLDOWN);
 
@@ -293,6 +297,7 @@ describe('background PR polling and notification decisions', () => {
         storedData = appData({
             pullRequests: cachedPrs,
             oldPullRequests: previousPrs,
+            pendingNotificationPullRequestIds: [2],
         });
         const originalData = clone(storedData);
         vi.mocked(fetchPullRequests).mockResolvedValue({ status: 'failure' });
@@ -385,6 +390,7 @@ describe('background PR polling and notification decisions', () => {
         storedData = appData({
             pullRequests: cachedPrs,
             oldPullRequests: previousPrs,
+            pendingNotificationPullRequestIds: [2],
         });
         const originalData = clone(storedData);
         vi.mocked(fetchPullRequests).mockResolvedValue({ status: 'failure' });
@@ -491,6 +497,25 @@ describe('background PR polling and notification decisions', () => {
         expect(state.lastNewPRNotificationTime).toBe(FIXED_TIME.getTime());
     });
 
+    it('persists newly discovered IDs when notification preference suppresses display', async () => {
+        const current = [pullRequest(1), pullRequest(2)];
+        storedData = appData({
+            oldPullRequests: [pullRequest(1)],
+            preferences: { notificationsEnabled: false },
+        });
+        vi.mocked(fetchPullRequests).mockResolvedValue(
+            successfulFetch(current)
+        );
+        vi.mocked(createNotification).mockResolvedValueOnce('disabled');
+
+        await checkPullRequests(true);
+
+        expect(storedData.pullRequests).toEqual(current);
+        expect(storedData.oldPullRequests).toEqual(current);
+        expect(storedData.pendingNotificationPullRequestIds).toEqual([2]);
+        expect(state.lastNewPRNotificationTime).toBe(0);
+    });
+
     it('does not notify on first run by default', async () => {
         vi.mocked(fetchPullRequests).mockResolvedValue(
             successfulFetch([pullRequest(1)])
@@ -502,6 +527,7 @@ describe('background PR polling and notification decisions', () => {
             'prtracker-notify-on-first-run'
         );
         expect(createNotification).not.toHaveBeenCalled();
+        expect(storedData.pendingNotificationPullRequestIds).toEqual([]);
     });
 
     it('notifies on first run only when the separate local flag is true', async () => {
@@ -579,30 +605,39 @@ describe('background PR polling and notification decisions', () => {
             type: 'DATA_UPDATED',
             timestamp: FIXED_TIME.getTime() + 5000,
         });
-        expect(encryptAppData).toHaveBeenCalledTimes(4);
+        expect(encryptAppData).toHaveBeenCalledTimes(5);
 
-        // Once the display throttle expires, the same PRs are no longer new.
+        // Once the display throttle expires, the durable pending IDs replay.
         vi.advanceTimersByTime(constants.NOTIFICATION_THROTTLE_MS - 5000);
         await checkPullRequests(true);
 
-        expect(createNotification).toHaveBeenCalledTimes(1);
+        expect(createNotification).toHaveBeenCalledTimes(2);
+        expect(createNotification).toHaveBeenLastCalledWith(
+            undefined,
+            expect.objectContaining({
+                title: 'New Pull Requests',
+                message: 'You have 2 new pull requests!',
+            }),
+            false,
+            refreshSessionMatcher()
+        );
         expect(storedData.oldPullRequests).toEqual(throttledPrs);
-        expect(encryptAppData).toHaveBeenCalledTimes(6);
+        expect(storedData.pendingNotificationPullRequestIds).toEqual([]);
+        expect(encryptAppData).toHaveBeenCalledTimes(8);
     });
 
-    it('advances successful refresh state when notification delivery rejects', async () => {
+    it('advances successful refresh state and retains pending IDs when notification delivery fails', async () => {
         const prs = [pullRequest(1), pullRequest(2)];
         storedData = appData({ oldPullRequests: [pullRequest(1)] });
         vi.mocked(fetchPullRequests).mockResolvedValue(successfulFetch(prs));
-        vi.mocked(createNotification).mockRejectedValueOnce(
-            new Error('Notification API unavailable')
-        );
+        vi.mocked(createNotification).mockResolvedValueOnce('failed');
 
         await checkPullRequests(true);
 
         expect(createNotification).toHaveBeenCalledOnce();
         expect(storedData.pullRequests).toEqual(prs);
         expect(storedData.oldPullRequests).toEqual(prs);
+        expect(storedData.pendingNotificationPullRequestIds).toEqual([2]);
         expect(storedData.lastUpdated).toBe(FIXED_TIME.toISOString());
         expect(setBadgeText).toHaveBeenCalledWith('2');
         expect(browser.runtime.sendMessage).toHaveBeenCalledWith({
@@ -610,10 +645,6 @@ describe('background PR polling and notification decisions', () => {
             timestamp: FIXED_TIME.getTime(),
         });
         expect(encryptAppData).toHaveBeenCalledTimes(2);
-        expect(console.error).toHaveBeenCalledWith(
-            'Failed to send notification:',
-            expect.objectContaining({ message: 'Notification API unavailable' })
-        );
     });
 
     it.each([
