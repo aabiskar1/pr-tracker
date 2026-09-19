@@ -2,7 +2,9 @@
 import browser from 'webextension-polyfill';
 import { state, constants } from '@/src/background/state';
 import {
+    activatePullRequestSession,
     checkPullRequests,
+    invalidatePullRequestSession,
     resetPullRequestManagerStateForTests,
 } from '@/src/background/prManager';
 import { resetNotificationThrottleForTests } from '@/src/background/notifications';
@@ -10,18 +12,24 @@ import { setupAlarms, createPeriodicAlarm } from '@/src/background/alarms';
 import {
     applyAppDataMutation,
     parseAppDataMutation,
+    waitForAppDataMutations,
 } from '@/src/background/appDataStore';
 import { SessionStorageSchema } from '@/src/services/storageSchemas';
 
 export default defineBackground(() => {
     // Initialize the remembered password state when the service worker starts
     const initializeRememberedPassword = async () => {
+        const generation = state.sessionGeneration;
         try {
             const result = await browser.storage.session.get([
                 'sessionPassword',
                 'rememberPasswordFlag',
             ]);
             const parsed = SessionStorageSchema.safeParse(result);
+
+            if (state.sessionGeneration !== generation || state.sessionLocked) {
+                return;
+            }
 
             if (
                 parsed.success &&
@@ -33,6 +41,12 @@ export default defineBackground(() => {
 
                 // Check if the password expiry alarm exists
                 const alarms = await browser.alarms.getAll();
+                if (
+                    state.sessionGeneration !== generation ||
+                    state.sessionLocked
+                ) {
+                    return;
+                }
                 const hasExpiryAlarm = alarms.some(
                     (alarm) => alarm.name === constants.PASSWORD_EXPIRY_ALARM
                 );
@@ -89,12 +103,6 @@ export default defineBackground(() => {
         const typedMessage = message as Record<string, unknown>;
 
         if (typedMessage.type === 'CHECK_PRS') {
-            if (
-                typedMessage.password &&
-                typeof typedMessage.password === 'string'
-            ) {
-                state.sessionPassword = typedMessage.password;
-            }
             const isManualRefresh = typedMessage.manual === true;
             const customQueryFromMsg =
                 typeof typedMessage.customQuery === 'string'
@@ -127,6 +135,7 @@ export default defineBackground(() => {
                 typedMessage.password &&
                 typeof typedMessage.password === 'string'
             ) {
+                activatePullRequestSession();
                 // Store the password in memory
                 state.sessionPassword = typedMessage.password;
 
@@ -186,9 +195,19 @@ export default defineBackground(() => {
                 });
             } else {
                 // Try to get from session storage
+                const generation = state.sessionGeneration;
                 browser.storage.session
                     .get(['sessionPassword', 'rememberPasswordFlag'])
                     .then((result) => {
+                        if (
+                            state.sessionGeneration !== generation ||
+                            state.sessionLocked
+                        ) {
+                            sendResponse({
+                                hasRememberedPassword: false,
+                            });
+                            return;
+                        }
                         const parsed = SessionStorageSchema.safeParse(result);
                         if (
                             parsed.success &&
@@ -209,18 +228,23 @@ export default defineBackground(() => {
                     });
             }
         } else if (typedMessage.type === 'CLEAR_SESSION') {
+            invalidatePullRequestSession();
             state.sessionPassword = null;
             state.rememberPassword = false;
-            // Clear session storage
-            browser.storage.session.remove([
-                'sessionPassword',
-                'rememberPasswordFlag',
-            ]);
-            // Clear any expiry alarm
-            browser.alarms.clear(constants.PASSWORD_EXPIRY_ALARM);
-            // Clear refresh alarm
-            browser.alarms.clear(constants.ALARM_NAME);
-            sendResponse(true);
+            Promise.all([
+                browser.storage.session.remove([
+                    'sessionPassword',
+                    'rememberPasswordFlag',
+                ]),
+                browser.alarms.clear(constants.PASSWORD_EXPIRY_ALARM),
+                browser.alarms.clear(constants.ALARM_NAME),
+                waitForAppDataMutations(),
+            ])
+                .then(() => sendResponse(true))
+                .catch((error) => {
+                    console.error('Failed to clear session:', error);
+                    sendResponse(false);
+                });
         } else if (
             import.meta.env.MODE === 'test' &&
             typedMessage.type === 'TEST_RESET_BACKGROUND_STATE'

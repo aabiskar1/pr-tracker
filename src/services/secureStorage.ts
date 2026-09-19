@@ -244,7 +244,8 @@ export const decryptHiddenPrIds = async (
 // Encrypt and store all application data
 export const encryptAppData = async (
     data: Record<string, unknown>,
-    password: string
+    password: string,
+    beforeStore?: () => void
 ): Promise<void> => {
     try {
         const key = await getEncryptionKey(password);
@@ -268,6 +269,8 @@ export const encryptAppData = async (
         // Convert to arrays for storage
         const encryptedArray = Array.from(new Uint8Array(encryptedData));
         const ivArray = Array.from(iv);
+
+        beforeStore?.();
 
         // Store both encrypted data and IV
         await browser.storage.local.set({

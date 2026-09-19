@@ -67,6 +67,9 @@ Use unit tests for rules that can be evaluated without a real browser:
 - bounded per-PR scheduling, including barrier-controlled concurrency,
   input/result ordering, rate-limit stop-scheduling, optional degradation, and
   clean recovery after failures without timing sleeps;
+- session-generation invalidation at paused `/user`, pagination, and bounded
+  worker boundaries, including no queued requests or late side effects and a
+  new session refreshing while the retired operation settles;
 - issue-search pagination, including later-page failures, incomplete results,
   zero results, duplicate hits, and the 1,000-result API ceiling;
 - GitHub rate-limit classification, deadline precedence, persisted cooldown
@@ -84,7 +87,10 @@ Use unit tests for rules that can be evaluated without a real browser:
 - storage-authoritative popup reloads, semantic-only `DATA_UPDATED`, and
   serialized trailing reload coverage for distinct committed changes;
 - old/new PR comparison, successful snapshot advancement despite notification
-  throttling or delivery failure, and duplicate prevention; and
+  throttling or delivery failure, and duplicate prevention;
+- sign-out cleanup acknowledgement, guarded encrypted writes, notification
+  cancellation, and rejected lock responses remaining on the authenticated
+  popup; and
 - preference/default/validation decisions.
 
 Use E2E tests where extension integration is the behaviour under test:
@@ -93,6 +99,10 @@ Use E2E tests where extension integration is the behaviour under test:
 - popup/background runtime messaging;
 - storage persistence across popup or extension lifecycle events;
 - alarms and notifications as browser-observable effects;
+- explicit sign-out during a paused automatic background request, proving the
+  popup locks before the response is released, remembered state is removed,
+  no later GitHub request or browser/storage side effect occurs, and password-
+  only unlock can refresh with the retained encrypted PAT;
 - external-link actions; and
 - packaged Chrome and Firefox startup behaviour.
 

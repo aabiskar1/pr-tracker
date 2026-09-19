@@ -40,6 +40,14 @@ const searchPage = (url: string): number =>
 const itemRange = (start: number, count: number) =>
     Array.from({ length: count }, (_, index) => searchItem(start + index));
 
+const deferred = <T>() => {
+    let resolve!: (value: T) => void;
+    const promise = new Promise<T>((resolvePromise) => {
+        resolve = resolvePromise;
+    });
+    return { promise, resolve };
+};
+
 const supportingResponse = (url: string): Response => {
     if (url.endsWith('/reviews')) return jsonResponse([]);
     if (url.includes('/check-runs')) {
@@ -346,5 +354,40 @@ describe('GitHub issue-search pagination', () => {
         expect(searchUrls.map(searchPage)).toEqual([
             1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
         ]);
+    });
+
+    it('does not dispatch a later page after its refresh session is invalidated', async () => {
+        const firstPage = deferred<Response>();
+        const requestedPages: number[] = [];
+        const fetchMock = installFetch(async (url, init) => {
+            if (!isSearchUrl(url)) return supportingResponse(url);
+            requestedPages.push(searchPage(url));
+            expect(init?.signal).toBeInstanceOf(AbortSignal);
+            return firstPage.promise;
+        });
+        const controller = new AbortController();
+        let valid = true;
+        const result = fetchPullRequests(
+            TOKEN,
+            USER,
+            'is:pr org:acme',
+            createNotificationMock(),
+            {
+                signal: controller.signal,
+                isValid: () => valid,
+            }
+        );
+        await vi.waitFor(() => {
+            expect(fetchMock).toHaveBeenCalledOnce();
+        });
+
+        valid = false;
+        controller.abort();
+        firstPage.resolve(jsonResponse(searchPayload(itemRange(1, 100), 101)));
+
+        await expect(result).rejects.toMatchObject({
+            name: 'RefreshSessionInvalidatedError',
+        });
+        expect(requestedPages).toEqual([1]);
     });
 });

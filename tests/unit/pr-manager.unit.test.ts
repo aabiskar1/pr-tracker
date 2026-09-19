@@ -1,7 +1,9 @@
 import browser from 'webextension-polyfill';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+    activatePullRequestSession,
     checkPullRequests,
+    invalidatePullRequestSession,
     resetPullRequestManagerStateForTests,
 } from '../../src/background/prManager';
 import { constants, state } from '../../src/background/state';
@@ -116,6 +118,11 @@ const deferred = <T>() => {
     });
     return { promise, resolve, reject };
 };
+const refreshSessionMatcher = () =>
+    expect.objectContaining({
+        signal: expect.any(AbortSignal),
+        isValid: expect.any(Function),
+    });
 
 describe('background PR polling and notification decisions', () => {
     let storedData: AppData;
@@ -128,6 +135,8 @@ describe('background PR polling and notification decisions', () => {
             ._prTrackerLastManual;
         state.sessionPassword = PASSWORD;
         state.rememberPassword = false;
+        state.sessionGeneration = 0;
+        state.sessionLocked = false;
         state.lastRefreshTime = 0;
         state.isCheckingPRs = false;
         state.lastNewPRNotificationTime = 0;
@@ -178,17 +187,22 @@ describe('background PR polling and notification decisions', () => {
 
         await checkPullRequests(true);
 
-        expect(fetch).toHaveBeenCalledWith('https://api.github.com/user', {
-            headers: {
-                Authorization: `token ${TOKEN}`,
-                Accept: 'application/vnd.github.v3+json',
-            },
-        });
+        expect(fetch).toHaveBeenCalledWith(
+            'https://api.github.com/user',
+            expect.objectContaining({
+                signal: expect.any(AbortSignal),
+                headers: {
+                    Authorization: `token ${TOKEN}`,
+                    Accept: 'application/vnd.github.v3+json',
+                },
+            })
+        );
         expect(fetchPullRequests).toHaveBeenCalledWith(
             TOKEN,
             { login: 'octo-user' },
             'is:pr org:acme',
-            createNotification
+            expect.any(Function),
+            refreshSessionMatcher()
         );
         expect(setBadgeText).toHaveBeenCalledWith('2');
         expect(browser.runtime.sendMessage).toHaveBeenCalledWith({
@@ -222,6 +236,23 @@ describe('background PR polling and notification decisions', () => {
         expect(browser.runtime.sendMessage).not.toHaveBeenCalled();
         expect(createNotification).not.toHaveBeenCalled();
         expect(storedData).toEqual(originalData);
+    });
+
+    it('settles cleanly when invalidated during the cooldown lookup', async () => {
+        const cooldownLookup = deferred<GitHubRateLimitCooldown | null>();
+        vi.mocked(getActiveGitHubRateLimitCooldown).mockReturnValueOnce(
+            cooldownLookup.promise
+        );
+
+        const refresh = checkPullRequests(false);
+        invalidatePullRequestSession();
+        state.sessionPassword = null;
+        cooldownLookup.resolve(null);
+
+        await expect(refresh).resolves.toBeUndefined();
+        expect(fetch).not.toHaveBeenCalled();
+        expect(createNotification).not.toHaveBeenCalled();
+        expect(state.isCheckingPRs).toBe(false);
     });
 
     it('explains an active cooldown without making a manual refresh request', async () => {
@@ -317,7 +348,9 @@ describe('background PR polling and notification decisions', () => {
             expect.objectContaining({
                 title: 'New Pull Requests',
                 message: 'You have 1 new pull request!',
-            })
+            }),
+            false,
+            refreshSessionMatcher()
         );
     });
 
@@ -392,7 +425,9 @@ describe('background PR polling and notification decisions', () => {
             expect.objectContaining({
                 title: 'New Pull Requests',
                 message: 'You have 1 new pull request!',
-            })
+            }),
+            false,
+            refreshSessionMatcher()
         );
     });
 
@@ -429,7 +464,8 @@ describe('background PR polling and notification decisions', () => {
             TOKEN,
             { login: 'octo-user' },
             'is:pr org:message',
-            createNotification
+            expect.any(Function),
+            refreshSessionMatcher()
         );
     });
 
@@ -441,12 +477,17 @@ describe('background PR polling and notification decisions', () => {
 
         await checkPullRequests(true);
 
-        expect(createNotification).toHaveBeenCalledWith(undefined, {
-            type: 'basic',
-            iconUrl: constants.NOTIFICATION_ICON,
-            title: 'New Pull Requests',
-            message: 'You have 2 new pull requests!',
-        });
+        expect(createNotification).toHaveBeenCalledWith(
+            undefined,
+            {
+                type: 'basic',
+                iconUrl: constants.NOTIFICATION_ICON,
+                title: 'New Pull Requests',
+                message: 'You have 2 new pull requests!',
+            },
+            false,
+            refreshSessionMatcher()
+        );
         expect(state.lastNewPRNotificationTime).toBe(FIXED_TIME.getTime());
     });
 
@@ -478,7 +519,9 @@ describe('background PR polling and notification decisions', () => {
             expect.objectContaining({
                 title: 'New Pull Requests',
                 message: 'You have 1 new pull request!',
-            })
+            }),
+            false,
+            refreshSessionMatcher()
         );
     });
 
@@ -515,12 +558,17 @@ describe('background PR polling and notification decisions', () => {
         await checkPullRequests(true);
 
         expect(createNotification).toHaveBeenCalledTimes(1);
-        expect(createNotification).toHaveBeenCalledWith(undefined, {
-            type: 'basic',
-            iconUrl: constants.NOTIFICATION_ICON,
-            title: 'New Pull Requests',
-            message: 'You have 1 new pull request!',
-        });
+        expect(createNotification).toHaveBeenCalledWith(
+            undefined,
+            {
+                type: 'basic',
+                iconUrl: constants.NOTIFICATION_ICON,
+                title: 'New Pull Requests',
+                message: 'You have 1 new pull request!',
+            },
+            false,
+            refreshSessionMatcher()
+        );
         expect(storedData.pullRequests).toEqual(throttledPrs);
         expect(storedData.oldPullRequests).toEqual(throttledPrs);
         expect(storedData.lastUpdated).toBe(
@@ -632,6 +680,70 @@ describe('background PR polling and notification decisions', () => {
         expect(state.isCheckingPRs).toBe(false);
     });
 
+    it('retires an old session refresh without allowing late side effects', async () => {
+        const oldFetch = deferred<ReturnType<typeof successfulFetch>>();
+        const originalData = clone(storedData);
+        vi.mocked(fetchPullRequests).mockReturnValueOnce(oldFetch.promise);
+
+        const oldRefresh = checkPullRequests(false);
+        await vi.waitFor(() => {
+            expect(fetchPullRequests).toHaveBeenCalledOnce();
+        });
+        const oldSession = vi.mocked(fetchPullRequests).mock.calls[0]?.[4];
+
+        invalidatePullRequestSession();
+        state.sessionPassword = null;
+
+        expect(oldSession?.signal.aborted).toBe(true);
+        expect(state.isCheckingPRs).toBe(false);
+        expect(resetPullRequestManagerStateForTests()).toBe(true);
+        await checkPullRequests(true);
+        expect(fetchPullRequests).toHaveBeenCalledOnce();
+
+        oldFetch.resolve(successfulFetch([pullRequest(1)]));
+        await expect(oldRefresh).resolves.toBeUndefined();
+
+        expect(storedData).toEqual(originalData);
+        expect(setBadgeText).not.toHaveBeenCalled();
+        expect(encryptAppData).not.toHaveBeenCalled();
+        expect(createNotification).not.toHaveBeenCalled();
+        expect(browser.runtime.sendMessage).not.toHaveBeenCalledWith(
+            expect.objectContaining({ type: 'DATA_UPDATED' })
+        );
+    });
+
+    it('lets a new session refresh while the retired operation settles without interference', async () => {
+        const oldFetch = deferred<ReturnType<typeof successfulFetch>>();
+        const newPrs = [pullRequest(9)];
+        vi.mocked(fetchPullRequests)
+            .mockReturnValueOnce(oldFetch.promise)
+            .mockResolvedValueOnce(successfulFetch(newPrs));
+
+        const oldRefresh = checkPullRequests(false);
+        await vi.waitFor(() => {
+            expect(fetchPullRequests).toHaveBeenCalledOnce();
+        });
+
+        invalidatePullRequestSession();
+        state.sessionPassword = null;
+        activatePullRequestSession();
+        state.sessionPassword = 'new-session-password';
+        const newRefresh = checkPullRequests(true);
+
+        await expect(newRefresh).resolves.toBeUndefined();
+        expect(fetchPullRequests).toHaveBeenCalledTimes(2);
+        expect(storedData.pullRequests).toEqual(newPrs);
+        expect(storedData.oldPullRequests).toEqual(newPrs);
+
+        oldFetch.resolve(successfulFetch([pullRequest(1), pullRequest(2)]));
+        await expect(oldRefresh).resolves.toBeUndefined();
+
+        expect(storedData.pullRequests).toEqual(newPrs);
+        expect(storedData.oldPullRequests).toEqual(newPrs);
+        expect(setBadgeText).toHaveBeenCalledTimes(1);
+        expect(state.isCheckingPRs).toBe(false);
+    });
+
     it('refuses test-state reset during an active refresh and resets throttles after completion', async () => {
         const activeFetch = deferred<ReturnType<typeof successfulFetch>>();
         vi.mocked(fetchPullRequests).mockReturnValueOnce(activeFetch.promise);
@@ -734,7 +846,8 @@ describe('background PR polling and notification decisions', () => {
                 title: 'PR Tracker Error',
                 message,
             },
-            true
+            true,
+            refreshSessionMatcher()
         );
         expect(browser.runtime.sendMessage).toHaveBeenCalledWith({
             type: 'SHOW_ERROR',
@@ -764,8 +877,9 @@ describe('background PR polling and notification decisions', () => {
 
         expect(handleApiError).toHaveBeenCalledWith(
             expect.objectContaining({ status: 401 }),
-            createNotification,
-            'User info fetch'
+            expect.any(Function),
+            'User info fetch',
+            refreshSessionMatcher()
         );
         expect(fetchPullRequests).not.toHaveBeenCalled();
         expect(persistGitHubRateLimitCooldown).not.toHaveBeenCalled();
@@ -806,7 +920,8 @@ describe('background PR polling and notification decisions', () => {
                 title: 'PR Tracker Error',
                 message: 'GitHub unavailable',
             },
-            false
+            false,
+            refreshSessionMatcher()
         );
         expect(browser.runtime.sendMessage).toHaveBeenCalledWith({
             type: 'SHOW_ERROR',

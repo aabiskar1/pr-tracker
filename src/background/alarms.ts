@@ -1,5 +1,5 @@
 import browser from 'webextension-polyfill';
-import { checkPullRequests } from './prManager';
+import { checkPullRequests, invalidatePullRequestSession } from './prManager';
 import { state, constants } from './state';
 import { SessionStorageSchema } from '../services/storageSchemas';
 
@@ -13,9 +13,16 @@ export function setupAlarms() {
                 await checkPullRequests();
             } else if (state.rememberPassword) {
                 // Try to get remembered password from storage
+                const generation = state.sessionGeneration;
                 const result = await browser.storage.session.get([
                     'sessionPassword',
                 ]);
+                if (
+                    state.sessionGeneration !== generation ||
+                    state.sessionLocked
+                ) {
+                    return;
+                }
                 const parsed = SessionStorageSchema.safeParse(result);
                 if (parsed.success && parsed.data.sessionPassword) {
                     state.sessionPassword = parsed.data.sessionPassword;
@@ -24,6 +31,7 @@ export function setupAlarms() {
             }
         } else if (alarm.name === constants.PASSWORD_EXPIRY_ALARM) {
             // Clear the session password when expiry alarm triggers
+            invalidatePullRequestSession();
             state.sessionPassword = null;
             state.rememberPassword = false;
             await browser.storage.session.remove([

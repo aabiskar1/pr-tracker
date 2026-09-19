@@ -532,6 +532,25 @@ describe('useAuth token validation and state transitions', () => {
         expect(hookHarness.setters[4]).toHaveBeenCalledWith('password-entry');
     });
 
+    it('does not claim the popup is locked when background cleanup fails', async () => {
+        vi.mocked(browser.runtime.sendMessage).mockResolvedValue(false);
+        const auth = renderAuth({
+            0: TOKEN,
+            1: PASSWORD,
+            2: PASSWORD,
+            4: 'authenticated',
+        });
+
+        await auth.handleSignOut();
+
+        expect(clearSecureStorage).not.toHaveBeenCalled();
+        expect(hookHarness.setters[0]).not.toHaveBeenCalledWith('');
+        expect(hookHarness.setters[1]).not.toHaveBeenCalledWith('');
+        expect(hookHarness.setters[4]).not.toHaveBeenCalledWith(
+            'password-entry'
+        );
+    });
+
     it('performs a confirmed reset by clearing secure storage and the session', async () => {
         vi.stubGlobal(
             'confirm',

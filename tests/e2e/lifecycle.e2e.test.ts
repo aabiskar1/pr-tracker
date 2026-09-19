@@ -115,6 +115,77 @@ describe('sign-out, reset, and popup lifecycle journeys', () => {
         ).toEqual({});
     });
 
+    it('locks and aborts an automatic refresh before later requests or side effects', async () => {
+        const page = await openSeededPopup(github);
+        pages.push(page);
+        await waitForDashboard(page);
+        const baseline = await page.evaluate(async () => ({
+            appData: await chrome.storage.local.get([
+                'encryptedAppData',
+                'appDataIv',
+            ]),
+            badge: await chrome.action.getBadgeText({}),
+            notifications: await chrome.notifications.getAll(),
+        }));
+        expect(
+            await page.evaluate(() =>
+                chrome.runtime.sendMessage({
+                    type: 'TEST_RESET_BACKGROUND_STATE',
+                })
+            )
+        ).toBe(true);
+        github.resetRequests();
+        const pausedUser = github.pauseNextUserRequest();
+
+        await page.evaluate(() => {
+            (
+                globalThis as typeof globalThis & {
+                    __sessionLockRefresh?: Promise<unknown>;
+                }
+            ).__sessionLockRefresh = chrome.runtime.sendMessage({
+                type: 'CHECK_PRS',
+            });
+        });
+        await pausedUser.reached;
+
+        await page.click('[aria-label="Sign Out"]');
+        await waitForText(page, 'h2', 'Enter Password');
+        expect(
+            await page.evaluate(() => chrome.storage.session.get(null))
+        ).toEqual({});
+        expect(
+            await page.evaluate(() =>
+                chrome.storage.local.get('encryptedGithubToken')
+            )
+        ).toHaveProperty('encryptedGithubToken');
+
+        pausedUser.release();
+        await page.evaluate(async () => {
+            await (
+                globalThis as typeof globalThis & {
+                    __sessionLockRefresh?: Promise<unknown>;
+                }
+            ).__sessionLockRefresh;
+        });
+
+        expect(github.requests).toEqual(['https://api.github.com/user']);
+        expect(
+            await page.evaluate(async () => ({
+                appData: await chrome.storage.local.get([
+                    'encryptedAppData',
+                    'appDataIv',
+                ]),
+                badge: await chrome.action.getBadgeText({}),
+                notifications: await chrome.notifications.getAll(),
+            }))
+        ).toEqual(baseline);
+
+        await page.type('#currentPassword', TEST_PASSWORD);
+        await page.click('[aria-label="Sign In"]');
+        await waitForDashboard(page);
+        expect(github.requests.length).toBeGreaterThan(1);
+    });
+
     it('exposes safe external destinations without loading third-party pages', async () => {
         const page = await openSeededPopup(github);
         pages.push(page);

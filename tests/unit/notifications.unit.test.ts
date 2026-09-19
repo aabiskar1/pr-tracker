@@ -35,6 +35,13 @@ const notification = (title: string, message = 'Message') => ({
     title,
     message,
 });
+const deferred = <T>() => {
+    let resolve!: (value: T) => void;
+    const promise = new Promise<T>((resolvePromise) => {
+        resolve = resolvePromise;
+    });
+    return { promise, resolve };
+};
 
 describe('background notification delivery', () => {
     beforeEach(() => {
@@ -139,6 +146,34 @@ describe('background notification delivery', () => {
             }
         );
         expect(decryptAppData).not.toHaveBeenCalled();
+    });
+
+    it('does not display a notification after its refresh session is invalidated', async () => {
+        const { createNotification, state, decryptAppData } =
+            await loadNotifications();
+        const preference = deferred<{
+            preferences: { notificationsEnabled: boolean };
+        }>();
+        state.sessionPassword = 'active-password';
+        vi.mocked(decryptAppData).mockReturnValueOnce(preference.promise);
+        const controller = new AbortController();
+        let valid = true;
+        const delivery = createNotification(
+            undefined,
+            notification('New Pull Requests'),
+            false,
+            { signal: controller.signal, isValid: () => valid }
+        );
+        await vi.waitFor(() => {
+            expect(decryptAppData).toHaveBeenCalledOnce();
+        });
+
+        valid = false;
+        controller.abort();
+        preference.resolve({ preferences: { notificationsEnabled: true } });
+
+        await expect(delivery).resolves.toBeUndefined();
+        expect(browser.notifications.create).not.toHaveBeenCalled();
     });
 
     it('uses an automatic browser ID when no notification ID is supplied', async () => {

@@ -3,6 +3,7 @@ import {
     applyAppDataMutation,
     parseAppDataMutation,
     updateEncryptedAppData,
+    waitForAppDataMutations,
 } from '../../src/background/appDataStore';
 import {
     decryptAppData,
@@ -67,9 +68,12 @@ describe('background-owned encrypted app-data mutations', () => {
         vi.mocked(decryptAppData).mockImplementation(async () =>
             clone(storedData)
         );
-        vi.mocked(encryptAppData).mockImplementation(async (data) => {
-            storedData = clone(data as AppData);
-        });
+        vi.mocked(encryptAppData).mockImplementation(
+            async (data, _password, beforeStore) => {
+                beforeStore?.();
+                storedData = clone(data as AppData);
+            }
+        );
         vi.mocked(decryptHiddenPrIds).mockImplementation(async () => [
             ...hiddenIds,
         ]);
@@ -142,6 +146,30 @@ describe('background-owned encrypted app-data mutations', () => {
         expect(storedData.pullRequests).toEqual([pullRequest(2)]);
         expect(storedData.oldPullRequests).toEqual([pullRequest(3)]);
         expect(storedData.preferences?.sort).toBe('newest');
+    });
+
+    it('rejects an invalidated refresh mutation before encryption and drains the queue', async () => {
+        const mutationStarted = deferred<void>();
+        const releaseMutation = deferred<void>();
+        let valid = true;
+        const update = updateEncryptedAppData(
+            PASSWORD,
+            async (data) => {
+                data.pullRequests = [pullRequest(9)];
+                mutationStarted.resolve();
+                await releaseMutation.promise;
+            },
+            { isValid: () => valid }
+        );
+        await mutationStarted.promise;
+
+        valid = false;
+        releaseMutation.resolve();
+
+        await expect(update).rejects.toThrow('invalid session');
+        await expect(waitForAppDataMutations()).resolves.toBeUndefined();
+        expect(encryptAppData).not.toHaveBeenCalled();
+        expect(storedData.pullRequests).toEqual([pullRequest(1)]);
     });
 
     it('updates hidden IDs and both encrypted PR snapshots in one queued mutation', async () => {

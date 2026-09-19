@@ -2,10 +2,15 @@ import browser from 'webextension-polyfill';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { constants } from '../../src/background/state';
 import { createPeriodicAlarm } from '@/src/background/alarms';
-import { checkPullRequests } from '@/src/background/prManager';
+import {
+    activatePullRequestSession,
+    checkPullRequests,
+    invalidatePullRequestSession,
+} from '@/src/background/prManager';
 import {
     applyAppDataMutation,
     parseAppDataMutation,
+    waitForAppDataMutations,
 } from '@/src/background/appDataStore';
 import type { AppDataMutation } from '../../src/types';
 
@@ -41,7 +46,9 @@ vi.mock('webextension-polyfill', () => ({
 }));
 
 vi.mock('@/src/background/prManager', () => ({
+    activatePullRequestSession: vi.fn(),
     checkPullRequests: vi.fn(async () => undefined),
+    invalidatePullRequestSession: vi.fn(),
 }));
 
 vi.mock('@/src/background/alarms', () => ({
@@ -52,6 +59,7 @@ vi.mock('@/src/background/alarms', () => ({
 vi.mock('@/src/background/appDataStore', () => ({
     applyAppDataMutation: vi.fn(async () => undefined),
     parseAppDataMutation: vi.fn(),
+    waitForAppDataMutations: vi.fn(async () => undefined),
 }));
 
 type MessageListener = (
@@ -163,6 +171,36 @@ describe('background remembered-session wiring', () => {
         );
     });
 
+    it('does not restore a remembered password after explicit session invalidation', async () => {
+        const rememberedRead = deferred<Record<string, unknown>>();
+        vi.mocked(browser.storage.session.get).mockReturnValueOnce(
+            rememberedRead.promise
+        );
+        const listener = await loadBackground();
+        const { state } = await import('../../src/background/state');
+        vi.mocked(invalidatePullRequestSession).mockImplementationOnce(() => {
+            state.sessionGeneration += 1;
+            state.sessionLocked = true;
+        });
+        const sendResponse = vi.fn();
+
+        listener({ type: 'CLEAR_SESSION' }, {}, sendResponse);
+        rememberedRead.resolve({
+            sessionPassword: 'stale-remembered-password',
+            rememberPasswordFlag: true,
+        });
+
+        await vi.waitFor(() => {
+            expect(sendResponse).toHaveBeenCalledWith(true);
+        });
+        expect(state.sessionPassword).toBeNull();
+        expect(state.rememberPassword).toBe(false);
+        expect(browser.alarms.create).not.toHaveBeenCalledWith(
+            constants.PASSWORD_EXPIRY_ALARM,
+            expect.anything()
+        );
+    });
+
     it.each([
         {},
         { sessionPassword: 'password-without-flag' },
@@ -219,6 +257,7 @@ describe('background remembered-session wiring', () => {
         );
         expect(createPeriodicAlarm).toHaveBeenCalledOnce();
         expect(sendResponse).toHaveBeenCalledWith(true);
+        expect(activatePullRequestSession).toHaveBeenCalledOnce();
     });
 
     it('routes a validated app-data mutation through the background owner', async () => {
@@ -352,6 +391,7 @@ describe('background remembered-session wiring', () => {
 
         expect(state.sessionPassword).toBeNull();
         expect(state.rememberPassword).toBe(false);
+        expect(invalidatePullRequestSession).toHaveBeenCalledOnce();
         expect(browser.storage.session.remove).toHaveBeenCalledWith([
             'sessionPassword',
             'rememberPasswordFlag',
@@ -360,6 +400,43 @@ describe('background remembered-session wiring', () => {
             constants.PASSWORD_EXPIRY_ALARM
         );
         expect(browser.alarms.clear).toHaveBeenCalledWith(constants.ALARM_NAME);
-        expect(sendResponse).toHaveBeenCalledWith(true);
+        await vi.waitFor(() => {
+            expect(sendResponse).toHaveBeenCalledWith(true);
+        });
+        expect(waitForAppDataMutations).toHaveBeenCalledOnce();
+    });
+
+    it('does not acknowledge CLEAR_SESSION until storage, alarms, and queued writes settle', async () => {
+        const storageRemoval = deferred<void>();
+        const expiryAlarm = deferred<boolean>();
+        const refreshAlarm = deferred<boolean>();
+        const queuedWrites = deferred<void>();
+        vi.mocked(browser.storage.session.remove).mockReturnValueOnce(
+            storageRemoval.promise
+        );
+        vi.mocked(browser.alarms.clear)
+            .mockReturnValueOnce(expiryAlarm.promise)
+            .mockReturnValueOnce(refreshAlarm.promise);
+        vi.mocked(waitForAppDataMutations).mockReturnValueOnce(
+            queuedWrites.promise
+        );
+        const listener = await loadBackground();
+        const sendResponse = vi.fn();
+
+        listener({ type: 'CLEAR_SESSION' }, {}, sendResponse);
+
+        expect(invalidatePullRequestSession).toHaveBeenCalledOnce();
+        expect(sendResponse).not.toHaveBeenCalled();
+
+        storageRemoval.resolve();
+        expiryAlarm.resolve(true);
+        refreshAlarm.resolve(true);
+        await Promise.resolve();
+        expect(sendResponse).not.toHaveBeenCalled();
+
+        queuedWrites.resolve();
+        await vi.waitFor(() => {
+            expect(sendResponse).toHaveBeenCalledWith(true);
+        });
     });
 });

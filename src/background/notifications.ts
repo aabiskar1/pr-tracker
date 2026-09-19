@@ -2,6 +2,11 @@ import browser from 'webextension-polyfill';
 import { decryptAppData } from '../services/secureStorage';
 import { state, constants } from './state';
 import type { AppData } from '../types';
+import {
+    assertRefreshSessionValid,
+    isRefreshSessionInvalidated,
+    type RefreshSessionContext,
+} from './refreshSession';
 
 const notificationThrottle = new Map<string, number>();
 
@@ -37,16 +42,20 @@ export async function areNotificationsEnabled(): Promise<boolean> {
 export async function createNotification(
     id: string | undefined,
     options: { type: 'basic'; iconUrl: string; title: string; message: string },
-    forceShow: boolean = false
+    forceShow: boolean = false,
+    refreshSession?: RefreshSessionContext
 ): Promise<void> {
     try {
+        assertRefreshSessionValid(refreshSession);
         if (!forceShow && !(await areNotificationsEnabled())) {
+            assertRefreshSessionValid(refreshSession);
             console.log(
                 'Notifications disabled, skipping notification:',
                 options.title
             );
             return;
         }
+        assertRefreshSessionValid(refreshSession);
 
         const throttleKey =
             options.title === 'New Pull Requests'
@@ -75,12 +84,14 @@ export async function createNotification(
             'id=',
             id || '(auto)'
         );
+        assertRefreshSessionValid(refreshSession);
         if (id) {
             await browser.notifications.create(id, notificationOptions);
         } else {
             await browser.notifications.create(notificationOptions);
         }
     } catch (error) {
+        if (isRefreshSessionInvalidated(error, refreshSession)) return;
         console.error('Failed to create notification:', error);
     }
 }

@@ -25,7 +25,19 @@ export type GitHubMock = {
     requests: string[];
     setScenario: (scenario: GitHubScenario) => void;
     resetRequests: () => void;
+    pauseNextUserRequest: () => {
+        reached: Promise<void>;
+        release: () => void;
+    };
     close: () => Promise<void>;
+};
+
+const deferred = () => {
+    let resolve!: () => void;
+    const promise = new Promise<void>((resolvePromise) => {
+        resolve = resolvePromise;
+    });
+    return { promise, resolve };
 };
 
 const jsonBody = (value: unknown) =>
@@ -117,6 +129,13 @@ export async function installGitHubApiMock(
 ): Promise<GitHubMock> {
     let scenario = initial;
     const requests: string[] = [];
+    let pausedUserRequest:
+        | {
+              reached: ReturnType<typeof deferred>;
+              release: ReturnType<typeof deferred>;
+          }
+        | undefined;
+    let activePausedUserRequest: ReturnType<typeof deferred> | undefined;
     const target = await getBrowser().waitForTarget(
         (candidate) =>
             candidate.type() === 'service_worker' &&
@@ -133,16 +152,35 @@ export async function installGitHubApiMock(
 
     session.on('Fetch.requestPaused', async (event: PausedRequest) => {
         requests.push(event.request.url);
+        let wasPaused = false;
+        if (
+            event.request.url === 'https://api.github.com/user' &&
+            pausedUserRequest
+        ) {
+            const pause = pausedUserRequest;
+            pausedUserRequest = undefined;
+            activePausedUserRequest = pause.release;
+            wasPaused = true;
+            pause.reached.resolve();
+            await pause.release.promise;
+            activePausedUserRequest = undefined;
+        }
         const response = responseFor(event.request.url, scenario);
-        await session.send('Fetch.fulfillRequest', {
-            requestId: event.requestId,
-            responseCode: response.status,
-            responseHeaders: [
-                { name: 'content-type', value: 'application/json' },
-                { name: 'x-oauth-scopes', value: 'repo' },
-            ],
-            body: jsonBody(response.body),
-        });
+        try {
+            await session.send('Fetch.fulfillRequest', {
+                requestId: event.requestId,
+                responseCode: response.status,
+                responseHeaders: [
+                    { name: 'content-type', value: 'application/json' },
+                    { name: 'x-oauth-scopes', value: 'repo' },
+                ],
+                body: jsonBody(response.body),
+            });
+        } catch (error) {
+            // An invalidated refresh can abort while this deterministic request
+            // is paused, making the interception ID intentionally obsolete.
+            if (!wasPaused) throw error;
+        }
     });
 
     return {
@@ -151,7 +189,18 @@ export async function installGitHubApiMock(
             scenario = next;
         },
         resetRequests: () => requests.splice(0),
+        pauseNextUserRequest: () => {
+            if (pausedUserRequest || activePausedUserRequest) {
+                throw new Error('A GitHub user request is already paused');
+            }
+            const reached = deferred();
+            const release = deferred();
+            pausedUserRequest = { reached, release };
+            return { reached: reached.promise, release: release.resolve };
+        },
         close: async () => {
+            pausedUserRequest?.release.resolve();
+            activePausedUserRequest?.resolve();
             await session.send('Fetch.disable');
             await session.detach();
         },

@@ -2,7 +2,10 @@ import browser from 'webextension-polyfill';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { setupAlarms } from '../../src/background/alarms';
 import { constants, state } from '../../src/background/state';
-import { checkPullRequests } from '../../src/background/prManager';
+import {
+    checkPullRequests,
+    invalidatePullRequestSession,
+} from '../../src/background/prManager';
 
 vi.mock('webextension-polyfill', () => ({
     default: {
@@ -22,6 +25,7 @@ vi.mock('webextension-polyfill', () => ({
 
 vi.mock('../../src/background/prManager', () => ({
     checkPullRequests: vi.fn(async () => undefined),
+    invalidatePullRequestSession: vi.fn(),
 }));
 
 const registeredAlarmListener = () =>
@@ -32,6 +36,8 @@ describe('remembered-password alarm behavior', () => {
         vi.clearAllMocks();
         state.sessionPassword = null;
         state.rememberPassword = false;
+        state.sessionGeneration = 0;
+        state.sessionLocked = false;
         vi.mocked(browser.storage.session.get).mockResolvedValue({});
     });
 
@@ -46,6 +52,7 @@ describe('remembered-password alarm behavior', () => {
 
         expect(state.sessionPassword).toBeNull();
         expect(state.rememberPassword).toBe(false);
+        expect(invalidatePullRequestSession).toHaveBeenCalledOnce();
         expect(browser.storage.session.remove).toHaveBeenCalledWith([
             'sessionPassword',
             'rememberPasswordFlag',

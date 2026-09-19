@@ -2,6 +2,8 @@
 export const state = {
     sessionPassword: null as string | null,
     rememberPassword: false,
+    sessionGeneration: 0,
+    sessionLocked: false,
     lastRefreshTime: 0,
     isCheckingPRs: false,
     lastNewPRNotificationTime: 0,
