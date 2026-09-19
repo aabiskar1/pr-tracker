@@ -194,6 +194,36 @@ describe('background notification delivery', () => {
         expect(browser.notifications.create).toHaveBeenCalledTimes(2);
     });
 
+    it('contains browser notification API rejection and retains its throttle', async () => {
+        const { createNotification } = await loadNotifications();
+        const consoleError = vi
+            .spyOn(console, 'error')
+            .mockImplementation(() => undefined);
+        vi.mocked(browser.notifications.create).mockRejectedValueOnce(
+            new Error('Notification API unavailable')
+        );
+
+        await expect(
+            createNotification(
+                undefined,
+                notification(
+                    'New Pull Requests',
+                    'You have 1 new pull request!'
+                )
+            )
+        ).resolves.toBeUndefined();
+        await createNotification(
+            undefined,
+            notification('New Pull Requests', 'You have 1 new pull request!')
+        );
+
+        expect(browser.notifications.create).toHaveBeenCalledOnce();
+        expect(consoleError).toHaveBeenCalledWith(
+            'Failed to create notification:',
+            expect.objectContaining({ message: 'Notification API unavailable' })
+        );
+    });
+
     it('uses the Manifest V3 badge API when available', async () => {
         const { setBadgeText } = await loadNotifications();
 

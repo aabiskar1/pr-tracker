@@ -498,19 +498,71 @@ describe('background PR polling and notification decisions', () => {
         expect(storedData.oldPullRequests?.[1]).toHaveProperty('hidden', true);
     });
 
-    it('uses the manager throttle to suppress repeated new-PR delivery', async () => {
+    it('advances the snapshot when the manager throttle suppresses a grouped notification', async () => {
         storedData = appData({ oldPullRequests: [pullRequest(1)] });
-        vi.mocked(fetchPullRequests).mockResolvedValue(
-            successfulFetch([pullRequest(1), pullRequest(2)])
-        );
+        const firstPrs = [pullRequest(1), pullRequest(2)];
+        const throttledPrs = [...firstPrs, pullRequest(3), pullRequest(4)];
+        vi.mocked(fetchPullRequests)
+            .mockResolvedValueOnce(successfulFetch(firstPrs))
+            .mockResolvedValueOnce(successfulFetch(throttledPrs))
+            .mockResolvedValueOnce(successfulFetch(throttledPrs));
 
         await checkPullRequests(true);
-        storedData.oldPullRequests = [pullRequest(1)];
         vi.advanceTimersByTime(5000);
         await checkPullRequests(true);
 
         expect(createNotification).toHaveBeenCalledTimes(1);
-        expect(encryptAppData).toHaveBeenCalledTimes(3);
+        expect(createNotification).toHaveBeenCalledWith(undefined, {
+            type: 'basic',
+            iconUrl: constants.NOTIFICATION_ICON,
+            title: 'New Pull Requests',
+            message: 'You have 1 new pull request!',
+        });
+        expect(storedData.pullRequests).toEqual(throttledPrs);
+        expect(storedData.oldPullRequests).toEqual(throttledPrs);
+        expect(storedData.lastUpdated).toBe(
+            new Date(FIXED_TIME.getTime() + 5000).toISOString()
+        );
+        expect(setBadgeText).toHaveBeenLastCalledWith('4');
+        expect(browser.runtime.sendMessage).toHaveBeenLastCalledWith({
+            type: 'DATA_UPDATED',
+            timestamp: FIXED_TIME.getTime() + 5000,
+        });
+        expect(encryptAppData).toHaveBeenCalledTimes(4);
+
+        // Once the display throttle expires, the same PRs are no longer new.
+        vi.advanceTimersByTime(constants.NOTIFICATION_THROTTLE_MS - 5000);
+        await checkPullRequests(true);
+
+        expect(createNotification).toHaveBeenCalledTimes(1);
+        expect(storedData.oldPullRequests).toEqual(throttledPrs);
+        expect(encryptAppData).toHaveBeenCalledTimes(6);
+    });
+
+    it('advances successful refresh state when notification delivery rejects', async () => {
+        const prs = [pullRequest(1), pullRequest(2)];
+        storedData = appData({ oldPullRequests: [pullRequest(1)] });
+        vi.mocked(fetchPullRequests).mockResolvedValue(successfulFetch(prs));
+        vi.mocked(createNotification).mockRejectedValueOnce(
+            new Error('Notification API unavailable')
+        );
+
+        await checkPullRequests(true);
+
+        expect(createNotification).toHaveBeenCalledOnce();
+        expect(storedData.pullRequests).toEqual(prs);
+        expect(storedData.oldPullRequests).toEqual(prs);
+        expect(storedData.lastUpdated).toBe(FIXED_TIME.toISOString());
+        expect(setBadgeText).toHaveBeenCalledWith('2');
+        expect(browser.runtime.sendMessage).toHaveBeenCalledWith({
+            type: 'DATA_UPDATED',
+            timestamp: FIXED_TIME.getTime(),
+        });
+        expect(encryptAppData).toHaveBeenCalledTimes(2);
+        expect(console.error).toHaveBeenCalledWith(
+            'Failed to send notification:',
+            expect.objectContaining({ message: 'Notification API unavailable' })
+        );
     });
 
     it.each([
