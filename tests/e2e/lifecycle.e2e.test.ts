@@ -1,7 +1,8 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import type { Page } from 'puppeteer';
-import { openExtensionPopup } from '../setup.js';
+import { openExtensionPopup } from './setup.js';
 import {
+    clearExtensionState,
     installGitHubApiMock,
     openSeededPopup,
     waitForDashboard,
@@ -16,6 +17,10 @@ describe('sign-out, reset, and popup lifecycle journeys', () => {
 
     beforeAll(async () => {
         github = await installGitHubApiMock();
+    });
+
+    afterEach(async () => {
+        await Promise.all(pages.splice(0).map((page) => page.close()));
     });
 
     afterAll(async () => {
@@ -42,6 +47,35 @@ describe('sign-out, reset, and popup lifecycle journeys', () => {
         await waitForDashboard(reopened);
         await waitForText(reopened, 'li', 'Add new authentication flow');
         expect(await reopened.$$('li')).not.toHaveLength(0);
+    });
+
+    it('clears extension storage, alarms, and visible notifications for a fresh scenario', async () => {
+        const page = await openSeededPopup(github);
+        pages.push(page);
+        await page.evaluate(async () => {
+            chrome.alarms.create('test-scenario-alarm', {
+                delayInMinutes: 5,
+            });
+            await chrome.notifications.create('test-scenario-notification', {
+                type: 'basic',
+                iconUrl: chrome.runtime.getURL('icons/icon-128.png'),
+                title: 'Scenario state',
+                message: 'Must be cleared',
+            });
+        });
+
+        await clearExtensionState(page);
+
+        expect(
+            await page.evaluate(() => chrome.storage.local.get(null))
+        ).toEqual({});
+        expect(
+            await page.evaluate(() => chrome.storage.session.get(null))
+        ).toEqual({});
+        expect(await page.evaluate(() => chrome.alarms.getAll())).toEqual([]);
+        expect(
+            await page.evaluate(() => chrome.notifications.getAll())
+        ).toEqual({});
     });
 
     it('signs out to password entry, signs back in, and fully resets to login', async () => {

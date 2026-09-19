@@ -1,13 +1,12 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import type { Page } from 'puppeteer';
-import { getBrowser, getExtensionId } from '../setup.js';
+import { getBrowser, getExtensionId } from './setup.js';
 import {
     clearExtensionState,
     installGitHubApiMock,
     openCleanPopup,
     openSeededPopup,
     readAppData,
-    resetManualRefreshThrottle,
     waitForDashboard,
     waitForText,
     writeAppData,
@@ -21,6 +20,10 @@ describe('popup state journeys', () => {
 
     beforeAll(async () => {
         github = await installGitHubApiMock();
+    });
+
+    afterEach(async () => {
+        await Promise.all(pages.splice(0).map((page) => page.close()));
     });
 
     afterAll(async () => {
@@ -107,7 +110,6 @@ describe('popup state journeys', () => {
     it('keeps search active after a background refresh storage reload', async () => {
         const page = await openSeededPopup(github);
         pages.push(page);
-        await resetManualRefreshThrottle();
         const refreshedPrs = POPULATED_PRS.map((pr, index) =>
             index === 0 ? { ...pr, title: 'Refreshed authentication flow' } : pr
         );
@@ -218,8 +220,6 @@ describe('popup state journeys', () => {
         const cachedData = await readAppData(page);
         github.setScenario({ pullRequests: [], searchStatus: 503 });
         github.resetRequests();
-        await resetManualRefreshThrottle();
-
         await page.click('[aria-label="Refresh Pull Requests"]');
         await waitForText(
             page,

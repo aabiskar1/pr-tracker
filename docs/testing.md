@@ -6,9 +6,10 @@ feature exists or a test has a broad name.
 
 ## Current tooling and layout
 
-Vitest `5.0.0` is the test runner. `vitest.config.ts` uses a Node environment,
-loads `tests/setup.ts`, and discovers test files through the script filters in
-`package.json`.
+Vitest `5.0.0` is the test runner. `vitest.config.ts` is the browser-free unit
+configuration and uses a Node environment. `vitest.e2e.config.ts` extends it
+with the packaged-browser setup used only by E2E and screenshot runs. Test
+files are selected through the script filters in `package.json`.
 
 - `tests/unit/` contains focused coverage for authentication, secure storage,
   preferences, GitHub response mapping and errors, background sessions,
@@ -22,14 +23,20 @@ loads `tests/setup.ts`, and discovers test files through the script filters in
 - `tests/screenshot.e2e.test.ts` populates the extension and captures light and
   dark screenshots. It remains an optional live-token visual-artifact command,
   not a behavioural oracle or part of the required E2E suite.
-- `tests/setup.ts` launches Chrome with `.output/chrome-mv3`, discovers the
-  extension ID, opens popup pages, and closes the shared browser.
+- `tests/e2e/setup.ts` launches Chrome with `.output/chrome-mv3-test`, discovers
+  the extension ID, opens popup pages, and closes the worker-owned browser.
 
 `npm run test:e2e` and `npm run test:headless` require no GitHub credentials or
-public-network access. They exercise token validation with popup request
-interception and exercise refresh/error integration by intercepting the
-packaged service worker's `api.github.com` requests through the Chrome DevTools
-Protocol. No test-only production switch or runtime endpoint exists.
+public-network access. They build in Vite `test` mode, exercise token validation
+with popup request interception, and exercise refresh/error integration by
+intercepting the packaged service worker's `api.github.com` requests through
+the Chrome DevTools Protocol. Normal production builds do not contain the
+test-only background-state reset message handler.
+
+Unit workers never load Puppeteer setup. The current unit suites use mocked
+browser boundaries or pure TypeScript and therefore launch no Chrome process.
+E2E workers own the browser instances they need and close them in global
+teardown, including after failed tests.
 
 ## Current coverage summary
 
@@ -106,6 +113,16 @@ that the UI, background context, storage, and browser APIs are connected.
   practical.
 - Isolate browser storage for each test or explicitly document scenarios that
   intentionally share state.
+- Close popup pages after each E2E scenario and detach GitHub request handlers
+  after each E2E file, including failure paths.
+- Before seeding a fresh E2E scenario, await the test-only background reset,
+  then clear local/session storage, alarms, and visible notifications. The
+  reset clears manager refresh/notification timestamps, the manual-refresh
+  timestamp, and the notification module's per-key throttle. It refuses to run
+  while a refresh is active rather than cancelling that work.
+- Keep persistence journeys inside one scenario when they deliberately cross a
+  popup close/reopen or reload boundary; scenario cleanup must not run between
+  those steps.
 - Assert the feature-specific control and outcome. Avoid conditional tests that
   silently pass when the target control is absent.
 - Mock GitHub endpoints for normal, empty, paginated, permission, rate-limit,

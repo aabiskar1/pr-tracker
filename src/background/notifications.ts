@@ -5,6 +5,10 @@ import type { AppData } from '../types';
 
 const notificationThrottle = new Map<string, number>();
 
+export function resetNotificationThrottleForTests(): void {
+    notificationThrottle.clear();
+}
+
 // Helper function to check if notifications are enabled
 export async function areNotificationsEnabled(): Promise<boolean> {
     if (!state.sessionPassword) {

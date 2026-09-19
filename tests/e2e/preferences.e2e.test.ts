@@ -1,10 +1,9 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import type { Page } from 'puppeteer';
 import {
     installGitHubApiMock,
     openSeededPopup,
     readAppData,
-    resetManualRefreshThrottle,
     waitForDashboard,
     waitForText,
     type GitHubMock,
@@ -18,6 +17,10 @@ describe('preference persistence journeys', () => {
         github = await installGitHubApiMock();
     });
 
+    afterEach(async () => {
+        await Promise.all(pages.splice(0).map((page) => page.close()));
+    });
+
     afterAll(async () => {
         await Promise.all(pages.map((page) => page.close()));
         await github.close();
@@ -26,8 +29,6 @@ describe('preference persistence journeys', () => {
     it('restores notification, filter, sort, custom-query, and theme choices after reload', async () => {
         const page = await openSeededPopup(github);
         pages.push(page);
-        await resetManualRefreshThrottle();
-
         await page.click('[aria-label="Disable notifications"]');
         await expect
             .poll(

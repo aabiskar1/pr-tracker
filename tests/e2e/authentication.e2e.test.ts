@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import type { Page } from 'puppeteer';
 import {
     clearExtensionState,
@@ -19,6 +19,10 @@ describe('authentication journeys', () => {
 
     beforeAll(async () => {
         github = await installGitHubApiMock();
+    });
+
+    afterEach(async () => {
+        await Promise.all(pages.splice(0).map((page) => page.close()));
     });
 
     afterAll(async () => {

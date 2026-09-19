@@ -1,6 +1,6 @@
 import type { CDPSession, HTTPRequest, Page } from 'puppeteer';
 import type { AppData, PullRequest, ThemePreference } from '../../src/types';
-import { getBrowser, getExtensionId, openExtensionPopup } from '../setup.js';
+import { getBrowser, getExtensionId, openExtensionPopup } from './setup.js';
 import {
     appData,
     FIXED_UPDATED_AT,
@@ -192,9 +192,31 @@ export async function mockTokenValidation(
 
 export async function clearExtensionState(page: Page) {
     await page.evaluate(async () => {
-        await chrome.runtime.sendMessage({ type: 'CLEAR_SESSION' });
-        await chrome.storage.local.clear();
-        await chrome.storage.session.clear();
+        const backgroundReset = await chrome.runtime.sendMessage({
+            type: 'TEST_RESET_BACKGROUND_STATE',
+        });
+        if (backgroundReset !== true) {
+            throw new Error(
+                'Background state reset refused while a refresh was active'
+            );
+        }
+
+        const sessionCleared = await chrome.runtime.sendMessage({
+            type: 'CLEAR_SESSION',
+        });
+        if (sessionCleared !== true) {
+            throw new Error('Background session reset did not complete');
+        }
+
+        const activeNotifications = await chrome.notifications.getAll();
+        await Promise.all([
+            chrome.storage.local.clear(),
+            chrome.storage.session.clear(),
+            chrome.alarms.clearAll(),
+            ...Object.keys(activeNotifications).map((id) =>
+                chrome.notifications.clear(id)
+            ),
+        ]);
     });
 }
 

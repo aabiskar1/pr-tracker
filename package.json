@@ -6,6 +6,7 @@
     "scripts": {
         "build": "wxt build",
         "build:all": "npm run build && npm run build:firefox",
+        "build:e2e": "wxt build --mode test",
         "build:firefox": "wxt build -b firefox",
         "check-format": "prettier --check .",
         "compile": "tsc --noEmit",
@@ -16,8 +17,8 @@
         "prepare": "husky",
         "test": "npm run test:unit",
         "test:all": "npm run test:unit && npm run test:e2e",
-        "test:e2e": "npm run build && vitest run --reporter=verbose tests/e2e",
-        "test:e2e:screenshots": "npm run build && vitest run --reporter=verbose tests/screenshot.e2e.test.ts",
+        "test:e2e": "npm run build:e2e && vitest run --config vitest.e2e.config.ts --reporter=verbose tests/e2e",
+        "test:e2e:screenshots": "npm run build:e2e && vitest run --config vitest.e2e.config.ts --reporter=verbose tests/screenshot.e2e.test.ts",
         "test:headless": "cross-env CI=true npm run test:e2e",
         "test:unit": "vitest run --reporter=verbose .unit.test",
         "zip": "wxt zip"

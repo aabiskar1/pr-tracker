@@ -18,6 +18,16 @@ import {
 
 let inFlightRefresh: Promise<void> | null = null;
 
+export function resetPullRequestManagerStateForTests(): boolean {
+    if (inFlightRefresh || state.isCheckingPRs) return false;
+
+    state.lastRefreshTime = 0;
+    state.lastNewPRNotificationTime = 0;
+    delete (globalThis as { _prTrackerLastManual?: number })
+        ._prTrackerLastManual;
+    return true;
+}
+
 // Helper function to check if we should refresh
 function shouldRefresh(): { shouldRefresh: boolean; remainingMs: number } {
     const now = Date.now();

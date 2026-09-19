@@ -175,6 +175,23 @@ describe('background notification delivery', () => {
         expect(browser.notifications.create).toHaveBeenCalledTimes(2);
     });
 
+    it('allows the first notification in a new test scenario after reset', async () => {
+        const { createNotification, resetNotificationThrottleForTests } =
+            await loadNotifications();
+
+        await createNotification(
+            undefined,
+            notification('New Pull Requests', 'First scenario')
+        );
+        resetNotificationThrottleForTests();
+        await createNotification(
+            undefined,
+            notification('New Pull Requests', 'Fresh scenario')
+        );
+
+        expect(browser.notifications.create).toHaveBeenCalledTimes(2);
+    });
+
     it('deduplicates other notifications by their title and message', async () => {
         const { createNotification } = await loadNotifications();
 

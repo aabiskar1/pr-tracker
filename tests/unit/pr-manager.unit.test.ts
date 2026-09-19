@@ -1,6 +1,9 @@
 import browser from 'webextension-polyfill';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { checkPullRequests } from '../../src/background/prManager';
+import {
+    checkPullRequests,
+    resetPullRequestManagerStateForTests,
+} from '../../src/background/prManager';
 import { constants, state } from '../../src/background/state';
 import { fetchPullRequests, handleApiError } from '../../src/background/api';
 import {
@@ -627,6 +630,33 @@ describe('background PR polling and notification decisions', () => {
 
         expect(fetchPullRequests).toHaveBeenCalledTimes(2);
         expect(state.isCheckingPRs).toBe(false);
+    });
+
+    it('refuses test-state reset during an active refresh and resets throttles after completion', async () => {
+        const activeFetch = deferred<ReturnType<typeof successfulFetch>>();
+        vi.mocked(fetchPullRequests).mockReturnValueOnce(activeFetch.promise);
+
+        const refresh = checkPullRequests(true);
+        await vi.waitFor(() => {
+            expect(fetchPullRequests).toHaveBeenCalledOnce();
+        });
+
+        expect(resetPullRequestManagerStateForTests()).toBe(false);
+
+        activeFetch.resolve(successfulFetch([pullRequest(1)]));
+        await refresh;
+        state.lastRefreshTime = FIXED_TIME.getTime();
+        state.lastNewPRNotificationTime = FIXED_TIME.getTime();
+        (globalThis as { _prTrackerLastManual?: number })._prTrackerLastManual =
+            FIXED_TIME.getTime();
+
+        expect(resetPullRequestManagerStateForTests()).toBe(true);
+        expect(state.lastRefreshTime).toBe(0);
+        expect(state.lastNewPRNotificationTime).toBe(0);
+        expect(
+            (globalThis as { _prTrackerLastManual?: number })
+                ._prTrackerLastManual
+        ).toBeUndefined();
     });
 
     it('shares a failed operation and permits a later refresh', async () => {

@@ -1,6 +1,6 @@
 import { describe, it, beforeAll, afterAll } from 'vitest';
 import { Page } from 'puppeteer';
-import { openExtensionPopup, waitForElement } from './setup.js';
+import { openExtensionPopup, waitForElement } from './e2e/setup.js';
 import dotenv from 'dotenv';
 import { validateToken } from './types.js';
 import { delay } from './utils';
