@@ -200,7 +200,10 @@ throttles in `prManager.ts`.
 
 After a successful fetch, the manager updates the badge, stores the current PR
 snapshot, compares it with `oldPullRequests`, and optionally notifies for new
-PRs. First-run notifications are off unless the separate local flag is enabled.
+PRs. It then advances `oldPullRequests` for every complete, trustworthy refresh,
+including when notification display is throttled, disabled by preference, or
+fails. Failed and cooldown-suppressed refreshes preserve both snapshots.
+First-run notifications are off unless the separate local flag is enabled.
 New-PR notifications respect the encrypted notification preference. Error
 notifications can be forced for selected authentication/session failures.
 Duplicate delivery is limited by both manager state and an in-memory key/time

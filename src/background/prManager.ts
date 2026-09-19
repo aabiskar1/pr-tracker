@@ -312,26 +312,25 @@ async function runPullRequestCheck(
 
             // Additional throttling for new PR notifications to prevent rapid-fire notifications
             const now = Date.now();
-            if (
+            const isNotificationThrottled =
                 now - state.lastNewPRNotificationTime <
-                constants.NOTIFICATION_THROTTLE_MS
-            ) {
-                return;
-            }
+                constants.NOTIFICATION_THROTTLE_MS;
 
-            try {
-                // Use undefined for ID to enable throttling based on title+message
-                await createNotification(undefined, {
-                    type: 'basic',
-                    iconUrl: constants.NOTIFICATION_ICON,
-                    title: 'New Pull Requests',
-                    message: `You have ${newPrs.length} new pull request${newPrs.length > 1 ? 's' : ''}!`,
-                }); // Don't force - respect user preference for new PR notifications
+            if (!isNotificationThrottled) {
+                try {
+                    // Use undefined for ID to enable throttling based on title+message
+                    await createNotification(undefined, {
+                        type: 'basic',
+                        iconUrl: constants.NOTIFICATION_ICON,
+                        title: 'New Pull Requests',
+                        message: `You have ${newPrs.length} new pull request${newPrs.length > 1 ? 's' : ''}!`,
+                    }); // Don't force - respect user preference for new PR notifications
 
-                // Update the timestamp after successful notification
-                state.lastNewPRNotificationTime = now;
-            } catch (error) {
-                console.error('Failed to send notification:', error);
+                    // Update the timestamp after successful notification
+                    state.lastNewPRNotificationTime = now;
+                } catch (error) {
+                    console.error('Failed to send notification:', error);
+                }
             }
         }
 
