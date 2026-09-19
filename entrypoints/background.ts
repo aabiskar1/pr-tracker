@@ -1,7 +1,11 @@
 // Background script for PR Tracker
 import browser from 'webextension-polyfill';
 import { state, constants } from '@/src/background/state';
-import { checkPullRequests } from '@/src/background/prManager';
+import {
+    checkPullRequests,
+    resetPullRequestManagerStateForTests,
+} from '@/src/background/prManager';
+import { resetNotificationThrottleForTests } from '@/src/background/notifications';
 import { setupAlarms, createPeriodicAlarm } from '@/src/background/alarms';
 import {
     applyAppDataMutation,
@@ -217,6 +221,13 @@ export default defineBackground(() => {
             // Clear refresh alarm
             browser.alarms.clear(constants.ALARM_NAME);
             sendResponse(true);
+        } else if (
+            import.meta.env.MODE === 'test' &&
+            typedMessage.type === 'TEST_RESET_BACKGROUND_STATE'
+        ) {
+            const reset = resetPullRequestManagerStateForTests();
+            if (reset) resetNotificationThrottleForTests();
+            sendResponse(reset);
         } else if (typedMessage.type === 'POPUP_OPENED') {
             // Popup opened, send current data if we have a session
             if (state.sessionPassword) {

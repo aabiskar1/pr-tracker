@@ -84,9 +84,10 @@ public-network access. Run it in a visible Chrome window with:
 npm run test:e2e
 ```
 
-The script first builds Chrome and then executes the focused files under
-`tests/e2e/`. `tests/setup.ts` launches Puppeteer with `.output/chrome-mv3`.
-The CI-oriented headless command runs the same suite:
+The script first builds Chrome in Vite `test` mode and then executes the focused
+files under `tests/e2e/`. `tests/e2e/setup.ts` launches Puppeteer with the
+isolated `.output/chrome-mv3-test` build. Unit tests do not load this setup or
+launch Chrome. The CI-oriented headless command runs the same suite:
 
 ```sh
 npm run test:headless
