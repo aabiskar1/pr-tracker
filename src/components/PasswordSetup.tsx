@@ -42,8 +42,9 @@ export const PasswordSetup: React.FC<PasswordSetupProps> = ({
             </div>
 
             <p className="text-gray-600 dark:text-gray-300 mb-4">
-                Create a password to encrypt your GitHub token. You'll need this
-                password each time you open PR Tracker.
+                Create a password to encrypt your stored GitHub token and unlock
+                it later. You won't need to re-enter it while PR Tracker remains
+                unlocked.
             </p>
 
             <div className="bg-blue-100 dark:bg-blue-900 p-3 rounded-md mb-4 flex items-start">
@@ -52,8 +53,10 @@ export const PasswordSetup: React.FC<PasswordSetupProps> = ({
                 </div>
                 <div className="ml-3">
                     <p className="text-sm text-blue-700 dark:text-blue-300">
-                        Your password is never stored anywhere. It's only used
-                        to encrypt and decrypt your GitHub token.
+                        Your password stays in memory while unlocked. If you
+                        choose “Remember password for 12 hours,” it is also
+                        stored in browser extension session storage for that
+                        remembered session.
                     </p>
                 </div>
             </div>

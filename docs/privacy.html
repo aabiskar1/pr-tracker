@@ -7,7 +7,7 @@
     </head>
     <body>
         <h1>Privacy Policy for PR Tracker</h1>
-        <p><strong>Effective Date:</strong> April 21, 2025</p>
+        <p><strong>Effective Date:</strong> September 20, 2026</p>
 
         <h2>Introduction</h2>
         <p>
@@ -28,13 +28,15 @@
                 <strong>GitHub Personal Access Token:</strong> We require your
                 GitHub token to access the GitHub API and fetch pull request
                 data. This token is encrypted and stored locally on your device.
-                It is never transmitted to any third-party servers.
+                It is sent directly to GitHub over HTTPS to validate the token
+                and authenticate GitHub API requests.
             </li>
             <li>
                 <strong>User-created Password:</strong> The password you create
-                to encrypt your token is stored temporarily in memory if you
-                choose the "Remember password" option. It is not stored
-                persistently.
+                encrypts and unlocks your token. It is held in memory while the
+                extension is unlocked. If you enable "Remember password for 12
+                hours," it is also stored in browser extension session storage
+                for that remembered session.
             </li>
         </ul>
 
@@ -71,8 +73,9 @@
         <ul>
             <li>
                 <strong>Local Storage:</strong> All data, including your GitHub
-                token and preferences, is stored locally on your device. We do
-                not transmit or store your data on external servers.
+                token, cached pull request data, and preferences, is stored
+                locally on your device. PR Tracker does not use a separate PR
+                Tracker-operated backend.
             </li>
             <li>
                 <strong>Encryption:</strong> Your GitHub token is encrypted
@@ -83,9 +86,11 @@
 
         <h2>Third-Party Services</h2>
         <p>
-            PR Tracker does not share your data with any third-party services.
-            The extension communicates directly with the GitHub API to fetch
-            pull request data.
+            PR Tracker sends authenticated HTTPS requests directly to GitHub to
+            validate your token and retrieve pull request information. These
+            requests include your GitHub token and the GitHub API query data
+            needed for those features. PR Tracker does not send this data
+            through a separate PR Tracker-operated backend.
         </p>
 
         <h2>Your Choices</h2>
