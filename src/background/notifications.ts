@@ -17,8 +17,12 @@ export type NotificationDeliveryResult =
     | 'failed'
     | 'invalidated';
 
-export function resetNotificationThrottleForTests(): void {
+export function clearNotificationThrottle(): void {
     notificationThrottle.clear();
+}
+
+export function resetNotificationThrottleForTests(): void {
+    clearNotificationThrottle();
 }
 
 // Helper function to check if notifications are enabled

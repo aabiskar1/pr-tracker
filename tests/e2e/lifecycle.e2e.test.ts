@@ -78,7 +78,7 @@ describe('sign-out, reset, and popup lifecycle journeys', () => {
         ).toEqual({});
     });
 
-    it('signs out to password entry, signs back in, and fully resets to login', async () => {
+    it('signs out, signs back in, and fully resets account data while retaining the theme', async () => {
         const page = await openSeededPopup(github, { theme: 'dark' });
         pages.push(page);
 
@@ -105,13 +105,39 @@ describe('sign-out, reset, and popup lifecycle journeys', () => {
 
         await page.click('[aria-label="Sign Out"]');
         await waitForText(page, 'h2', 'Enter Password');
-        page.once('dialog', (dialog) => dialog.accept());
-        await page.click('[aria-label="Reset App"]');
+        await page.evaluate(async () => {
+            await chrome.storage.local.set({
+                'prtracker-notify-on-first-run': true,
+                prtracker_github_rate_limit_cooldown: {
+                    classification: 'primary',
+                    deadlineSource: 'reset',
+                    nextAllowedAt: Date.now() + 60_000,
+                },
+            });
+            await chrome.notifications.create('reset-visible-notification', {
+                type: 'basic',
+                iconUrl: chrome.runtime.getURL('icons/icon-128.png'),
+                title: 'Reset me',
+                message: 'Account notification state',
+            });
+        });
+        page.once('dialog', async (dialog) => {
+            expect(dialog.message()).toContain(
+                'Your theme preference will be kept.'
+            );
+            await dialog.accept();
+        });
+        await page.click('[aria-label="Full Reset"]');
         await waitForText(page, 'h2', 'GitHub Authentication');
         expect(
-            await page.evaluate(() =>
-                chrome.storage.local.get('encryptedGithubToken')
-            )
+            await page.evaluate(() => chrome.storage.local.get(null))
+        ).toEqual({ 'theme-preference': 'dark' });
+        expect(
+            await page.evaluate(() => chrome.storage.session.get(null))
+        ).toEqual({});
+        expect(await page.evaluate(() => chrome.alarms.getAll())).toEqual([]);
+        expect(
+            await page.evaluate(() => chrome.notifications.getAll())
         ).toEqual({});
     });
 

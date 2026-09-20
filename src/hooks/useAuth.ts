@@ -5,7 +5,6 @@ import {
     validatePassword as validatePasswordService,
     hasStoredToken,
     hasEncryptionSetup,
-    clearSecureStorage,
 } from '../services/secureStorage';
 import { persistGitHubRateLimitCooldown } from '../background/githubRateLimit';
 import { analyzeGitHubHttpError } from '../utils/githubApiError';
@@ -293,13 +292,19 @@ export function useAuth() {
     const handleReset = async () => {
         if (
             confirm(
-                'This will remove all stored data including your GitHub token. You will need to set up the extension again. Continue?'
+                "Full Reset removes your saved GitHub token, password-protected PR data, notification history, and account settings. Your theme preference will be kept. You'll need to set up your GitHub token and password again."
             )
         ) {
             setIsLoading(true);
             try {
-                await clearSecureStorage();
-                await browser.runtime.sendMessage({ type: 'CLEAR_SESSION' });
+                const reset = await browser.runtime.sendMessage({
+                    type: 'RESET_ACCOUNT',
+                });
+                if (reset !== true) {
+                    throw new Error(
+                        'Background account reset did not complete'
+                    );
+                }
 
                 setToken('');
                 setPassword('');

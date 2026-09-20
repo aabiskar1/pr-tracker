@@ -219,7 +219,7 @@ describe('secure storage', () => {
         expect(storageState.values.prtracker_iv).toBeUndefined();
     });
 
-    it('clears credentials and encrypted app preferences while preserving current out-of-band theme and hidden-ID storage', async () => {
+    it('clears all account data while preserving theme and unrelated extension settings', async () => {
         Object.assign(storageState.values, {
             encryptedGithubToken: [1],
             prtracker_iv: [2],
@@ -229,7 +229,13 @@ describe('secure storage', () => {
             appDataIv: [7],
             encryptedHiddenPrIds: [8],
             hiddenPrIdsIv: [9],
+            prtracker_github_rate_limit_cooldown: {
+                classification: 'primary',
+                nextAllowedAt: 123,
+            },
+            'prtracker-notify-on-first-run': true,
             'theme-preference': 'dark',
+            'unrelated-extension-setting': 'kept',
         });
 
         await clearSecureStorage();
@@ -241,11 +247,14 @@ describe('secure storage', () => {
             'prtracker_salt',
             'encryptedAppData',
             'appDataIv',
+            'encryptedHiddenPrIds',
+            'hiddenPrIdsIv',
+            'prtracker_github_rate_limit_cooldown',
+            'prtracker-notify-on-first-run',
         ]);
         expect(storageState.values).toEqual({
-            encryptedHiddenPrIds: [8],
-            hiddenPrIdsIv: [9],
             'theme-preference': 'dark',
+            'unrelated-extension-setting': 'kept',
         });
     });
 });

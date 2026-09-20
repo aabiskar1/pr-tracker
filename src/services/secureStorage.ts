@@ -440,7 +440,7 @@ export const removeToken = async (): Promise<void> => {
     console.log('Token removed from secure storage');
 };
 
-// Clear all secure storage (for complete reset)
+// Clear account-scoped storage while retaining independent settings such as theme.
 export const clearSecureStorage = async (): Promise<void> => {
     await browser.storage.local.remove([
         TOKEN_KEY,
@@ -449,6 +449,10 @@ export const clearSecureStorage = async (): Promise<void> => {
         SALT_KEY,
         ENCRYPTED_DATA_KEY,
         DATA_IV_KEY,
+        'encryptedHiddenPrIds',
+        'hiddenPrIdsIv',
+        'prtracker_github_rate_limit_cooldown',
+        'prtracker-notify-on-first-run',
     ]);
-    console.log('All secure storage cleared');
+    console.log('All account storage cleared');
 };

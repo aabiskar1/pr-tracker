@@ -62,11 +62,15 @@ export function invalidatePullRequestSession(): void {
 export function resetPullRequestManagerStateForTests(): boolean {
     if (inFlightRefresh || state.isCheckingPRs) return false;
 
+    resetPullRequestManagerStateAfterAccountReset();
+    return true;
+}
+
+export function resetPullRequestManagerStateAfterAccountReset(): void {
     state.lastRefreshTime = 0;
     state.lastNewPRNotificationTime = 0;
     delete (globalThis as { _prTrackerLastManual?: number })
         ._prTrackerLastManual;
-    return true;
 }
 
 // Helper function to check if we should refresh

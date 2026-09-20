@@ -128,7 +128,9 @@ Dark Theme:
 ## Troubleshooting / FAQ
 
 - **Token not working?** Ensure it has the `repo` scope. You can [generate a new token here](https://github.com/settings/tokens/new?scopes=repo&description=PR%20Tracker).
-- **Forgot your password?** There is no recovery. Use the "Reset App" button to start over.
+- **Forgot your password?** There is no recovery. Use **Full Reset** to remove
+  your saved GitHub token, encrypted PR data, notification history, and account
+  settings, then start over. Your theme preference is kept.
 - **No PRs showing?** Make sure your token is valid and you have open PRs assigned or authored.
 - **Notifications not working?** Check your browser's notification permissions.
 

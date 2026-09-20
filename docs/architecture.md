@@ -257,6 +257,13 @@ delivery is also limited by manager state and an in-memory key/time map in
 `notifications.ts`; those guards reset when the background context is
 restarted.
 
+Full Reset is coordinated by the background context so it can first invalidate
+the active session and await queued encrypted-data mutations. It then removes
+credentials, encrypted PR data and preferences, hidden IDs, rate-limit state,
+first-run notification state, active notifications, badge state, and in-memory
+refresh/notification throttles. The independent `theme-preference` local
+storage value is intentionally retained.
+
 Desired direction: notification eligibility, snapshot comparison, first-run
 behaviour, preference handling, and duplicate prevention should be expressible
 as deterministic logic independent of the browser notification API.
