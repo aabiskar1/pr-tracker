@@ -6,7 +6,12 @@ import {
     activatePullRequestSession,
     checkPullRequests,
     invalidatePullRequestSession,
+    resetPullRequestManagerStateAfterAccountReset,
 } from '@/src/background/prManager';
+import {
+    clearNotificationThrottle,
+    setBadgeText,
+} from '@/src/background/notifications';
 import {
     applyAppDataMutation,
     parseAppDataMutation,
@@ -14,6 +19,7 @@ import {
 } from '@/src/background/appDataStore';
 import type { AppDataMutation } from '../../src/types';
 import { replayPendingPullRequestNotificationsForActiveSession } from '@/src/background/notificationReplay';
+import { clearSecureStorage } from '@/src/services/secureStorage';
 
 vi.mock('webextension-polyfill', () => ({
     default: {
@@ -43,6 +49,10 @@ vi.mock('webextension-polyfill', () => ({
         browserAction: {
             setBadgeBackgroundColor: vi.fn(async () => undefined),
         },
+        notifications: {
+            getAll: vi.fn(async () => ({})),
+            clear: vi.fn(async () => true),
+        },
     },
 }));
 
@@ -50,6 +60,13 @@ vi.mock('@/src/background/prManager', () => ({
     activatePullRequestSession: vi.fn(),
     checkPullRequests: vi.fn(async () => undefined),
     invalidatePullRequestSession: vi.fn(),
+    resetPullRequestManagerStateAfterAccountReset: vi.fn(),
+}));
+
+vi.mock('@/src/background/notifications', () => ({
+    clearNotificationThrottle: vi.fn(),
+    resetNotificationThrottleForTests: vi.fn(),
+    setBadgeText: vi.fn(async () => undefined),
 }));
 
 vi.mock('@/src/background/alarms', () => ({
@@ -67,6 +84,10 @@ vi.mock('@/src/background/notificationReplay', () => ({
     replayPendingPullRequestNotificationsForActiveSession: vi.fn(async () =>
         Promise.resolve('no-pending')
     ),
+}));
+
+vi.mock('@/src/services/secureStorage', () => ({
+    clearSecureStorage: vi.fn(async () => undefined),
 }));
 
 type MessageListener = (
@@ -470,5 +491,87 @@ describe('background remembered-session wiring', () => {
         await vi.waitFor(() => {
             expect(sendResponse).toHaveBeenCalledWith(true);
         });
+    });
+
+    it('fully resets account state in the background while leaving unrelated local storage untouched', async () => {
+        vi.mocked(browser.notifications.getAll).mockResolvedValueOnce({
+            'new-pr': {
+                type: 'basic',
+                iconUrl: 'icon.png',
+                title: 'New PR',
+                message: 'Review requested',
+            },
+            'auth-error': {
+                type: 'basic',
+                iconUrl: 'icon.png',
+                title: 'Authentication error',
+                message: 'Sign in again',
+            },
+        });
+        const listener = await loadBackground();
+        const { state } = await import('../../src/background/state');
+        state.sessionPassword = 'active-password';
+        state.rememberPassword = true;
+        const sendResponse = vi.fn();
+
+        listener({ type: 'RESET_ACCOUNT' }, {}, sendResponse);
+
+        expect(state.sessionPassword).toBeNull();
+        expect(state.rememberPassword).toBe(false);
+        expect(invalidatePullRequestSession).toHaveBeenCalledOnce();
+        await vi.waitFor(() => {
+            expect(sendResponse).toHaveBeenCalledWith(true);
+        });
+        expect(waitForAppDataMutations).toHaveBeenCalledOnce();
+        expect(clearSecureStorage).toHaveBeenCalledOnce();
+        expect(
+            resetPullRequestManagerStateAfterAccountReset
+        ).toHaveBeenCalledOnce();
+        expect(clearNotificationThrottle).toHaveBeenCalledOnce();
+        expect(setBadgeText).toHaveBeenCalledWith('');
+        expect(browser.notifications.clear).toHaveBeenCalledTimes(2);
+        expect(browser.notifications.clear).toHaveBeenCalledWith('new-pr');
+        expect(browser.notifications.clear).toHaveBeenCalledWith('auth-error');
+        expect(browser.storage.local.set).not.toHaveBeenCalled();
+    });
+
+    it('does not acknowledge RESET_ACCOUNT until queued writes settle before account storage is cleared', async () => {
+        const queuedWrites = deferred<void>();
+        vi.mocked(waitForAppDataMutations).mockReturnValueOnce(
+            queuedWrites.promise
+        );
+        const listener = await loadBackground();
+        const sendResponse = vi.fn();
+
+        listener({ type: 'RESET_ACCOUNT' }, {}, sendResponse);
+
+        await Promise.resolve();
+        expect(clearSecureStorage).not.toHaveBeenCalled();
+        expect(sendResponse).not.toHaveBeenCalled();
+
+        queuedWrites.resolve();
+        await vi.waitFor(() => {
+            expect(clearSecureStorage).toHaveBeenCalledOnce();
+            expect(sendResponse).toHaveBeenCalledWith(true);
+        });
+    });
+
+    it('reports RESET_ACCOUNT failure when account storage cannot be cleared', async () => {
+        vi.mocked(clearSecureStorage).mockRejectedValueOnce(
+            new Error('storage unavailable')
+        );
+        const listener = await loadBackground();
+        const sendResponse = vi.fn();
+
+        listener({ type: 'RESET_ACCOUNT' }, {}, sendResponse);
+
+        await vi.waitFor(() => {
+            expect(sendResponse).toHaveBeenCalledWith(false);
+        });
+        expect(
+            resetPullRequestManagerStateAfterAccountReset
+        ).not.toHaveBeenCalled();
+        expect(clearNotificationThrottle).not.toHaveBeenCalled();
+        expect(setBadgeText).not.toHaveBeenCalled();
     });
 });

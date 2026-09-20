@@ -5,9 +5,14 @@ import {
     activatePullRequestSession,
     checkPullRequests,
     invalidatePullRequestSession,
+    resetPullRequestManagerStateAfterAccountReset,
     resetPullRequestManagerStateForTests,
 } from '@/src/background/prManager';
-import { resetNotificationThrottleForTests } from '@/src/background/notifications';
+import {
+    clearNotificationThrottle,
+    resetNotificationThrottleForTests,
+    setBadgeText,
+} from '@/src/background/notifications';
 import { setupAlarms, createPeriodicAlarm } from '@/src/background/alarms';
 import {
     applyAppDataMutation,
@@ -16,6 +21,7 @@ import {
 } from '@/src/background/appDataStore';
 import { SessionStorageSchema } from '@/src/services/storageSchemas';
 import { replayPendingPullRequestNotificationsForActiveSession } from '@/src/background/notificationReplay';
+import { clearSecureStorage } from '@/src/services/secureStorage';
 
 export default defineBackground(() => {
     // Initialize the remembered password state when the service worker starts
@@ -92,6 +98,37 @@ export default defineBackground(() => {
 
     // Setup alarms
     setupAlarms();
+
+    const clearActiveSession = async () => {
+        invalidatePullRequestSession();
+        state.sessionPassword = null;
+        state.rememberPassword = false;
+        await Promise.all([
+            browser.storage.session.remove([
+                'sessionPassword',
+                'rememberPasswordFlag',
+            ]),
+            browser.alarms.clear(constants.PASSWORD_EXPIRY_ALARM),
+            browser.alarms.clear(constants.ALARM_NAME),
+            waitForAppDataMutations(),
+        ]);
+    };
+
+    const clearAccountData = async () => {
+        await clearActiveSession();
+        await clearSecureStorage();
+
+        resetPullRequestManagerStateAfterAccountReset();
+        clearNotificationThrottle();
+        await setBadgeText('');
+
+        const activeNotifications = await browser.notifications.getAll();
+        await Promise.all(
+            Object.keys(activeNotifications).map((id) =>
+                browser.notifications.clear(id)
+            )
+        );
+    };
 
     // Message Handler
     browser.runtime.onMessage.addListener(function (
@@ -245,21 +282,17 @@ export default defineBackground(() => {
                     });
             }
         } else if (typedMessage.type === 'CLEAR_SESSION') {
-            invalidatePullRequestSession();
-            state.sessionPassword = null;
-            state.rememberPassword = false;
-            Promise.all([
-                browser.storage.session.remove([
-                    'sessionPassword',
-                    'rememberPasswordFlag',
-                ]),
-                browser.alarms.clear(constants.PASSWORD_EXPIRY_ALARM),
-                browser.alarms.clear(constants.ALARM_NAME),
-                waitForAppDataMutations(),
-            ])
+            clearActiveSession()
                 .then(() => sendResponse(true))
                 .catch((error) => {
                     console.error('Failed to clear session:', error);
+                    sendResponse(false);
+                });
+        } else if (typedMessage.type === 'RESET_ACCOUNT') {
+            clearAccountData()
+                .then(() => sendResponse(true))
+                .catch((error) => {
+                    console.error('Failed to reset account data:', error);
                     sendResponse(false);
                 });
         } else if (

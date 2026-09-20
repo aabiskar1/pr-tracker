@@ -11,7 +11,6 @@ import {
 import { useAuth } from '../../src/hooks/useAuth';
 import { persistGitHubRateLimitCooldown } from '../../src/background/githubRateLimit';
 import {
-    clearSecureStorage,
     encryptToken,
     hasEncryptionSetup,
     hasStoredToken,
@@ -55,7 +54,6 @@ vi.mock('../../src/services/secureStorage', () => ({
     validatePassword: vi.fn(),
     hasStoredToken: vi.fn(),
     hasEncryptionSetup: vi.fn(),
-    clearSecureStorage: vi.fn(),
 }));
 
 vi.mock('../../src/background/githubRateLimit', () => ({
@@ -122,7 +120,6 @@ describe('useAuth token validation and state transitions', () => {
         vi.mocked(hasStoredToken).mockResolvedValue(false);
         vi.mocked(encryptToken).mockResolvedValue(undefined);
         vi.mocked(validatePassword).mockResolvedValue(false);
-        vi.mocked(clearSecureStorage).mockResolvedValue(undefined);
         vi.mocked(persistGitHubRateLimitCooldown).mockResolvedValue(undefined);
         vi.spyOn(console, 'log').mockImplementation(() => undefined);
         vi.spyOn(console, 'error').mockImplementation(() => undefined);
@@ -525,7 +522,6 @@ describe('useAuth token validation and state transitions', () => {
         expect(browser.runtime.sendMessage).toHaveBeenCalledWith({
             type: 'CLEAR_SESSION',
         });
-        expect(clearSecureStorage).not.toHaveBeenCalled();
         expect(hookHarness.setters[0]).toHaveBeenCalledWith('');
         expect(hookHarness.setters[1]).toHaveBeenCalledWith('');
         expect(hookHarness.setters[2]).toHaveBeenCalledWith('');
@@ -543,7 +539,6 @@ describe('useAuth token validation and state transitions', () => {
 
         await auth.handleSignOut();
 
-        expect(clearSecureStorage).not.toHaveBeenCalled();
         expect(hookHarness.setters[0]).not.toHaveBeenCalledWith('');
         expect(hookHarness.setters[1]).not.toHaveBeenCalledWith('');
         expect(hookHarness.setters[4]).not.toHaveBeenCalledWith(
@@ -551,11 +546,9 @@ describe('useAuth token validation and state transitions', () => {
         );
     });
 
-    it('performs a confirmed reset by clearing secure storage and the session', async () => {
-        vi.stubGlobal(
-            'confirm',
-            vi.fn(() => true)
-        );
+    it('performs a confirmed background-owned account reset', async () => {
+        const confirmReset = vi.fn(() => true);
+        vi.stubGlobal('confirm', confirmReset);
         vi.mocked(browser.runtime.sendMessage).mockResolvedValue(true);
         const auth = renderAuth({
             0: TOKEN,
@@ -566,11 +559,33 @@ describe('useAuth token validation and state transitions', () => {
 
         await auth.handleReset();
 
-        expect(clearSecureStorage).toHaveBeenCalledOnce();
+        expect(confirmReset).toHaveBeenCalledWith(
+            "Full Reset removes your saved GitHub token, password-protected PR data, notification history, and account settings. Your theme preference will be kept. You'll need to set up your GitHub token and password again."
+        );
         expect(browser.runtime.sendMessage).toHaveBeenCalledWith({
-            type: 'CLEAR_SESSION',
+            type: 'RESET_ACCOUNT',
         });
         expect(hookHarness.setters[4]).toHaveBeenCalledWith('login-needed');
+    });
+
+    it('does not claim reset completed when background cleanup fails', async () => {
+        vi.stubGlobal(
+            'confirm',
+            vi.fn(() => true)
+        );
+        vi.mocked(browser.runtime.sendMessage).mockResolvedValue(false);
+        const auth = renderAuth({
+            0: TOKEN,
+            1: PASSWORD,
+            2: PASSWORD,
+            4: 'password-entry',
+        });
+
+        await auth.handleReset();
+
+        expect(hookHarness.setters[0]).not.toHaveBeenCalledWith('');
+        expect(hookHarness.setters[1]).not.toHaveBeenCalledWith('');
+        expect(hookHarness.setters[4]).not.toHaveBeenCalledWith('login-needed');
     });
 
     it('does not clear anything when reset confirmation is cancelled', async () => {
@@ -582,7 +597,6 @@ describe('useAuth token validation and state transitions', () => {
 
         await auth.handleReset();
 
-        expect(clearSecureStorage).not.toHaveBeenCalled();
         expect(browser.runtime.sendMessage).not.toHaveBeenCalled();
         expect(hookHarness.setters[4]).not.toHaveBeenCalled();
     });
