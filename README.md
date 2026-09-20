@@ -99,15 +99,17 @@ OR
 1. After installation, click the extension icon in your browser toolbar
 2. Generate a GitHub personal access token with `repo` scope
 3. Enter your token in the extension's authentication screen
-4. **Create a password** to encrypt your token (required for security; this password is never stored and cannot be recovered)
-5. Optionally, choose to remember your password for 12 hours for convenience
+4. **Create a password** to encrypt your stored token and unlock it later (the password cannot be recovered)
+5. Optionally, remember your password in browser extension session storage for up to 12 hours
 6. Start tracking your PRs!
 
 ## Password & Encryption
 
-- Your GitHub token is **encrypted** using a password you create. This password is never stored or transmitted.
+- Your GitHub token is stored encrypted and can be unlocked using the password you create.
+- Your password stays in memory while PR Tracker is unlocked. If you enable **Remember password for 12 hours**, it is also stored in browser extension session storage for that remembered session.
 - If you forget your password, you must reset the extension and re-enter your token.
-- You can choose to remember your password for 12 hours (stored in session memory, not persistent disk).
+- PR Tracker sends authenticated HTTPS requests directly to GitHub to validate your token and retrieve pull request information. These requests include your token and the GitHub API query data needed for those features.
+- There is no separate PR Tracker-operated backend.
 
 ## Notifications
 
