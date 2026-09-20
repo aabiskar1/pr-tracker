@@ -11,12 +11,12 @@ on:
 
 jobs:
     build:
-        runs-on: ubuntu-latest
+        runs-on: ubuntu-24.04
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v7
 
             - name: Setup Node.js
-              uses: actions/setup-node@v4
+              uses: actions/setup-node@v7
               with:
                   node-version: '24'
                   cache: 'npm'
@@ -43,7 +43,7 @@ jobs:
                   cd ../..
 
             - name: Upload Artifacts
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v7
               with:
                   name: extension-builds
                   path: |
@@ -53,14 +53,14 @@ jobs:
     publish-chrome:
         needs: build
         if: ${{ github.event.inputs.dry-run != 'true' }}
-        runs-on: ubuntu-latest
+        runs-on: ubuntu-24.04
         steps:
-            - uses: actions/download-artifact@v4
+            - uses: actions/download-artifact@v8
               with:
                   name: extension-builds
 
             - name: Upload to Chrome Web Store
-              uses: mnao305/chrome-extension-upload@v5.0.0
+              uses: mnao305/chrome-extension-upload@v6.0.0
               with:
                   file-path: extension-chrome.zip
                   extension-id: ${{ secrets.CHROME_EXTENSION_ID }}
@@ -72,11 +72,11 @@ jobs:
     publish-firefox:
         needs: build
         if: ${{ github.event.inputs.dry-run != 'true' }}
-        runs-on: ubuntu-latest
+        runs-on: ubuntu-24.04
         steps:
-            - uses: actions/checkout@v4 # Required for web-ext to read manifest if needed, though we are using built artifact
+            - uses: actions/checkout@v7 # Required for web-ext to read manifest if needed, though we are using built artifact
 
-            - uses: actions/download-artifact@v4
+            - uses: actions/download-artifact@v8
               with:
                   name: extension-builds
 
