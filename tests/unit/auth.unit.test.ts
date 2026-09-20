@@ -452,6 +452,29 @@ describe('useAuth token validation and state transitions', () => {
         });
     });
 
+    it('shows a safe setup error and does not authenticate when encryption setup fails', async () => {
+        vi.mocked(encryptToken).mockRejectedValue(
+            new Error('verification write failed')
+        );
+        const auth = renderAuth({
+            0: TOKEN,
+            1: PASSWORD,
+            2: PASSWORD,
+        });
+
+        await auth.handlePasswordSetup(formEvent());
+
+        expect(hookHarness.setters[7]).toHaveBeenCalledWith(
+            'Error setting up encryption. Please try again.'
+        );
+        expect(browser.runtime.sendMessage).not.toHaveBeenCalledWith(
+            expect.objectContaining({ type: 'SET_PASSWORD' })
+        );
+        expect(hookHarness.setters[4]).not.toHaveBeenCalledWith(
+            'authenticated'
+        );
+    });
+
     it.each([
         {
             password: 'short',
@@ -546,9 +569,7 @@ describe('useAuth token validation and state transitions', () => {
         );
     });
 
-    it('performs a confirmed background-owned account reset', async () => {
-        const confirmReset = vi.fn(() => true);
-        vi.stubGlobal('confirm', confirmReset);
+    it('performs a background-owned account reset after UI confirmation', async () => {
         vi.mocked(browser.runtime.sendMessage).mockResolvedValue(true);
         const auth = renderAuth({
             0: TOKEN,
@@ -557,11 +578,8 @@ describe('useAuth token validation and state transitions', () => {
             4: 'authenticated',
         });
 
-        await auth.handleReset();
+        await expect(auth.handleReset()).resolves.toBe(true);
 
-        expect(confirmReset).toHaveBeenCalledWith(
-            "Full Reset removes your saved GitHub token, password-protected PR data, notification history, and account settings. Your theme preference will be kept. You'll need to set up your GitHub token and password again."
-        );
         expect(browser.runtime.sendMessage).toHaveBeenCalledWith({
             type: 'RESET_ACCOUNT',
         });
@@ -569,10 +587,6 @@ describe('useAuth token validation and state transitions', () => {
     });
 
     it('does not claim reset completed when background cleanup fails', async () => {
-        vi.stubGlobal(
-            'confirm',
-            vi.fn(() => true)
-        );
         vi.mocked(browser.runtime.sendMessage).mockResolvedValue(false);
         const auth = renderAuth({
             0: TOKEN,
@@ -581,23 +595,10 @@ describe('useAuth token validation and state transitions', () => {
             4: 'password-entry',
         });
 
-        await auth.handleReset();
+        await expect(auth.handleReset()).resolves.toBe(false);
 
         expect(hookHarness.setters[0]).not.toHaveBeenCalledWith('');
         expect(hookHarness.setters[1]).not.toHaveBeenCalledWith('');
         expect(hookHarness.setters[4]).not.toHaveBeenCalledWith('login-needed');
-    });
-
-    it('does not clear anything when reset confirmation is cancelled', async () => {
-        vi.stubGlobal(
-            'confirm',
-            vi.fn(() => false)
-        );
-        const auth = renderAuth({ 4: 'password-entry' });
-
-        await auth.handleReset();
-
-        expect(browser.runtime.sendMessage).not.toHaveBeenCalled();
-        expect(hookHarness.setters[4]).not.toHaveBeenCalled();
     });
 });

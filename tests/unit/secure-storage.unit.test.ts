@@ -18,6 +18,9 @@ const storageState = vi.hoisted(() => ({
     values: {} as Record<string, unknown>,
     getError: null as Error | null,
     setError: null as Error | null,
+    setFailure: null as
+        | ((values: Record<string, unknown>) => Error | null)
+        | null,
     removeError: null as Error | null,
 }));
 
@@ -40,6 +43,8 @@ vi.mock('webextension-polyfill', () => ({
                 }),
                 set: vi.fn(async (values: Record<string, unknown>) => {
                     if (storageState.setError) throw storageState.setError;
+                    const failure = storageState.setFailure?.(values);
+                    if (failure) throw failure;
                     Object.assign(storageState.values, values);
                 }),
                 remove: vi.fn(async (keys: string | string[]) => {
@@ -67,6 +72,7 @@ describe('secure storage', () => {
         }
         storageState.getError = null;
         storageState.setError = null;
+        storageState.setFailure = null;
         storageState.removeError = null;
         vi.clearAllMocks();
         vi.spyOn(console, 'log').mockImplementation(() => undefined);
@@ -90,6 +96,57 @@ describe('secure storage', () => {
         await expect(validatePassword(PASSWORD)).resolves.toBe(true);
         await expect(hasStoredToken()).resolves.toBe(true);
         await expect(hasEncryptionSetup()).resolves.toBe(true);
+
+        const setupWrite = vi
+            .mocked(browser.storage.local.set)
+            .mock.calls.find(
+                ([values]) =>
+                    'encryptedGithubToken' in
+                    (values as Record<string, unknown>)
+            );
+        expect(setupWrite?.[0]).toEqual({
+            encryptedGithubToken: expect.any(Array),
+            prtracker_iv: expect.any(Array),
+            encryptionTestVector: {
+                data: expect.any(Array),
+                iv: expect.any(Array),
+            },
+        });
+    });
+
+    it('does not report setup success or store a token when the verification-vector write fails', async () => {
+        storageState.setFailure = (values) =>
+            'encryptionTestVector' in values
+                ? new Error('verification write failed')
+                : null;
+
+        await expect(encryptToken(TOKEN, PASSWORD)).rejects.toThrow(
+            'Failed to securely store token'
+        );
+
+        await expect(hasStoredToken()).resolves.toBe(false);
+        await expect(hasEncryptionSetup()).resolves.toBe(false);
+        await expect(decryptToken(PASSWORD)).resolves.toBeNull();
+    });
+
+    it('preserves a previously valid token and password setup when replacement setup fails', async () => {
+        await encryptToken(TOKEN, PASSWORD);
+        const previousSetup = structuredClone(storageState.values);
+        storageState.setFailure = (values) =>
+            'encryptionTestVector' in values
+                ? new Error('verification write failed')
+                : null;
+
+        await expect(
+            encryptToken('ghp_sanitized_replacement', 'replacement password')
+        ).rejects.toThrow('Failed to securely store token');
+
+        expect(storageState.values).toEqual(previousSetup);
+        await expect(decryptToken(PASSWORD)).resolves.toBe(TOKEN);
+        await expect(validatePassword(PASSWORD)).resolves.toBe(true);
+        await expect(validatePassword('replacement password')).resolves.toBe(
+            false
+        );
     });
 
     it('does not decrypt a token or validate the encryption vector with an incorrect password', async () => {
