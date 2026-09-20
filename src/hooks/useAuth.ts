@@ -289,31 +289,23 @@ export function useAuth() {
         setIsLoading(false);
     };
 
-    const handleReset = async () => {
-        if (
-            confirm(
-                "Full Reset removes your saved GitHub token, password-protected PR data, notification history, and account settings. Your theme preference will be kept. You'll need to set up your GitHub token and password again."
-            )
-        ) {
-            setIsLoading(true);
-            try {
-                const reset = await browser.runtime.sendMessage({
-                    type: 'RESET_ACCOUNT',
-                });
-                if (reset !== true) {
-                    throw new Error(
-                        'Background account reset did not complete'
-                    );
-                }
-
-                setToken('');
-                setPassword('');
-                setConfirmPassword('');
-                setAuthState('login-needed');
-            } catch (error) {
-                console.error('Error resetting app:', error);
+    const handleReset = async (): Promise<boolean> => {
+        try {
+            const reset = await browser.runtime.sendMessage({
+                type: 'RESET_ACCOUNT',
+            });
+            if (reset !== true) {
+                throw new Error('Background account reset did not complete');
             }
-            setIsLoading(false);
+
+            setToken('');
+            setPassword('');
+            setConfirmPassword('');
+            setAuthState('login-needed');
+            return true;
+        } catch (error) {
+            console.error('Error resetting app:', error);
+            return false;
         }
     };
 

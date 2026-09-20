@@ -1,5 +1,6 @@
 import React from 'react';
 import { FaUnlock, FaSignInAlt, FaClock } from 'react-icons/fa';
+import { FullResetControl } from './FullResetControl';
 
 interface PasswordEntryProps {
     password: string;
@@ -8,7 +9,7 @@ interface PasswordEntryProps {
     setRememberPassword: (remember: boolean) => void;
     handlePasswordEntry: (e: React.FormEvent) => void;
     passwordError: string;
-    handleReset: () => void;
+    handleReset: () => Promise<boolean>;
 }
 
 export const PasswordEntry: React.FC<PasswordEntryProps> = ({
@@ -111,13 +112,7 @@ export const PasswordEntry: React.FC<PasswordEntryProps> = ({
                 </div>
             )}
 
-            <button
-                onClick={handleReset}
-                className="w-full mt-4 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 py-2 px-4 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-                aria-label="Full Reset"
-            >
-                Full Reset
-            </button>
+            <FullResetControl onConfirm={handleReset} />
         </div>
     );
 };

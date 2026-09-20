@@ -80,43 +80,22 @@ const getEncryptionKey = async (userPassword: string): Promise<CryptoKey> => {
     );
 };
 
-// Create and store an encrypted test vector to validate the password later
-export const setupEncryption = async (password: string): Promise<boolean> => {
-    try {
-        const key = await getEncryptionKey(password);
-        const iv = generateIV();
+const createEncryptionTestVector = async (key: CryptoKey) => {
+    const iv = generateIV();
+    const testData = new TextEncoder().encode('PR_TRACKER_VALID');
+    const encryptedData = await crypto.subtle.encrypt(
+        {
+            name: 'AES-GCM',
+            iv: iv as BufferSource,
+        },
+        key,
+        testData
+    );
 
-        // Create a known test value that we can verify later
-        const testValue = 'PR_TRACKER_VALID';
-        const encoder = new TextEncoder();
-        const testData = encoder.encode(testValue);
-
-        // Encrypt the test value
-        const encryptedData = await crypto.subtle.encrypt(
-            {
-                name: 'AES-GCM',
-                iv: iv as BufferSource,
-            },
-            key,
-            testData
-        );
-
-        // Store the encrypted test value and IV
-        const encryptedArray = Array.from(new Uint8Array(encryptedData));
-        const ivArray = Array.from(iv);
-
-        await browser.storage.local.set({
-            [TEST_KEY]: {
-                data: encryptedArray,
-                iv: ivArray,
-            },
-        });
-
-        return true;
-    } catch (error) {
-        console.error('Error setting up encryption:', error);
-        return false;
-    }
+    return {
+        data: Array.from(new Uint8Array(encryptedData)),
+        iv: Array.from(iv),
+    };
 };
 
 // Validate if the provided password is correct by attempting to decrypt the test vector
@@ -357,19 +336,15 @@ export const encryptToken = async (
         // Convert to array for storage
         const encryptedArray = Array.from(new Uint8Array(encryptedData));
         const ivArray = Array.from(iv);
+        const testVector = await createEncryptionTestVector(key);
 
-        // Store both encrypted data and IV
+        // Commit the token and password-verification vector together so setup
+        // cannot leave a token that the password is unable to unlock.
         await browser.storage.local.set({
             [TOKEN_KEY]: encryptedArray,
             [IV_KEY]: ivArray,
+            [TEST_KEY]: testVector,
         });
-
-        // Also set up the test vector if not already present
-        const { [TEST_KEY]: testVector } =
-            await browser.storage.local.get(TEST_KEY);
-        if (!testVector) {
-            await setupEncryption(password);
-        }
 
         console.log('Token encrypted and stored securely');
     } catch (error) {

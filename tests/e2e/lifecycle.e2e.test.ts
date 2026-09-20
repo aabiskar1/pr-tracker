@@ -121,13 +121,54 @@ describe('sign-out, reset, and popup lifecycle journeys', () => {
                 message: 'Account notification state',
             });
         });
-        page.once('dialog', async (dialog) => {
-            expect(dialog.message()).toContain(
-                'Your theme preference will be kept.'
-            );
-            await dialog.accept();
-        });
         await page.click('[aria-label="Full Reset"]');
+        await page.waitForSelector('[role="dialog"]');
+        await waitForText(page, 'h2', 'Reset PR Tracker?');
+        await page.waitForFunction(
+            () => document.activeElement?.textContent === 'Cancel'
+        );
+        expect(
+            await page.$eval('[role="dialog"]', (dialog) => dialog.textContent)
+        ).toContain('Your theme preference will be retained.');
+        expect(
+            await page.evaluate(() =>
+                chrome.storage.local.get('encryptedGithubToken')
+            )
+        ).toHaveProperty('encryptedGithubToken');
+        expect(
+            await page.$eval(
+                '[role="dialog"] button:focus',
+                (button) => button.textContent
+            )
+        ).toBe('Cancel');
+
+        await page.click('[role="dialog"] button');
+        await page.waitForSelector('[role="dialog"]', { hidden: true });
+        expect(
+            await page.evaluate(() => document.activeElement?.textContent)
+        ).toBe('Full Reset');
+        expect(
+            await page.evaluate(() =>
+                chrome.storage.local.get('encryptedGithubToken')
+            )
+        ).toHaveProperty('encryptedGithubToken');
+
+        await page.click('[aria-label="Full Reset"]');
+        await page.waitForSelector('[role="dialog"]');
+        await page.keyboard.press('Escape');
+        await page.waitForSelector('[role="dialog"]', { hidden: true });
+        expect(
+            await page.evaluate(() => document.activeElement?.textContent)
+        ).toBe('Full Reset');
+        expect(
+            await page.evaluate(() =>
+                chrome.storage.local.get('encryptedGithubToken')
+            )
+        ).toHaveProperty('encryptedGithubToken');
+
+        await page.click('[aria-label="Full Reset"]');
+        await page.waitForSelector('[role="dialog"]');
+        await page.click('[role="dialog"] button:last-child');
         await waitForText(page, 'h2', 'GitHub Authentication');
         expect(
             await page.evaluate(() => chrome.storage.local.get(null))
