@@ -66,14 +66,24 @@ code should prefer classes such as `bg-card`, `text-foreground`, and
 `border-border` over palette-specific utilities. CI and review state remain
 separate concepts even when they share a visual colour.
 
+The original production appearance also has popup-scoped semantic values in
+that same file (`--popup-*`). They preserve its compact white/charcoal surfaces,
+purple/green primary actions, solid CI/review labels, neutral card rails, and
+coloured age text without changing generic primitive defaults. The production
+compatibility selectors in `src/theme.css` are limited to `.screen-prlist` and
+`.screen-auth`; they do not apply to the test-only shared component showcase.
+The dark search and custom-query fields intentionally use the original
+card-coloured surface, not the newer darker input token.
+
 Production text/password/search inputs, ordinary action buttons, CI/review
 badges, filter surfaces, PR card surfaces, authentication surfaces, and the
 full-reset dialog now compose those primitives and semantic utilities. Native
 selects and checkboxes retain their platform semantics while using token-backed
 classes. Review and CI badges deliberately use separate variants and data.
 
-`src/theme.css` is now a small transition layer for the purpose-built
-notification switch, shared error banner, and root/link defaults. The former
+`src/theme.css` is a transition layer for the purpose-built notification
+switch, shared error banner, root/link defaults, and narrowly scoped original
+popup treatment. The former
 duplicate colour variables, palette badge classes, broad element overrides,
 and unused starter selectors were removed after their consumers migrated.
 `entrypoints/popup/style.css` still owns compact spacing and Chrome/Firefox

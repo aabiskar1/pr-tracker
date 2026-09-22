@@ -129,6 +129,16 @@ that switching from an explicit preference to automatic follows later system
 scheme changes and persists `auto`; unit coverage verifies pre-mount theme
 initialisation and media-listener cleanup.
 
+`tests/e2e/visual-compat.e2e.test.ts` uses the same encrypted PR fixture and
+explicit theme preference to check original popup geometry and capture
+dashboard, authentication, controlled error, and held-loading states. It also
+checks the neutral PR-card rail and input/control dimensions. Set `VISUAL_REF`
+when running the headed or headless E2E suite to write named PNGs and computed
+style JSON under `screenshots/visual-compat/`. The checked-in baseline and
+corrected screenshots aid human review; computed-style assertions, not a
+pixel-diff threshold, are the automated regression guard. Keep viewport,
+device scale, mock data, and reduced-motion setting identical when comparing.
+
 ## Deterministic tests and GitHub fixtures
 
 - Freeze or inject time for age buckets, refresh throttles, notification

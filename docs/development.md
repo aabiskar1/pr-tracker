@@ -63,12 +63,22 @@ resolved value as `data-theme` before mounting React, and follows system colour
 scheme changes while automatic mode is active. Do not add a theme provider,
 another root class, or a second storage value.
 
+When changing the existing production popup, keep its original visual
+treatment. The `--popup-*` values in that same token file and the
+`.screen-prlist`/`.screen-auth` rules in `src/theme.css` preserve the current
+purple/green actions, charcoal dark surfaces, solid status labels, neutral PR
+card rails, and compact controls. Do not substitute a generic primitive's
+default appearance merely because it has the same semantic role. The dark
+search and custom-query backgrounds should match the original filter/card
+surface. Keep the coloured age indicator. The generic shared primitives remain
+available for new UI without popup-specific styling.
+
 Production buttons and text/password/search inputs should use `Button` and
 `Input`. CI and review state must use the corresponding separate `Badge`
 variants; do not collapse them into one status. Native selects and checkboxes
 currently remain feature markup with semantic token classes. The notification
-switch and error banner remain narrowly scoped in `src/theme.css` because they
-do not yet have shared primitives.
+switch, error banner, and production-appearance compatibility rules remain
+narrowly scoped in `src/theme.css`.
 
 Every interactive control needs an accessible name, a visible keyboard focus
 state, and a real disabled state where applicable. Status badges must include
