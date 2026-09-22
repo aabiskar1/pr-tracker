@@ -1,5 +1,7 @@
 import React from 'react';
 import { FaGithub } from 'react-icons/fa';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
 
 interface LoginProps {
     token: string;
@@ -15,15 +17,15 @@ export const Login: React.FC<LoginProps> = ({
     tokenError,
 }) => {
     return (
-        <div className="screen-auth w-full max-w-md mx-auto p-6 bg-white dark:bg-gray-800 rounded-xl shadow-md">
+        <div className="screen-auth mx-auto w-full max-w-md rounded-xl bg-background p-6 text-foreground shadow-md">
             <div className="flex items-center justify-center mb-6">
-                <FaGithub className="text-4xl text-gray-700 dark:text-gray-300 mr-2" />
-                <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
+                <FaGithub className="mr-2 text-4xl text-muted-foreground" />
+                <h2 className="text-2xl font-bold text-foreground">
                     GitHub Authentication
                 </h2>
             </div>
 
-            <p className="text-gray-600 dark:text-gray-300 mb-4">
+            <p className="mb-4 text-muted-foreground">
                 Please enter your GitHub personal access token. Your token will
                 be securely encrypted before storage.
             </p>
@@ -34,14 +36,14 @@ export const Login: React.FC<LoginProps> = ({
                 autoComplete="on"
                 name="github-token-form"
             >
-                <input
+                <Input
                     id="githubToken"
                     name="github-token"
                     type="password"
                     value={token}
                     onChange={(e) => setToken(e.target.value)}
                     placeholder="ghp_..."
-                    className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    className="px-4"
                     aria-label="GitHub personal access token"
                     autoComplete="new-password"
                     autoCapitalize="none"
@@ -54,13 +56,13 @@ export const Login: React.FC<LoginProps> = ({
                     aria-describedby={tokenError ? 'token-error' : undefined}
                     {...(tokenError ? { 'aria-invalid': 'true' } : {})}
                 />
-                <button
+                <Button
                     type="submit"
-                    className="w-full bg-primary text-white py-2 px-4 rounded-md hover:bg-primary/90 transition-colors"
+                    className="w-full"
                     aria-label="Save Token"
                 >
                     Next
-                </button>
+                </Button>
             </form>
 
             {tokenError && (
