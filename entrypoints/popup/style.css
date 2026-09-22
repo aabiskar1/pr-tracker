@@ -90,7 +90,7 @@ body,
     }
 
     /* Main app container width */
-    .screen-prlist {
+    html[data-screen='prlist'] .screen-prlist {
         max-width: 100% !important;
         width: 100% !important;
         margin-left: auto !important;
@@ -175,7 +175,7 @@ body,
     }
 
     /* Main container padding */
-    .screen-prlist {
+    html[data-screen='prlist'] .screen-prlist {
         padding: 0.5rem 1rem !important;
         max-width: 750px !important;
         /* increased to match new Chrome width */

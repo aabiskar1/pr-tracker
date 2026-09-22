@@ -64,7 +64,10 @@ export function FilterBar({
     };
 
     return (
-        <div className="filter-bar-container flex w-full flex-col flex-wrap items-start justify-between gap-3 rounded-lg border border-border bg-muted p-3 text-foreground sm:flex-row sm:items-center">
+        <div
+            data-slot="filter-bar"
+            className="filter-bar-container flex w-full flex-col flex-wrap items-start justify-between gap-3 rounded-lg border border-border bg-muted p-3 text-foreground sm:flex-row sm:items-center"
+        >
             <div className="flex flex-wrap items-center gap-3 sm:gap-4 min-w-0">
                 <div className="flex items-center gap-1 text-foreground">
                     <FaFilter size={14} />
@@ -77,7 +80,8 @@ export function FilterBar({
                         title="Show or hide draft pull requests"
                     >
                         <div
-                            className={`flex h-4 w-4 items-center justify-center rounded border ${filters.showDrafts ? 'border-primary bg-primary text-primary-foreground' : 'border-input bg-background'}`}
+                            data-selected={filters.showDrafts}
+                            className={`popup-filter-check flex h-4 w-4 items-center justify-center rounded border ${filters.showDrafts ? 'border-primary bg-primary text-primary-foreground' : 'border-input bg-background'}`}
                         >
                             {filters.showDrafts && <FaCheck size={10} />}
                         </div>
@@ -102,7 +106,8 @@ export function FilterBar({
                         title="Show or hide ready pull requests"
                     >
                         <div
-                            className={`flex h-4 w-4 items-center justify-center rounded border ${filters.showReady ? 'border-primary bg-primary text-primary-foreground' : 'border-input bg-background'}`}
+                            data-selected={filters.showReady}
+                            className={`popup-filter-check flex h-4 w-4 items-center justify-center rounded border ${filters.showReady ? 'border-primary bg-primary text-primary-foreground' : 'border-input bg-background'}`}
                         >
                             {filters.showReady && <FaCheck size={10} />}
                         </div>
@@ -128,7 +133,8 @@ export function FilterBar({
                         title="Show or hide hidden pull requests"
                     >
                         <div
-                            className={`flex h-4 w-4 items-center justify-center rounded border ${filters.showHidden ? 'border-primary bg-primary text-primary-foreground' : 'border-input bg-background'}`}
+                            data-selected={filters.showHidden}
+                            className={`popup-filter-check flex h-4 w-4 items-center justify-center rounded border ${filters.showHidden ? 'border-primary bg-primary text-primary-foreground' : 'border-input bg-background'}`}
                         >
                             {filters.showHidden && <FaCheck size={10} />}
                         </div>
@@ -224,6 +230,10 @@ export function FilterBar({
                                         }}
                                     />
                                     <Badge
+                                        data-review-status={status}
+                                        data-selected={filters.reviewStatus.includes(
+                                            status
+                                        )}
                                         variant={
                                             filters.reviewStatus.includes(
                                                 status
@@ -293,6 +303,10 @@ export function FilterBar({
                                         }}
                                     />
                                     <Badge
+                                        data-ci-status={status}
+                                        data-selected={filters.ciStatus.includes(
+                                            status
+                                        )}
                                         variant={
                                             filters.ciStatus.includes(status)
                                                 ? status === 'passing'

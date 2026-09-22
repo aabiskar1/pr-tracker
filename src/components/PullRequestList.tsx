@@ -43,18 +43,6 @@ export const PullRequestList: FC<PullRequestListProps> = ({
                         key={pr.id}
                         className={`pr-card-accent overflow-hidden rounded-lg border border-border text-card-foreground transition-shadow hover:shadow-md ${
                             pr.draft ? 'bg-muted' : 'bg-card'
-                        } ${
-                            pr.ci_status === 'failing'
-                                ? 'border-l-ci-failing-foreground'
-                                : pr.ci_status === 'pending'
-                                  ? 'border-l-ci-pending-foreground'
-                                  : pr.ci_status === 'passing'
-                                    ? 'border-l-ci-passing-foreground'
-                                    : pr.review_status === 'changes-requested'
-                                      ? 'border-l-review-changes-foreground'
-                                      : pr.review_status === 'approved'
-                                        ? 'border-l-review-approved-foreground'
-                                        : 'border-l-border'
                         }`}
                     >
                         <a
@@ -68,7 +56,7 @@ export const PullRequestList: FC<PullRequestListProps> = ({
                                     <div className="flex items-center gap-2 mb-2 min-w-0">
                                         <Badge
                                             variant="secondary"
-                                            className="max-w-[220px] shrink truncate rounded-md sm:max-w-[280px]"
+                                            className="popup-repo-badge max-w-[220px] shrink truncate rounded-md sm:max-w-[280px]"
                                         >
                                             {pr.repository.name}
                                         </Badge>
@@ -113,7 +101,7 @@ export const PullRequestList: FC<PullRequestListProps> = ({
                                         {pr.draft && (
                                             <Badge
                                                 variant="draft"
-                                                className="ml-2"
+                                                className="popup-draft-badge ml-2"
                                             >
                                                 Draft
                                             </Badge>

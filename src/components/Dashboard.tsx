@@ -179,7 +179,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <Input
                     type="text"
                     placeholder="Search pull requests"
-                    className="h-10 pl-10 pr-3 leading-none"
+                    className="popup-search-input h-10 pl-10 pr-3 leading-none"
                     value={searchTerm}
                     onChange={handleSearch}
                     aria-label="Search Pull Requests"
