@@ -1,6 +1,8 @@
 import React from 'react';
 import { FaUnlock, FaSignInAlt, FaClock } from 'react-icons/fa';
 import { FullResetControl } from './FullResetControl';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
 
 interface PasswordEntryProps {
     password: string;
@@ -22,15 +24,15 @@ export const PasswordEntry: React.FC<PasswordEntryProps> = ({
     handleReset,
 }) => {
     return (
-        <div className="screen-auth w-full max-w-md mx-auto p-6 bg-white dark:bg-gray-800 rounded-xl shadow-md">
+        <div className="screen-auth mx-auto w-full max-w-md rounded-xl bg-background p-6 text-foreground shadow-md">
             <div className="flex items-center justify-center mb-6">
-                <FaUnlock className="text-4xl text-gray-700 dark:text-gray-300 mr-2" />
-                <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
+                <FaUnlock className="mr-2 text-4xl text-muted-foreground" />
+                <h2 className="text-2xl font-bold text-foreground">
                     Enter Password
                 </h2>
             </div>
 
-            <p className="text-gray-600 dark:text-gray-300 mb-4">
+            <p className="mb-4 text-muted-foreground">
                 Enter your password to decrypt your GitHub token and access your
                 pull requests.
             </p>
@@ -41,14 +43,14 @@ export const PasswordEntry: React.FC<PasswordEntryProps> = ({
                 autoComplete="on"
                 name="password-entry-form"
             >
-                <input
+                <Input
                     id="currentPassword"
                     name="current-password"
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter your password"
-                    className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    className="px-4"
                     aria-label="Enter your password"
                     autoComplete="current-password"
                     autoCapitalize="none"
@@ -71,25 +73,21 @@ export const PasswordEntry: React.FC<PasswordEntryProps> = ({
                         type="checkbox"
                         checked={rememberPassword}
                         onChange={(e) => setRememberPassword(e.target.checked)}
-                        className="h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary"
+                        className="h-4 w-4 rounded border-input text-primary focus:ring-ring"
                     />
                     <label
                         htmlFor="rememberPassword"
-                        className="ml-2 block text-sm text-gray-600 dark:text-gray-300 flex items-center"
+                        className="ml-2 flex items-center text-sm text-muted-foreground"
                     >
-                        <FaClock className="mr-1 text-gray-500 dark:text-gray-400" />
+                        <FaClock className="mr-1 text-muted-foreground" />
                         Remember password for 12 hours
                     </label>
                 </div>
 
-                <button
-                    type="submit"
-                    className="w-full bg-primary text-white py-2 px-4 rounded-md hover:bg-primary/90 transition-colors flex items-center justify-center"
-                    aria-label="Sign In"
-                >
+                <Button type="submit" className="w-full" aria-label="Sign In">
                     <FaSignInAlt className="mr-2" />
                     Sign In
-                </button>
+                </Button>
             </form>
 
             {passwordError && (

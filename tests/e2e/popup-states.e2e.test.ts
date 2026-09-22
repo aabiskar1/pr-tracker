@@ -107,34 +107,99 @@ describe('popup state journeys', () => {
         expect(await page.$$('li img')).not.toHaveLength(0);
     });
 
-    it('preserves the legacy dark input surface cascade', async () => {
-        const page = await openSeededPopup(github, { theme: 'dark' });
-        pages.push(page);
+    it.each([
+        [
+            'light',
+            {
+                input: ['rgb(255, 255, 255)', 'rgb(17, 24, 39)'],
+                inputBorder: 'rgb(209, 213, 219)',
+                placeholder: 'oklab(0.210081 -0.00294439 -0.0316202 / 0.5)',
+                filter: 'rgb(255, 255, 255)',
+                card: 'rgb(255, 255, 255)',
+                primary: ['rgb(80, 70, 228)', 'rgb(255, 255, 255)'],
+                secondary: ['rgb(243, 244, 246)', 'rgb(55, 65, 81)'],
+                ci: ['rgb(40, 167, 69)', 'rgb(255, 255, 255)'],
+                review: ['rgb(219, 171, 9)', 'rgb(255, 255, 255)'],
+            },
+        ],
+        [
+            'dark',
+            {
+                input: ['rgb(34, 39, 46)', 'rgb(230, 237, 243)'],
+                inputBorder: 'rgb(48, 54, 61)',
+                placeholder: 'oklab(0.942533 -0.00486067 -0.00988358 / 0.5)',
+                filter: 'rgb(34, 39, 46)',
+                card: 'rgb(34, 39, 46)',
+                primary: ['rgb(35, 134, 54)', 'rgb(255, 255, 255)'],
+                secondary: ['rgb(33, 38, 45)', 'rgb(230, 237, 243)'],
+                ci: ['rgb(40, 167, 69)', 'rgb(230, 237, 243)'],
+                review: ['rgb(219, 171, 9)', 'rgb(230, 237, 243)'],
+            },
+        ],
+    ] as const)(
+        'preserves baseline production surfaces and controls in %s mode',
+        async (theme, expected) => {
+            github.setScenario({ pullRequests: POPULATED_PRS });
+            const page = await openSeededPopup(github, { theme });
+            pages.push(page);
 
-        const backgrounds = await page.evaluate(() => {
-            const background = (selector: string) => {
-                const element = document.querySelector(selector);
-                if (!element) throw new Error(`Missing element: ${selector}`);
-                return getComputedStyle(element).backgroundColor;
-            };
+            const styles = await page.evaluate(() => {
+                const style = (selector: string, pseudo?: string) => {
+                    const element = document.querySelector(selector);
+                    if (!element)
+                        throw new Error(`Missing element: ${selector}`);
+                    return getComputedStyle(element, pseudo);
+                };
+                const colours = (selector: string) => {
+                    const computed = style(selector);
+                    return [computed.backgroundColor, computed.color];
+                };
+                const searchSelector =
+                    'input[aria-label="Search Pull Requests"]';
 
-            return {
-                search: background('input[aria-label="Search Pull Requests"]'),
-                customQuery: background(
-                    'input[aria-label="Custom GitHub search query"]'
-                ),
-                filterBar: background('.filter-bar-container'),
-                prCard: background('li'),
-            };
-        });
+                return {
+                    search: colours(searchSelector),
+                    searchBorder: style(searchSelector).borderTopColor,
+                    searchPlaceholder: style(searchSelector, '::placeholder')
+                        .color,
+                    customQuery: colours(
+                        'input[aria-label="Custom GitHub search query"]'
+                    ),
+                    filter: style('.filter-bar-container').backgroundColor,
+                    card: style('li').backgroundColor,
+                    primary: colours(
+                        'button[aria-label="Refresh Pull Requests"]'
+                    ),
+                    secondary: colours('button[aria-label="Sign Out"]'),
+                    ci: colours(
+                        'label[title="Show passing checks"] [data-slot="badge"]'
+                    ),
+                    review: colours(
+                        'label[title="Show pending PRs"] [data-slot="badge"]'
+                    ),
+                    saveDisabled: (
+                        document.querySelector(
+                            'button[aria-label="Save custom search query"]'
+                        ) as HTMLButtonElement
+                    ).disabled,
+                };
+            });
 
-        expect(backgrounds).toEqual({
-            search: backgrounds.filterBar,
-            customQuery: backgrounds.filterBar,
-            filterBar: backgrounds.filterBar,
-            prCard: backgrounds.filterBar,
-        });
-    });
+            expect(styles).toEqual({
+                search: expected.input,
+                searchBorder: expected.inputBorder,
+                searchPlaceholder: expected.placeholder,
+                customQuery: expected.input,
+                filter: expected.filter,
+                card: expected.card,
+                primary: expected.primary,
+                secondary: expected.secondary,
+                ci: expected.ci,
+                review: expected.review,
+                saveDisabled: true,
+            });
+        }
+    );
 
     it('keeps search active after a background refresh storage reload', async () => {
         const page = await openSeededPopup(github);

@@ -11,6 +11,8 @@ import {
 } from 'react-icons/fa';
 import type { PullRequest } from '../types';
 import { getAgeColor } from '../utils/dateUtils';
+import { Badge } from './ui/badge';
+import { Button } from './ui/button';
 
 type PullRequestListProps = {
     pullRequests: PullRequest[];
@@ -39,22 +41,8 @@ export const PullRequestList: FC<PullRequestListProps> = ({
                 {pullRequests.map((pr) => (
                     <li
                         key={pr.id}
-                        className={`rounded-lg border pr-card-accent dark:border-gray-700 hover:shadow-md transition-shadow overflow-hidden ${
-                            pr.draft
-                                ? 'bg-gray-50 dark:bg-gray-900/30'
-                                : 'bg-white dark:bg-gray-700'
-                        } ${
-                            pr.ci_status === 'failing'
-                                ? 'border-l-red-500'
-                                : pr.ci_status === 'pending'
-                                  ? 'border-l-yellow-500'
-                                  : pr.ci_status === 'passing'
-                                    ? 'border-l-green-500'
-                                    : pr.review_status === 'changes-requested'
-                                      ? 'border-l-red-500'
-                                      : pr.review_status === 'approved'
-                                        ? 'border-l-green-500'
-                                        : 'border-l-gray-300 dark:border-l-gray-600'
+                        className={`pr-card-accent overflow-hidden rounded-lg border border-border text-card-foreground transition-shadow hover:shadow-md ${
+                            pr.draft ? 'bg-muted' : 'bg-card'
                         }`}
                     >
                         <a
@@ -66,16 +54,21 @@ export const PullRequestList: FC<PullRequestListProps> = ({
                             <div className="flex justify-between items-start flex-wrap gap-2 w-full">
                                 <div className="flex-1">
                                     <div className="flex items-center gap-2 mb-2 min-w-0">
-                                        <span className="inline-block px-2 py-1 text-xs font-medium rounded badge-repo max-w-[220px] sm:max-w-[280px] truncate align-middle shrink">
+                                        <Badge
+                                            variant="secondary"
+                                            className="popup-repo-badge max-w-[220px] shrink truncate rounded-md sm:max-w-[280px]"
+                                        >
                                             {pr.repository.name}
-                                        </span>
-                                        <button
+                                        </Badge>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon-sm"
                                             onClick={(e) => {
                                                 e.preventDefault();
                                                 e.stopPropagation();
                                                 onToggleHide(pr.id);
                                             }}
-                                            className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                                            className="size-6 text-muted-foreground"
                                             title={
                                                 pr.hidden
                                                     ? 'Unhide PR'
@@ -92,7 +85,7 @@ export const PullRequestList: FC<PullRequestListProps> = ({
                                             ) : (
                                                 <FaEye size={12} />
                                             )}
-                                        </button>
+                                        </Button>
                                         {/* Age Indicator */}
                                         <div
                                             className={`flex items-center gap-1 text-xs ${getAgeColor(pr.created_at)}`}
@@ -103,26 +96,30 @@ export const PullRequestList: FC<PullRequestListProps> = ({
                                             </span>
                                         </div>
                                     </div>
-                                    <h3 className="font-medium text-gray-800 dark:text-white mb-1 break-words whitespace-normal">
+                                    <h3 className="mb-1 break-words font-medium whitespace-normal text-card-foreground">
                                         {pr.title}
                                         {pr.draft && (
-                                            <span className="ml-2 px-2 py-0.5 text-xs rounded badge-draft">
+                                            <Badge
+                                                variant="draft"
+                                                className="popup-draft-badge ml-2"
+                                            >
                                                 Draft
-                                            </span>
+                                            </Badge>
                                         )}
                                     </h3>
                                 </div>
                                 <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-end max-w-full min-w-0">
                                     {/* CI Status Indicator */}
                                     {pr.ci_status && (
-                                        <div
-                                            className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs ${
+                                        <Badge
+                                            data-ci-status={pr.ci_status}
+                                            variant={
                                                 pr.ci_status === 'passing'
-                                                    ? 'badge-passing'
+                                                    ? 'ciPassing'
                                                     : pr.ci_status === 'failing'
-                                                      ? 'badge-failing'
-                                                      : 'badge-pending'
-                                            }`}
+                                                      ? 'ciFailing'
+                                                      : 'ciPending'
+                                            }
                                         >
                                             <FaCodeBranch
                                                 size={12}
@@ -142,19 +139,22 @@ export const PullRequestList: FC<PullRequestListProps> = ({
                                                     .toUpperCase() +
                                                     pr.ci_status.slice(1)}
                                             </span>
-                                        </div>
+                                        </Badge>
                                     )}
                                     {/* Review Status */}
                                     {pr.review_status && (
-                                        <div
-                                            className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs ${
+                                        <Badge
+                                            data-review-status={
+                                                pr.review_status
+                                            }
+                                            variant={
                                                 pr.review_status === 'approved'
-                                                    ? 'badge-approved'
+                                                    ? 'reviewApproved'
                                                     : pr.review_status ===
                                                         'changes-requested'
-                                                      ? 'badge-changes'
-                                                      : 'badge-pending'
-                                            }`}
+                                                      ? 'reviewChanges'
+                                                      : 'reviewAwaiting'
+                                            }
                                         >
                                             <FaUserCheck
                                                 size={12}
@@ -177,7 +177,7 @@ export const PullRequestList: FC<PullRequestListProps> = ({
                                                       ? 'Changes'
                                                       : 'Pending'}
                                             </span>
-                                        </div>
+                                        </Badge>
                                     )}
                                 </div>
                             </div>
@@ -195,18 +195,18 @@ export const PullRequestList: FC<PullRequestListProps> = ({
                                                             reviewer.avatar_url
                                                         }
                                                         alt={reviewer.login}
-                                                        className="w-6 h-6 rounded-full border border-white dark:border-gray-800"
+                                                        className="h-6 w-6 rounded-full border border-card"
                                                         title={reviewer.login}
                                                     />
                                                 ))}
                                             {pr.requested_reviewers.length >
                                                 10 && (
-                                                <div className="w-6 h-6 rounded-full border border-white dark:border-gray-800 bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-xs text-gray-600 dark:text-gray-300 font-medium">
+                                                <div className="flex h-6 w-6 items-center justify-center rounded-full border border-card bg-secondary text-xs font-medium text-secondary-foreground">
                                                     ...
                                                 </div>
                                             )}
                                         </div>
-                                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                                        <span className="text-xs text-muted-foreground">
                                             {pr.requested_reviewers.length}{' '}
                                             reviewer
                                             {pr.requested_reviewers.length !== 1
@@ -219,16 +219,16 @@ export const PullRequestList: FC<PullRequestListProps> = ({
                                     {/* Author Section */}
                                     {pr.author && (
                                         <div className="flex items-center">
-                                            <span className="text-xs text-gray-500 dark:text-gray-400 mr-2">
+                                            <span className="mr-2 text-xs text-muted-foreground">
                                                 Author:
                                             </span>
                                             <img
                                                 src={pr.author.avatar_url}
                                                 alt={pr.author.login}
-                                                className="w-6 h-6 rounded-full border border-white dark:border-gray-800"
+                                                className="h-6 w-6 rounded-full border border-card"
                                                 title={pr.author.login}
                                             />
-                                            <span className="text-xs text-gray-600 dark:text-gray-300 ml-1 font-medium">
+                                            <span className="ml-1 text-xs font-medium text-card-foreground">
                                                 @{pr.author.login}
                                             </span>
                                         </div>
@@ -241,16 +241,16 @@ export const PullRequestList: FC<PullRequestListProps> = ({
                                 pr.author && (
                                     <div className="mt-3 flex justify-end">
                                         <div className="flex items-center">
-                                            <span className="text-xs text-gray-500 dark:text-gray-400 mr-2">
+                                            <span className="mr-2 text-xs text-muted-foreground">
                                                 Author:
                                             </span>
                                             <img
                                                 src={pr.author.avatar_url}
                                                 alt={pr.author.login}
-                                                className="w-6 h-6 rounded-full border border-white dark:border-gray-800"
+                                                className="h-6 w-6 rounded-full border border-card"
                                                 title={pr.author.login}
                                             />
-                                            <span className="text-xs text-gray-600 dark:text-gray-300 ml-1 font-medium">
+                                            <span className="ml-1 text-xs font-medium text-card-foreground">
                                                 @{pr.author.login}
                                             </span>
                                         </div>

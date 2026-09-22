@@ -17,7 +17,7 @@ const ThemeSwitcher: React.FC<ThemeSwitcherProps> = ({
                 onChange={(e) =>
                     onThemeChange(e.target.value as ThemePreference)
                 }
-                className="px-2 py-1 rounded border bg-white dark:bg-gray-700 dark:text-white border-gray-300 dark:border-gray-600 focus:outline-none"
+                className="rounded border border-input bg-background px-2 py-1 text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
                 aria-label="Theme selector"
             >
                 <option value="auto">Auto</option>

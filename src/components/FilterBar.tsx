@@ -6,6 +6,9 @@ import {
     FaCodeBranch,
     FaUserCheck,
 } from 'react-icons/fa';
+import { Badge } from './ui/badge';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
 
 type FilterBarProps = {
     filters: FilterState;
@@ -61,9 +64,12 @@ export function FilterBar({
     };
 
     return (
-        <div className="flex flex-col sm:flex-row flex-wrap justify-between items-start sm:items-center gap-3 p-3 bg-gray-100 dark:bg-gray-800 rounded-lg filter-bar-container w-full">
+        <div
+            data-slot="filter-bar"
+            className="filter-bar-container flex w-full flex-col flex-wrap items-start justify-between gap-3 rounded-lg border border-border bg-muted p-3 text-foreground sm:flex-row sm:items-center"
+        >
             <div className="flex flex-wrap items-center gap-3 sm:gap-4 min-w-0">
-                <div className="flex items-center gap-1 text-gray-700 dark:text-gray-300">
+                <div className="flex items-center gap-1 text-foreground">
                     <FaFilter size={14} />
                     <span className="font-medium text-sm">Filters:</span>
                 </div>
@@ -74,11 +80,10 @@ export function FilterBar({
                         title="Show or hide draft pull requests"
                     >
                         <div
-                            className={`w-4 h-4 flex items-center justify-center rounded border ${filters.showDrafts ? 'bg-primary border-primary' : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-500'}`}
+                            data-selected={filters.showDrafts}
+                            className={`popup-filter-check flex h-4 w-4 items-center justify-center rounded border ${filters.showDrafts ? 'border-primary bg-primary text-primary-foreground' : 'border-input bg-background'}`}
                         >
-                            {filters.showDrafts && (
-                                <FaCheck size={10} className="text-white" />
-                            )}
+                            {filters.showDrafts && <FaCheck size={10} />}
                         </div>
                         <input
                             type="checkbox"
@@ -92,7 +97,7 @@ export function FilterBar({
                             }
                             aria-label="Show Drafts"
                         />
-                        <span className="text-sm text-gray-600 dark:text-gray-300">
+                        <span className="text-sm text-muted-foreground">
                             Drafts
                         </span>
                     </label>
@@ -101,11 +106,10 @@ export function FilterBar({
                         title="Show or hide ready pull requests"
                     >
                         <div
-                            className={`w-4 h-4 flex items-center justify-center rounded border ${filters.showReady ? 'bg-primary border-primary' : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-500'}`}
+                            data-selected={filters.showReady}
+                            className={`popup-filter-check flex h-4 w-4 items-center justify-center rounded border ${filters.showReady ? 'border-primary bg-primary text-primary-foreground' : 'border-input bg-background'}`}
                         >
-                            {filters.showReady && (
-                                <FaCheck size={10} className="text-white" />
-                            )}
+                            {filters.showReady && <FaCheck size={10} />}
                         </div>
                         <input
                             type="checkbox"
@@ -119,7 +123,7 @@ export function FilterBar({
                             }
                             aria-label="Show Ready"
                         />
-                        <span className="text-sm text-gray-600 dark:text-gray-300">
+                        <span className="text-sm text-muted-foreground">
                             Ready
                         </span>
                     </label>
@@ -129,11 +133,10 @@ export function FilterBar({
                         title="Show or hide hidden pull requests"
                     >
                         <div
-                            className={`w-4 h-4 flex items-center justify-center rounded border ${filters.showHidden ? 'bg-primary border-primary' : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-500'}`}
+                            data-selected={filters.showHidden}
+                            className={`popup-filter-check flex h-4 w-4 items-center justify-center rounded border ${filters.showHidden ? 'border-primary bg-primary text-primary-foreground' : 'border-input bg-background'}`}
                         >
-                            {filters.showHidden && (
-                                <FaCheck size={10} className="text-white" />
-                            )}
+                            {filters.showHidden && <FaCheck size={10} />}
                         </div>
                         <input
                             type="checkbox"
@@ -147,7 +150,7 @@ export function FilterBar({
                             }
                             aria-label="Show Hidden"
                         />
-                        <span className="text-sm text-gray-600 dark:text-gray-300">
+                        <span className="text-sm text-muted-foreground">
                             Hidden
                         </span>
                     </label>
@@ -155,13 +158,13 @@ export function FilterBar({
                 {/* PR Age Filter */}
                 <div className="flex items-center gap-2">
                     <div className="flex items-center gap-1">
-                        <FaClock size={14} className="text-gray-500" />
-                        <span className="text-sm text-gray-600 dark:text-gray-300">
+                        <FaClock size={14} className="text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">
                             Age:
                         </span>
                     </div>
                     <select
-                        className="pl-2 pr-6 py-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm text-gray-700 dark:text-gray-200 select-left"
+                        className="select-left rounded border border-input bg-background py-1 pl-2 pr-6 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
                         value={filters.ageFilter}
                         onChange={(e) =>
                             handleFilterChange('ageFilter', e.target.value)
@@ -181,8 +184,11 @@ export function FilterBar({
                     {/* Review Status Filter */}
                     <div className="flex items-center gap-2 whitespace-nowrap min-w-0">
                         <div className="flex items-center gap-1">
-                            <FaUserCheck size={14} className="text-gray-500" />
-                            <span className="text-sm text-gray-600 dark:text-gray-300">
+                            <FaUserCheck
+                                size={14}
+                                className="text-muted-foreground"
+                            />
+                            <span className="text-sm text-muted-foreground">
                                 Reviews:
                             </span>
                         </div>
@@ -223,26 +229,31 @@ export function FilterBar({
                                             );
                                         }}
                                     />
-                                    <div
-                                        className={`px-2 py-1 rounded text-xs ${
+                                    <Badge
+                                        data-review-status={status}
+                                        data-selected={filters.reviewStatus.includes(
+                                            status
+                                        )}
+                                        variant={
                                             filters.reviewStatus.includes(
                                                 status
                                             )
                                                 ? status === 'approved'
-                                                    ? 'badge-approved'
+                                                    ? 'reviewApproved'
                                                     : status ===
                                                         'changes-requested'
-                                                      ? 'badge-changes'
-                                                      : 'badge-pending'
-                                                : 'badge-unselected'
-                                        }`}
+                                                      ? 'reviewChanges'
+                                                      : 'reviewAwaiting'
+                                                : 'outline'
+                                        }
+                                        className="rounded-md"
                                     >
                                         {status === 'approved'
                                             ? 'Approved'
                                             : status === 'changes-requested'
                                               ? 'Changes'
                                               : 'Pending'}
-                                    </div>
+                                    </Badge>
                                 </label>
                             ))}
                         </div>
@@ -250,8 +261,11 @@ export function FilterBar({
                     {/* CI Status Filter */}
                     <div className="flex items-center gap-2 whitespace-nowrap min-w-0">
                         <div className="flex items-center gap-1">
-                            <FaCodeBranch size={14} className="text-gray-500" />
-                            <span className="text-sm text-gray-600 dark:text-gray-300">
+                            <FaCodeBranch
+                                size={14}
+                                className="text-muted-foreground"
+                            />
+                            <span className="text-sm text-muted-foreground">
                                 CI:
                             </span>
                         </div>
@@ -288,39 +302,46 @@ export function FilterBar({
                                             );
                                         }}
                                     />
-                                    <div
-                                        className={`px-2 py-1 rounded text-xs ${
+                                    <Badge
+                                        data-ci-status={status}
+                                        data-selected={filters.ciStatus.includes(
+                                            status
+                                        )}
+                                        variant={
                                             filters.ciStatus.includes(status)
                                                 ? status === 'passing'
-                                                    ? 'badge-passing'
+                                                    ? 'ciPassing'
                                                     : status === 'failing'
-                                                      ? 'badge-failing'
-                                                      : 'badge-pending'
-                                                : 'badge-unselected'
-                                        }`}
+                                                      ? 'ciFailing'
+                                                      : 'ciPending'
+                                                : 'outline'
+                                        }
+                                        className="rounded-md"
                                     >
                                         {status.charAt(0).toUpperCase() +
                                             status.slice(1)}
-                                    </div>
+                                    </Badge>
                                 </label>
                             ))}
                         </div>
                     </div>
                 </div>
                 {/* Reset Filters Button */}
-                <button
+                <Button
                     type="button"
-                    className="ml-2 px-3 py-1 rounded bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 text-sm border border-gray-300 dark:border-gray-600 whitespace-nowrap"
+                    variant="secondary"
+                    size="sm"
+                    className="ml-2"
                     onClick={onReset}
                 >
                     Reset Filters
-                </button>
+                </Button>
             </div>
             {/* Right side: Sort dropdown and custom query */}
             <div className="flex items-center gap-2 w-full sm:w-auto min-w-0">
                 <div className="relative">
                     <select
-                        className="appearance-none pl-3 pr-8 py-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm text-gray-700 dark:text-gray-200 cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary text-left"
+                        className="appearance-none rounded border border-input bg-background py-1 pl-3 pr-8 text-left text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
                         onChange={(e) =>
                             onSortChange(e.target.value as SortOption)
                         }
@@ -336,14 +357,14 @@ export function FilterBar({
                         <option value="most-stale">Most Stale</option>
                     </select>
                     <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-                        <FaSort size={12} className="text-gray-400" />
+                        <FaSort size={12} className="text-muted-foreground" />
                     </div>
                 </div>
                 {/* Custom Query Input */}
                 <div className="flex flex-row items-center gap-2 flex-1 min-w-[220px] min-w-0">
-                    <input
+                    <Input
                         type="text"
-                        className="w-full min-w-[200px] px-3 py-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white text-xs"
+                        className="custom-query-input min-w-[200px] text-xs"
                         placeholder="Custom GitHub PR search (e.g. is:open is:pr user:myorg)"
                         value={customQueryInput}
                         onChange={(e) => setCustomQueryInput(e.target.value)}
@@ -351,8 +372,9 @@ export function FilterBar({
                         name="custom-github-search-query"
                         autoComplete="off"
                     />
-                    <button
-                        className="bg-primary text-white px-2 py-1 rounded-md hover:bg-primary/90 transition-colors min-w-[48px] text-xs"
+                    <Button
+                        size="sm"
+                        className="min-w-[48px]"
                         onClick={handleSaveCustomQuery}
                         disabled={
                             !customQueryInput.trim() ||
@@ -361,15 +383,17 @@ export function FilterBar({
                         aria-label="Save custom search query"
                     >
                         Save
-                    </button>
+                    </Button>
                     {isCustomQueryActive && (
-                        <button
-                            className="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-2 py-1 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors min-w-[48px] text-xs"
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            className="min-w-[48px]"
                             onClick={handleResetCustomQuery}
                             aria-label="Reset to default search"
                         >
                             Reset
-                        </button>
+                        </Button>
                     )}
                 </div>
             </div>

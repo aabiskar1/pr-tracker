@@ -6,6 +6,8 @@ import {
     FaClock,
     FaKey,
 } from 'react-icons/fa';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
 
 interface PasswordSetupProps {
     password: string;
@@ -33,26 +35,26 @@ export const PasswordSetup: React.FC<PasswordSetupProps> = ({
     const [showPasswordHelp, setShowPasswordHelp] = useState(false);
 
     return (
-        <div className="screen-auth w-full max-w-md mx-auto p-6 bg-white dark:bg-gray-800 rounded-xl shadow-md">
+        <div className="screen-auth mx-auto w-full max-w-md rounded-xl bg-background p-6 text-foreground shadow-md">
             <div className="flex items-center justify-center mb-6">
-                <FaLock className="text-4xl text-gray-700 dark:text-gray-300 mr-2" />
-                <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
+                <FaLock className="mr-2 text-4xl text-muted-foreground" />
+                <h2 className="text-2xl font-bold text-foreground">
                     Create a Password
                 </h2>
             </div>
 
-            <p className="text-gray-600 dark:text-gray-300 mb-4">
+            <p className="mb-4 text-muted-foreground">
                 Create a password to encrypt your stored GitHub token and unlock
                 it later. You won't need to re-enter it while PR Tracker remains
                 unlocked.
             </p>
 
-            <div className="bg-blue-100 dark:bg-blue-900 p-3 rounded-md mb-4 flex items-start">
+            <div className="mb-4 flex items-start rounded-md bg-accent p-3 text-accent-foreground">
                 <div className="flex-shrink-0 mt-1">
-                    <FaShieldAlt className="text-blue-600 dark:text-blue-300" />
+                    <FaShieldAlt />
                 </div>
                 <div className="ml-3">
-                    <p className="text-sm text-blue-700 dark:text-blue-300">
+                    <p className="text-sm">
                         Your password stays in memory while unlocked. If you
                         choose “Remember password for 12 hours,” it is also
                         stored in browser extension session storage for that
@@ -71,13 +73,15 @@ export const PasswordSetup: React.FC<PasswordSetupProps> = ({
                     <div className="flex justify-between items-center mb-1">
                         <label
                             htmlFor="newPassword"
-                            className="text-sm text-gray-600 dark:text-gray-300 font-medium"
+                            className="text-sm font-medium text-muted-foreground"
                         >
                             Password
                         </label>
-                        <button
+                        <Button
                             type="button"
-                            className="text-xs text-primary flex items-center"
+                            variant="ghost"
+                            size="sm"
+                            className="h-auto px-0 text-xs text-primary"
                             onClick={() =>
                                 setShowPasswordHelp(!showPasswordHelp)
                             }
@@ -85,12 +89,12 @@ export const PasswordSetup: React.FC<PasswordSetupProps> = ({
                         >
                             <FaQuestionCircle className="mr-1" />
                             Requirements
-                        </button>
+                        </Button>
                     </div>
 
                     {showPasswordHelp && (
                         <div
-                            className="text-xs text-gray-600 dark:text-gray-300 mb-2 p-2 bg-gray-100 dark:bg-gray-700 rounded"
+                            className="mb-2 rounded bg-muted p-2 text-xs text-muted-foreground"
                             id="password-help"
                         >
                             <ul className="list-disc pl-4 space-y-1">
@@ -103,13 +107,13 @@ export const PasswordSetup: React.FC<PasswordSetupProps> = ({
                         </div>
                     )}
 
-                    <input
+                    <Input
                         id="newPassword"
                         name="new-password"
                         type="password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        className="px-4"
                         aria-label="Password"
                         placeholder="Enter password"
                         autoComplete="new-password"
@@ -133,17 +137,17 @@ export const PasswordSetup: React.FC<PasswordSetupProps> = ({
                 <div>
                     <label
                         htmlFor="confirmNewPassword"
-                        className="text-sm text-gray-600 dark:text-gray-300 font-medium mb-1 block"
+                        className="mb-1 block text-sm font-medium text-muted-foreground"
                     >
                         Confirm Password
                     </label>
-                    <input
+                    <Input
                         id="confirmNewPassword"
                         name="confirm-password"
                         type="password"
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
-                        className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        className="px-4"
                         aria-label="Confirm Password"
                         placeholder="Confirm password"
                         autoComplete="new-password"
@@ -169,25 +173,25 @@ export const PasswordSetup: React.FC<PasswordSetupProps> = ({
                         type="checkbox"
                         checked={rememberPassword}
                         onChange={(e) => setRememberPassword(e.target.checked)}
-                        className="h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary"
+                        className="h-4 w-4 rounded border-input text-primary focus:ring-ring"
                     />
                     <label
                         htmlFor="rememberPassword"
-                        className="ml-2 block text-sm text-gray-600 dark:text-gray-300 flex items-center"
+                        className="ml-2 flex items-center text-sm text-muted-foreground"
                     >
-                        <FaClock className="mr-1 text-gray-500 dark:text-gray-400" />
+                        <FaClock className="mr-1 text-muted-foreground" />
                         Remember password for 12 hours
                     </label>
                 </div>
 
-                <button
+                <Button
                     type="submit"
-                    className="w-full bg-primary text-white py-2 px-4 rounded-md hover:bg-primary/90 transition-colors flex items-center justify-center"
+                    className="w-full"
                     aria-label="Create Password"
                 >
                     <FaKey className="mr-2" />
                     Create Password & Encrypt Token
-                </button>
+                </Button>
             </form>
 
             {passwordError && (
@@ -212,13 +216,14 @@ export const PasswordSetup: React.FC<PasswordSetupProps> = ({
                 </div>
             )}
 
-            <button
+            <Button
                 onClick={onBack}
-                className="w-full mt-4 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 py-2 px-4 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                variant="secondary"
+                className="mt-4 w-full"
                 aria-label="Go Back"
             >
                 Go Back
-            </button>
+            </Button>
         </div>
     );
 };

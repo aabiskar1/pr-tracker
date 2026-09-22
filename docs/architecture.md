@@ -49,7 +49,7 @@ dashboard controls, filters, empty state, and PR cards. PR links open GitHub in
 a new tab. `src/utils/dateUtils.ts` supplies age colouring, while relative-time
 formatting currently remains inside `PullRequestList.tsx`.
 
-### UI design-system foundation
+### UI design system and theme architecture
 
 New shared UI is built from source-owned shadcn/ui-style primitives under
 `src/components/ui/`. `components.json` configures the shadcn CLI for the
@@ -66,17 +66,39 @@ code should prefer classes such as `bg-card`, `text-foreground`, and
 `border-border` over palette-specific utilities. CI and review state remain
 separate concepts even when they share a visual colour.
 
-The token layer intentionally coexists with the legacy variables and broad
-overrides in `src/theme.css`. Shared primitives expose `data-slot` attributes;
-the small legacy-selector exclusions prevent old `!important` form and text
-rules from overriding them. Existing screens are not migrated by this
-foundation, and the legacy theme CSS should only be removed in a dedicated
-follow-up after those screens use semantic components.
+The original production appearance also has popup-scoped semantic values in
+that same file (`--popup-*`). They preserve its compact white/charcoal surfaces,
+purple/green primary actions, solid CI/review labels, neutral card rails, and
+coloured age text without changing generic primitive defaults. The production
+compatibility selectors in `src/theme.css` are limited to `.screen-prlist` and
+`.screen-auth`; they do not apply to the test-only shared component showcase.
+The dark search and custom-query fields intentionally use the original
+card-coloured surface, not the newer darker input token.
 
-The existing `theme-preference` storage value remains unchanged. The resolved
-light or dark theme is still applied as `data-theme` on the root element, and
-the new tokens use that same attribute. This preserves explicit and automatic
-theme behavior without adding another theme state or persistence path.
+Production text/password/search inputs, ordinary action buttons, CI/review
+badges, filter surfaces, PR card surfaces, authentication surfaces, and the
+full-reset dialog now compose those primitives and semantic utilities. Native
+selects and checkboxes retain their platform semantics while using token-backed
+classes. Review and CI badges deliberately use separate variants and data.
+
+`src/theme.css` is a transition layer for the purpose-built notification
+switch, shared error banner, root/link defaults, and narrowly scoped original
+popup treatment. The former
+duplicate colour variables, palette badge classes, broad element overrides,
+and unused starter selectors were removed after their consumers migrated.
+`entrypoints/popup/style.css` still owns compact spacing and Chrome/Firefox
+popup sizing. Its zero-specificity `:where(:not([data-slot]))` compatibility
+guards remain so those rules cannot leak into shared primitives. These sizing
+and density rules remain legacy because changing them requires dedicated
+cross-browser visual validation.
+
+The existing `theme-preference` storage key and `light`, `dark`, and `auto`
+values remain unchanged. Popup bootstrap resolves and applies that preference
+before React mounts, then `useTheme` owns subsequent selection changes. The
+resolved light or dark theme is applied only as `data-theme` on the root
+element. In automatic mode, a media-query listener updates the resolved theme
+when the operating-system preference changes; selecting automatic after mount
+also installs that listener. No provider or second persistence path exists.
 
 Current boundary note: filtering, sorting, search, preference persistence, and
 browser messaging are combined in `usePullRequests`. Token validation also
