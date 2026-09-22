@@ -57,6 +57,19 @@ and existing `cn()` helper. New UI should use semantic utilities such as
 `bg-background`, `text-muted-foreground`, and `focus-visible:ring-ring`; do not
 add a second token source or hard-code theme-specific colours in components.
 
+`src/styles/tokens.css` is the sole colour-token source. The popup reads the
+unchanged `theme-preference` key (`light`, `dark`, or `auto`), applies the
+resolved value as `data-theme` before mounting React, and follows system colour
+scheme changes while automatic mode is active. Do not add a theme provider,
+another root class, or a second storage value.
+
+Production buttons and text/password/search inputs should use `Button` and
+`Input`. CI and review state must use the corresponding separate `Badge`
+variants; do not collapse them into one status. Native selects and checkboxes
+currently remain feature markup with semantic token classes. The notification
+switch and error banner remain narrowly scoped in `src/theme.css` because they
+do not yet have shared primitives.
+
 Every interactive control needs an accessible name, a visible keyboard focus
 state, and a real disabled state where applicable. Status badges must include
 text or an accessible label in addition to colour. Loading animation must
@@ -68,6 +81,12 @@ that require new extension permissions or violate extension Content Security
 Policy. Do not remove the engine-specific popup sizing and scrollbar rules in
 `entrypoints/popup/style.css`; verify both production builds and perform a
 manual Firefox check when a Firefox runtime is available.
+
+The remaining global compact-spacing rules in that file are intentional legacy
+compatibility. Keep the zero-specificity `:where(:not([data-slot]))`
+exclusions when changing them, and migrate a consumer before removing a
+selector. Stable `.screen-auth` and `.screen-prlist` hooks—not exact
+utility-class sequences—are the browser sizing contract.
 
 ## Compile and type-check
 

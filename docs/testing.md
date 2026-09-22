@@ -121,6 +121,14 @@ packaged-popup fixture for generated CSS, light/dark token scopes, keyboard
 focus, and keyboard activation. It is not a production screen and must remain
 guarded by the WXT/Vite `test` mode.
 
+Production popup coverage also asserts computed background, foreground,
+border, and placeholder colours for both root themes. It checks the search and
+custom-query inputs, filter and PR-card surfaces, primary/secondary buttons,
+disabled query action, and separate CI/review badges. Theme E2E coverage proves
+that switching from an explicit preference to automatic follows later system
+scheme changes and persists `auto`; unit coverage verifies pre-mount theme
+initialisation and media-listener cleanup.
+
 ## Deterministic tests and GitHub fixtures
 
 - Freeze or inject time for age buckets, refresh throttles, notification
