@@ -1,0 +1,133 @@
+/*
+ * PR Tracker design-system tokens.
+ *
+ * These semantic variables are the source of truth for new UI primitives.
+ * Legacy variables remain in src/theme.css until existing screens are migrated.
+ */
+:root,
+[data-theme='light'] {
+    color-scheme: light;
+
+    --background: #ffffff;
+    --foreground: #1f2328;
+    --card: #ffffff;
+    --card-foreground: #1f2328;
+    --primary: #0969da;
+    --primary-foreground: #ffffff;
+    --secondary: #f6f8fa;
+    --secondary-foreground: #1f2328;
+    --muted: #f6f8fa;
+    --muted-foreground: #59636e;
+    --accent: #ddf4ff;
+    --accent-foreground: #0550ae;
+    --destructive: #cf222e;
+    --destructive-foreground: #ffffff;
+    --border: #d0d7de;
+    --input: #afb8c1;
+    --ring: #0969da;
+
+    --ci-passing: #dafbe1;
+    --ci-passing-foreground: #116329;
+    --ci-failing: #ffebe9;
+    --ci-failing-foreground: #a40e26;
+    --ci-pending: #fff8c5;
+    --ci-pending-foreground: #633c01;
+    --review-approved: #dafbe1;
+    --review-approved-foreground: #116329;
+    --review-changes: #ffebe9;
+    --review-changes-foreground: #a40e26;
+    --review-awaiting: #ddf4ff;
+    --review-awaiting-foreground: #0550ae;
+    --status-draft: #eaeef2;
+    --status-draft-foreground: #3d444d;
+    --status-unavailable: #f6f8fa;
+    --status-unavailable-foreground: #59636e;
+
+    --radius: 0.375rem;
+}
+
+[data-theme='dark'] {
+    color-scheme: dark;
+
+    --background: #0d1117;
+    --foreground: #f0f6fc;
+    --card: #161b22;
+    --card-foreground: #f0f6fc;
+    --primary: #58a6ff;
+    --primary-foreground: #0d1117;
+    --secondary: #21262d;
+    --secondary-foreground: #f0f6fc;
+    --muted: #21262d;
+    --muted-foreground: #9da7b3;
+    --accent: #1f3b5b;
+    --accent-foreground: #cae8ff;
+    --destructive: #b62324;
+    --destructive-foreground: #ffffff;
+    --border: #3d444d;
+    --input: #59636e;
+    --ring: #58a6ff;
+
+    --ci-passing: #16351f;
+    --ci-passing-foreground: #7ee787;
+    --ci-failing: #4c1f24;
+    --ci-failing-foreground: #ff9b9b;
+    --ci-pending: #3b2e0e;
+    --ci-pending-foreground: #f2cc60;
+    --review-approved: #16351f;
+    --review-approved-foreground: #7ee787;
+    --review-changes: #4c1f24;
+    --review-changes-foreground: #ff9b9b;
+    --review-awaiting: #1f3b5b;
+    --review-awaiting-foreground: #79c0ff;
+    --status-draft: #30363d;
+    --status-draft-foreground: #c9d1d9;
+    --status-unavailable: #21262d;
+    --status-unavailable-foreground: #9da7b3;
+}
+
+@theme inline {
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+    --color-card: var(--card);
+    --color-card-foreground: var(--card-foreground);
+    --color-primary: var(--primary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-secondary: var(--secondary);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-muted: var(--muted);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-accent: var(--accent);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-destructive: var(--destructive);
+    --color-destructive-foreground: var(--destructive-foreground);
+    --color-border: var(--border);
+    --color-input: var(--input);
+    --color-ring: var(--ring);
+
+    --color-ci-passing: var(--ci-passing);
+    --color-ci-passing-foreground: var(--ci-passing-foreground);
+    --color-ci-failing: var(--ci-failing);
+    --color-ci-failing-foreground: var(--ci-failing-foreground);
+    --color-ci-pending: var(--ci-pending);
+    --color-ci-pending-foreground: var(--ci-pending-foreground);
+    --color-review-approved: var(--review-approved);
+    --color-review-approved-foreground: var(--review-approved-foreground);
+    --color-review-changes: var(--review-changes);
+    --color-review-changes-foreground: var(--review-changes-foreground);
+    --color-review-awaiting: var(--review-awaiting);
+    --color-review-awaiting-foreground: var(--review-awaiting-foreground);
+    --color-status-draft: var(--status-draft);
+    --color-status-draft-foreground: var(--status-draft-foreground);
+    --color-status-unavailable: var(--status-unavailable);
+    --color-status-unavailable-foreground: var(--status-unavailable-foreground);
+
+    --font-sans:
+        system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --text-ui-xs: 0.75rem;
+    --text-ui-sm: 0.875rem;
+    --spacing-control: 2.25rem;
+    --spacing-section: 1rem;
+    --radius-sm: calc(var(--radius) - 2px);
+    --radius-md: var(--radius);
+    --radius-lg: calc(var(--radius) + 2px);
+}
