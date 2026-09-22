@@ -107,6 +107,35 @@ describe('popup state journeys', () => {
         expect(await page.$$('li img')).not.toHaveLength(0);
     });
 
+    it('preserves the legacy dark input surface cascade', async () => {
+        const page = await openSeededPopup(github, { theme: 'dark' });
+        pages.push(page);
+
+        const backgrounds = await page.evaluate(() => {
+            const background = (selector: string) => {
+                const element = document.querySelector(selector);
+                if (!element) throw new Error(`Missing element: ${selector}`);
+                return getComputedStyle(element).backgroundColor;
+            };
+
+            return {
+                search: background('input[aria-label="Search Pull Requests"]'),
+                customQuery: background(
+                    'input[aria-label="Custom GitHub search query"]'
+                ),
+                filterBar: background('.filter-bar-container'),
+                prCard: background('li'),
+            };
+        });
+
+        expect(backgrounds).toEqual({
+            search: backgrounds.filterBar,
+            customQuery: backgrounds.filterBar,
+            filterBar: backgrounds.filterBar,
+            prCard: backgrounds.filterBar,
+        });
+    });
+
     it('keeps search active after a background refresh storage reload', async () => {
         const page = await openSeededPopup(github);
         pages.push(page);

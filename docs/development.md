@@ -32,6 +32,43 @@ npm run dev
 There is currently no separate Firefox development script. Use the Firefox
 build command below and load the produced extension for Firefox validation.
 
+## Shared UI components
+
+Reusable UI primitives live in `src/components/ui/`, shared class-name helpers
+live in `src/lib/`, and semantic tokens live in `src/styles/tokens.css`. Use
+the primitives before adding feature-local button, badge, card, input,
+separator, or loading-placeholder styles. Keep generic primitives free of
+GitHub API types and browser-extension behavior; compose them in feature
+components instead.
+
+The repository's `components.json` follows the shadcn/ui Tailwind v4 setup:
+CSS variables are enabled, the Tailwind config path is intentionally empty,
+and aliases point into `src/`. To add an individual component, review the
+generated diff from the current CLI before accepting it:
+
+```sh
+npx shadcn@latest add <component>
+```
+
+Do not install the whole registry. Add Radix primitives or other component
+dependencies only when the selected component actually needs them. Preserve
+the local compact sizing, `data-slot` attributes, native element semantics,
+and existing `cn()` helper. New UI should use semantic utilities such as
+`bg-background`, `text-muted-foreground`, and `focus-visible:ring-ring`; do not
+add a second token source or hard-code theme-specific colours in components.
+
+Every interactive control needs an accessible name, a visible keyboard focus
+state, and a real disabled state where applicable. Status badges must include
+text or an accessible label in addition to colour. Loading animation must
+respect `prefers-reduced-motion`. Check new components in both root themes and
+at popup density rather than adopting page-sized dashboard defaults.
+
+Chrome and Firefox continue to share the same components. Avoid CSS or Web APIs
+that require new extension permissions or violate extension Content Security
+Policy. Do not remove the engine-specific popup sizing and scrollbar rules in
+`entrypoints/popup/style.css`; verify both production builds and perform a
+manual Firefox check when a Firefox runtime is available.
+
 ## Compile and type-check
 
 ```sh
@@ -104,6 +141,13 @@ npm run test:e2e:screenshots
 Chrome MV3 is the only runtime E2E target. Firefox MV2 remains covered by the
 build command, not browser automation. See `docs/testing.md` for the service
 worker restart gap and deterministic harness details.
+
+The component foundation has a test-build-only showcase. Build with
+`npm run build:e2e`, load the popup with the
+`?design-system-showcase=1` query parameter, and inspect Button, Badge, Card,
+Input, Separator, and Skeleton examples in simultaneous light and dark token
+scopes. The branch is gated by `import.meta.env.MODE === 'test'`, so it is not
+available in production builds and requires no manifest permission.
 
 Run unit and E2E tests together with:
 

@@ -49,6 +49,35 @@ dashboard controls, filters, empty state, and PR cards. PR links open GitHub in
 a new tab. `src/utils/dateUtils.ts` supplies age colouring, while relative-time
 formatting currently remains inside `PullRequestList.tsx`.
 
+### UI design-system foundation
+
+New shared UI is built from source-owned shadcn/ui-style primitives under
+`src/components/ui/`. `components.json` configures the shadcn CLI for the
+existing WXT/Tailwind v4 application; it uses the repository's `@/*` alias and
+the popup stylesheet rather than introducing a separate Vite application.
+Generic primitives must remain independent of GitHub models, extension APIs,
+and popup orchestration.
+
+`src/styles/tokens.css` is the authoritative source for new semantic tokens.
+It defines light and dark values for surfaces, text, actions, borders, focus,
+destructive actions, radii, compact typography/spacing, and separate CI and
+review statuses. Tailwind exposes those values through `@theme inline`, so new
+code should prefer classes such as `bg-card`, `text-foreground`, and
+`border-border` over palette-specific utilities. CI and review state remain
+separate concepts even when they share a visual colour.
+
+The token layer intentionally coexists with the legacy variables and broad
+overrides in `src/theme.css`. Shared primitives expose `data-slot` attributes;
+the small legacy-selector exclusions prevent old `!important` form and text
+rules from overriding them. Existing screens are not migrated by this
+foundation, and the legacy theme CSS should only be removed in a dedicated
+follow-up after those screens use semantic components.
+
+The existing `theme-preference` storage value remains unchanged. The resolved
+light or dark theme is still applied as `data-theme` on the root element, and
+the new tokens use that same attribute. This preserves explicit and automatic
+theme behavior without adding another theme state or persistence path.
+
 Current boundary note: filtering, sorting, search, preference persistence, and
 browser messaging are combined in `usePullRequests`. Token validation also
 fetches GitHub directly from `useAuth`. Pure domain decisions should gradually
