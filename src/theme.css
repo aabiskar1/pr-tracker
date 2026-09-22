@@ -128,7 +128,7 @@ html {
     border-color: var(--border-color) !important;
 }
 
-input:not([data-slot='input']),
+input:where(:not([data-slot='input'])),
 select,
 textarea {
     background: var(--background-primary) !important;
@@ -211,7 +211,7 @@ html[data-theme='light'] .bg-gray-900 {
 }
 
 /* Input fields and form elements - light mode */
-html[data-theme='light'] input:not([data-slot='input']),
+html[data-theme='light'] input:where(:not([data-slot='input'])),
 html[data-theme='light'] select,
 html[data-theme='light'] textarea {
     background-color: var(--input-bg) !important;
@@ -219,26 +219,27 @@ html[data-theme='light'] textarea {
     border: 1px solid var(--input-border) !important;
 }
 
-html[data-theme='light'] button:not(.bg-primary):not([data-slot='button']) {
+html[data-theme='light']
+    button:not(.bg-primary):where(:not([data-slot='button'])) {
     background-color: var(--button-bg-secondary) !important;
     color: var(--button-text-secondary) !important;
     border: 1px solid var(--border-color) !important;
 }
 
 /* Style primary buttons with appropriate text color in light mode */
-html[data-theme='light'] .bg-primary:not([data-slot='button']) {
+html[data-theme='light'] .bg-primary:where(:not([data-slot='button'])) {
     background-color: var(--link-color) !important;
     color: var(--button-text) !important;
 }
 
 html[data-theme='light']
-    .hover\:bg-primary\/90:not([data-slot='button']):hover {
+    .hover\:bg-primary\/90:where(:not([data-slot='button'])):hover {
     background-color: var(--hover-color) !important;
     opacity: 0.9 !important;
     color: var(--button-text) !important;
 }
 
-html[data-theme='light'] input:not([data-slot='input']):focus,
+html[data-theme='light'] input:where(:not([data-slot='input'])):focus,
 html[data-theme='light'] select:focus {
     border-color: var(--link-color) !important;
     outline-color: var(--link-color) !important;
@@ -247,7 +248,7 @@ html[data-theme='light'] select:focus {
 /* Headings need to have proper contrast */
 html[data-theme='light'] h1,
 html[data-theme='light'] h2,
-html[data-theme='light'] h3:not([data-slot]),
+html[data-theme='light'] h3:where(:not([data-slot])),
 html[data-theme='light'] h4,
 html[data-theme='light'] h5,
 html[data-theme='light'] h6 {
@@ -264,7 +265,7 @@ html[data-theme='light'] .text-gray-800 {
 
 /* PR item borders need better visibility in light mode */
 html[data-theme='light'] .pr-item,
-html[data-theme='light'] .border:not([data-slot]),
+html[data-theme='light'] .border:where(:not([data-slot])),
 html[data-theme='light'] .border-gray-700,
 html[data-theme='light'] .border-zinc-700 {
     border-color: var(--border-color) !important;
@@ -283,16 +284,16 @@ html[data-theme='light'] .border-zinc-700 {
 
 /* Dark theme specific overrides */
 html[data-theme='dark'] body,
-html[data-theme='dark'] p:not([data-slot]),
-html[data-theme='dark'] div:not([data-slot]),
+html[data-theme='dark'] p:where(:not([data-slot])),
+html[data-theme='dark'] div:where(:not([data-slot])),
 html[data-theme='dark'] h1,
 html[data-theme='dark'] h2,
-html[data-theme='dark'] h3:not([data-slot]),
+html[data-theme='dark'] h3:where(:not([data-slot])),
 html[data-theme='dark'] h4,
 html[data-theme='dark'] h5,
 html[data-theme='dark'] h6,
 html[data-theme='dark'] label,
-html[data-theme='dark'] span:not([data-slot]) {
+html[data-theme='dark'] span:where(:not([data-slot])) {
     color: var(--text-color) !important;
 }
 
@@ -318,15 +319,16 @@ html[data-theme='dark'] .pr-item {
     border-color: var(--border-color) !important;
 }
 
-html[data-theme='dark'] .bg-primary:not([data-slot='button']) {
+html[data-theme='dark'] .bg-primary:where(:not([data-slot='button'])) {
     background-color: var(--primary-button-bg) !important;
 }
 
-html[data-theme='dark'] .hover\:bg-primary\/90:not([data-slot='button']):hover {
+html[data-theme='dark']
+    .hover\:bg-primary\/90:where(:not([data-slot='button'])):hover {
     background-color: var(--primary-button-hover) !important;
 }
 
-html[data-theme='dark'] input:not([data-slot='input']),
+html[data-theme='dark'] input:where(:not([data-slot='input'])),
 html[data-theme='dark'] select,
 html[data-theme='dark'] textarea {
     background-color: #0d1117 !important;
@@ -334,21 +336,22 @@ html[data-theme='dark'] textarea {
     color: var(--text-color) !important;
 }
 
-html[data-theme='dark'] input:not([data-slot='input']):focus,
+html[data-theme='dark'] input:where(:not([data-slot='input'])):focus,
 html[data-theme='dark'] select:focus,
 html[data-theme='dark'] textarea:focus {
     border-color: var(--link-color) !important;
     outline-color: var(--link-color) !important;
 }
 
-html[data-theme='dark'] button:not(.bg-primary):not([data-slot='button']) {
+html[data-theme='dark']
+    button:not(.bg-primary):where(:not([data-slot='button'])) {
     background-color: #21262d !important;
     border-color: var(--border-color) !important;
     color: var(--text-color) !important;
 }
 
 html[data-theme='dark']
-    button:not(.bg-primary):not([data-slot='button']):hover {
+    button:not(.bg-primary):where(:not([data-slot='button'])):hover {
     background-color: #30363d !important;
 }
 
@@ -369,19 +372,19 @@ html[data-theme='dark']
     border: 1px solid var(--border-color) !important;
 }
 /* Enhance paragraph and description text contrast */
-html[data-theme='light'] p:not([data-slot]),
+html[data-theme='light'] p:where(:not([data-slot])),
 html[data-theme='light'] .help-text,
 html[data-theme='light'] .repo-name,
 html[data-theme='light'] .text-gray-500 {
     color: var(--text-color-secondary) !important;
 }
 
-html[data-theme='dark'] p:not([data-slot]),
-html[data-theme='dark'] div:not([data-slot]),
-html[data-theme='dark'] span:not([data-slot]),
+html[data-theme='dark'] p:where(:not([data-slot])),
+html[data-theme='dark'] div:where(:not([data-slot])),
+html[data-theme='dark'] span:where(:not([data-slot])),
 html[data-theme='dark'] h1,
 html[data-theme='dark'] h2,
-html[data-theme='dark'] h3:not([data-slot]),
+html[data-theme='dark'] h3:where(:not([data-slot])),
 html[data-theme='dark'] h4,
 html[data-theme='dark'] h5,
 html[data-theme='dark'] h6 {
