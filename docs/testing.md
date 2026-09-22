@@ -114,6 +114,13 @@ Use both when a critical rule has a pure decision core and browser wiring. Unit
 tests should exhaust the decision table; a smaller E2E scenario should prove
 that the UI, background context, storage, and browser APIs are connected.
 
+Shared UI primitives use component-level unit coverage for variants, semantic
+classes, native disabled and accessibility attributes, slot composition, and
+reduced-motion behavior. The test-build-only design-system showcase provides a
+packaged-popup fixture for generated CSS, light/dark token scopes, keyboard
+focus, and keyboard activation. It is not a production screen and must remain
+guarded by the WXT/Vite `test` mode.
+
 ## Deterministic tests and GitHub fixtures
 
 - Freeze or inject time for age buckets, refresh throttles, notification
