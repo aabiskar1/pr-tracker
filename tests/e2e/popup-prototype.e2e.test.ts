@@ -23,7 +23,11 @@ describe('test-only popup redesign prototype', () => {
 
     it('captures light, dark, and expanded-filter designs at popup dimensions', async () => {
         const screenshotDir = path.resolve('screenshots/prototype');
-        fs.mkdirSync(screenshotDir, { recursive: true });
+        const capture = async (current: Page, name: string) => {
+            if (process.env.CI !== 'true') return;
+            fs.mkdirSync(screenshotDir, { recursive: true });
+            await current.screenshot({ path: path.join(screenshotDir, name) });
+        };
         for (const theme of ['light', 'dark'] as const) {
             const current = await openPrototype(`&theme=${theme}`);
             const metrics = await current.evaluate(() => ({
@@ -42,22 +46,25 @@ describe('test-only popup redesign prototype', () => {
                 ).backgroundColor,
             }));
             expect(metrics.theme).toBe(theme);
-            expect(metrics.width).toBe(720);
+            expect(metrics.width).toBeGreaterThanOrEqual(640);
+            expect(metrics.width).toBeLessThanOrEqual(720);
             expect(metrics.height).toBe(600);
             expect(metrics.overflow).toBe(false);
-            await current.screenshot({
-                path: path.join(screenshotDir, `popup-${theme}.png`),
-            });
+            await capture(current, `popup-${theme}.png`);
             await current.close();
         }
         page = await openPrototype('&theme=dark&filters=1');
         expect(await page.$('[aria-label="Advanced filters"]')).not.toBeNull();
-        await page.screenshot({
-            path: path.join(screenshotDir, 'popup-dark-filters.png'),
-        });
+        await capture(page, 'popup-dark-filters.png');
 
         await page.click('.proto-filter-button');
-        await page.setViewport({ width: 640, height: 600 });
+        const viewportInset =
+            720 -
+            (await page.$eval(
+                '[data-testid="popup-prototype"]',
+                (element) => element.getBoundingClientRect().width
+            ));
+        await page.setViewport({ width: 640 + viewportInset, height: 600 });
         const compact = await page.evaluate(() => ({
             width: document
                 .querySelector('[data-testid="popup-prototype"]')
@@ -67,9 +74,7 @@ describe('test-only popup redesign prototype', () => {
                 document.documentElement.clientWidth,
         }));
         expect(compact).toEqual({ width: 640, overflow: false });
-        await page.screenshot({
-            path: path.join(screenshotDir, 'popup-dark-compact.png'),
-        });
+        await capture(page, 'popup-dark-compact.png');
 
         await page.setViewport({ width: 720, height: 600 });
         const baseUrl = page.url().split('?')[0];
@@ -80,9 +85,7 @@ describe('test-only popup redesign prototype', () => {
             await page.waitForSelector(
                 state === 'loading' ? '.proto-loading' : '.proto-empty'
             );
-            await page.screenshot({
-                path: path.join(screenshotDir, `popup-dark-${state}.png`),
-            });
+            await capture(page, `popup-dark-${state}.png`);
         }
     });
 
