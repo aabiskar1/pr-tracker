@@ -1,0 +1,82 @@
+[
+    {
+        "title": {
+            "size": "13px",
+            "weight": "500",
+            "lineHeight": "19.5px",
+            "color": "rgb(230, 237, 243)"
+        },
+        "badges": [
+            {
+                "color": "rgb(255, 255, 255)",
+                "background": "rgb(35, 134, 54)",
+                "weight": "400"
+            },
+            {
+                "color": "rgb(36, 41, 47)",
+                "background": "rgb(216, 179, 72)",
+                "weight": "400"
+            }
+        ]
+    },
+    {
+        "title": {
+            "size": "13px",
+            "weight": "500",
+            "lineHeight": "19.5px",
+            "color": "rgb(230, 237, 243)"
+        },
+        "badges": [
+            {
+                "color": "rgb(255, 255, 255)",
+                "background": "rgb(35, 134, 54)",
+                "weight": "400"
+            },
+            {
+                "color": "rgb(36, 41, 47)",
+                "background": "rgb(216, 179, 72)",
+                "weight": "400"
+            }
+        ]
+    },
+    {
+        "title": {
+            "size": "13px",
+            "weight": "500",
+            "lineHeight": "19.5px",
+            "color": "rgb(230, 237, 243)"
+        },
+        "badges": [
+            {
+                "color": "rgb(36, 41, 47)",
+                "background": "rgb(216, 179, 72)",
+                "weight": "400"
+            },
+            {
+                "color": "rgb(255, 255, 255)",
+                "background": "rgb(193, 60, 71)",
+                "weight": "400"
+            }
+        ]
+    },
+    {
+        "title": {
+            "size": "13px",
+            "weight": "500",
+            "lineHeight": "19.5px",
+            "color": "rgb(230, 237, 243)"
+        },
+        "badges": [
+            {
+                "color": "rgb(255, 255, 255)",
+                "background": "rgb(193, 60, 71)",
+                "weight": "400"
+            },
+            {
+                "color": "rgb(255, 255, 255)",
+                "background": "rgb(35, 134, 54)",
+                "weight": "400"
+            }
+        ]
+    }
+]

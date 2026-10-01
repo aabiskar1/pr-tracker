@@ -176,7 +176,21 @@ describe('popup state journeys', () => {
                         return {
                             title: title.textContent,
                             fontSize: style.fontSize,
+                            lineHeight: style.lineHeight,
                             weight: Number(style.fontWeight),
+                            titleContrast: (() => {
+                                const foreground = luminance(style.color);
+                                const background = luminance(
+                                    getComputedStyle(card).backgroundColor
+                                );
+                                return (
+                                    (Math.max(foreground, background) + 0.05) /
+                                    (Math.min(foreground, background) + 0.05)
+                                );
+                            })(),
+                            badgeWeights: badges.map(
+                                (badge) => getComputedStyle(badge).fontWeight
+                            ),
                             wrap: style.overflowWrap,
                             clipped: card.scrollWidth > card.clientWidth,
                             childrenFit: Array.from(
@@ -224,8 +238,11 @@ describe('popup state journeys', () => {
                     cards.some((card) => card.title?.includes(titles[1]))
                 ).toBe(true);
                 for (const card of cards) {
-                    expect(card.weight).toBeGreaterThanOrEqual(600);
-                    expect(card.fontSize).toBe('14px');
+                    expect(card.weight).toBe(500);
+                    expect(card.fontSize).toBe('13px');
+                    expect(card.lineHeight).toBe('19.5px');
+                    expect(card.titleContrast).toBeGreaterThanOrEqual(4.5);
+                    expect(card.badgeWeights).toEqual(['400', '400']);
                     expect(card.wrap).toBe('anywhere');
                     expect(card.clipped).toBe(false);
                     expect(card.childrenFit).toBe(true);

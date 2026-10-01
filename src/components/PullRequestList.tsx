@@ -96,7 +96,7 @@ export const PullRequestList: FC<PullRequestListProps> = ({
                                             </span>
                                         </div>
                                     </div>
-                                    <h3 className="pr-card-title mb-1 font-semibold leading-snug whitespace-normal text-card-foreground">
+                                    <h3 className="pr-card-title mb-1 font-medium whitespace-normal text-card-foreground">
                                         {pr.title}
                                         {pr.draft && (
                                             <Badge

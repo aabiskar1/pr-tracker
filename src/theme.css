@@ -94,8 +94,9 @@ a:hover {
 }
 
 .screen-prlist .pr-card-title {
-    color: var(--popup-foreground);
-    font-size: 0.875rem;
+    color: var(--popup-heading);
+    font-size: 0.8125rem;
+    line-height: 1.5;
     overflow-wrap: anywhere;
 }
 
@@ -156,7 +157,7 @@ a:hover {
 .screen-prlist .pr-card-accent [data-slot='badge'][data-ci-status],
 .screen-prlist .pr-card-accent [data-slot='badge'][data-review-status] {
     color: var(--popup-card-status-foreground);
-    font-weight: 500;
+    font-weight: 400;
     gap: 0.25rem;
 }
 
@@ -165,10 +166,16 @@ a:hover {
     background: var(--popup-card-status-passing);
 }
 
+.screen-prlist .pr-card-accent [data-ci-status='failing'],
+.screen-prlist .pr-card-accent [data-review-status='changes-requested'] {
+    background: var(--popup-card-status-failing);
+}
+
 .screen-prlist .pr-card-accent [data-slot='badge'][data-ci-status='pending'],
 .screen-prlist
     .pr-card-accent
     [data-slot='badge'][data-review-status='pending'] {
+    background: var(--popup-card-status-pending);
     color: var(--popup-card-status-pending-foreground);
 }
 
