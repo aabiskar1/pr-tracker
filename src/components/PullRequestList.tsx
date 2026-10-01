@@ -49,11 +49,11 @@ export const PullRequestList: FC<PullRequestListProps> = ({
                             href={pr.html_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="block p-4"
+                            className="pr-card-link block p-4"
                         >
                             <div className="flex justify-between items-start flex-wrap gap-2 w-full">
-                                <div className="flex-1">
-                                    <div className="flex items-center gap-2 mb-2 min-w-0">
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex flex-wrap items-center gap-2 mb-2 min-w-0">
                                         <Badge
                                             variant="secondary"
                                             className="popup-repo-badge max-w-[220px] shrink truncate rounded-md sm:max-w-[280px]"
@@ -88,7 +88,7 @@ export const PullRequestList: FC<PullRequestListProps> = ({
                                         </Button>
                                         {/* Age Indicator */}
                                         <div
-                                            className={`flex items-center gap-1 text-xs ${getAgeColor(pr.created_at)}`}
+                                            className={`flex shrink-0 items-center gap-1 whitespace-nowrap text-xs ${getAgeColor(pr.created_at)}`}
                                         >
                                             <FaClock size={12} />
                                             <span>
@@ -96,7 +96,7 @@ export const PullRequestList: FC<PullRequestListProps> = ({
                                             </span>
                                         </div>
                                     </div>
-                                    <h3 className="mb-1 break-words font-medium whitespace-normal text-card-foreground">
+                                    <h3 className="pr-card-title mb-1 font-semibold leading-snug whitespace-normal text-card-foreground">
                                         {pr.title}
                                         {pr.draft && (
                                             <Badge
@@ -113,6 +113,7 @@ export const PullRequestList: FC<PullRequestListProps> = ({
                                     {pr.ci_status && (
                                         <Badge
                                             data-ci-status={pr.ci_status}
+                                            aria-label={`CI: ${pr.ci_status}`}
                                             variant={
                                                 pr.ci_status === 'passing'
                                                     ? 'ciPassing'
@@ -147,6 +148,7 @@ export const PullRequestList: FC<PullRequestListProps> = ({
                                             data-review-status={
                                                 pr.review_status
                                             }
+                                            aria-label={`Review: ${pr.review_status}`}
                                             variant={
                                                 pr.review_status === 'approved'
                                                     ? 'reviewApproved'
@@ -183,7 +185,7 @@ export const PullRequestList: FC<PullRequestListProps> = ({
                             </div>
                             {/* Reviewers Section */}
                             {pr.requested_reviewers.length > 0 && (
-                                <div className="mt-3 flex items-center justify-between">
+                                <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
                                     <div className="flex items-center">
                                         <div className="flex -space-x-1 mr-2">
                                             {pr.requested_reviewers
