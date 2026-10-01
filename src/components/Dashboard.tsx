@@ -4,6 +4,8 @@ import { FilterBar, type FilterState, type SortOption } from './FilterBar';
 import { PullRequestList } from './PullRequestList';
 import ThemeSwitcher from './ThemeSwitcher';
 import type { PullRequest, ThemePreference } from '../types';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
 
 interface DashboardProps {
     globalError: string;
@@ -59,7 +61,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     toggleHidePR,
 }) => {
     return (
-        <div className="screen-prlist w-full max-w-3xl mx-auto p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
+        <div className="screen-prlist mx-auto w-full max-w-3xl rounded-lg bg-background p-4 text-foreground shadow">
             {/* Global error banner for critical errors */}
             {globalError && (
                 <div
@@ -78,17 +80,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         />
                     </svg>
                     <span className="flex-1">{globalError}</span>
-                    <button
+                    <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => setGlobalError('')}
-                        className="ml-4 text-xs underline text-gray-700 dark:text-gray-200"
+                        className="ml-4 h-auto px-0 text-xs underline"
                         aria-label="Dismiss error message"
                     >
                         Dismiss
-                    </button>
+                    </Button>
                 </div>
             )}
             <div className="flex items-center justify-between mb-4 gap-2">
-                <h2 className="flex items-center gap-2 text-2xl font-bold text-gray-800 dark:text-white">
+                <h2 className="flex items-center gap-2 text-2xl font-bold text-foreground">
                     Pull Requests
                 </h2>
                 <div className="flex flex-wrap items-center gap-2 sm:gap-3 justify-end">
@@ -96,7 +100,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         href="https://buymeacoffee.com/aabiskar1"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center text-gray-500 dark:text-gray-400 hover:text-yellow-600 dark:hover:text-yellow-500 transition-colors p-1"
+                        className="flex items-center p-1 text-muted-foreground transition-colors hover:text-foreground"
                         aria-label="Buy me a coffee"
                         title="Buy me a coffee"
                     >
@@ -121,35 +125,34 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                 notificationsEnabled ? 'true' : 'false'
                             }
                         >
-                            <span
-                                className={`toggle-track w-11 h-6 rounded-full transition-colors ${notificationsEnabled ? 'bg-green-600' : 'bg-gray-300 dark:bg-gray-600'}`}
-                            />
+                            <span className="toggle-track h-6 w-11 rounded-full transition-colors" />
                             <span
                                 className={`toggle-thumb absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition-transform transform ${notificationsEnabled ? 'translate-x-5' : 'translate-x-0'}`}
                             />
                         </button>
-                        <span className="text-sm text-gray-600 dark:text-gray-300">
+                        <span className="text-sm text-muted-foreground">
                             {notificationsEnabled
                                 ? '🔔 Alert on'
                                 : '🔕 Alert off'}
                         </span>
                     </div>
-                    <button
+                    <Button
                         onClick={refreshPullRequests}
-                        className="bg-primary text-white px-3 py-1 rounded-md hover:bg-primary/90 transition-colors inline-flex items-center gap-2"
+                        size="sm"
                         aria-label="Refresh Pull Requests"
                     >
                         <FaSync className={isLoading ? 'animate-spin' : ''} />
                         Refresh
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                         onClick={handleSignOut}
-                        className="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-3 py-1 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors inline-flex items-center gap-2"
+                        variant="secondary"
+                        size="sm"
                         aria-label="Sign Out"
                     >
                         <FaSignOutAlt />
                         Sign Out
-                    </button>
+                    </Button>
                 </div>
             </div>
             <div className="mb-4">
@@ -171,12 +174,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
             {/* Search PRs input */}
             <div className="relative mb-4 leading-none">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <FaSearch className="text-gray-400" />
+                    <FaSearch className="text-muted-foreground" />
                 </div>
-                <input
+                <Input
                     type="text"
                     placeholder="Search pull requests"
-                    className="w-full pl-10 pr-3 h-10 leading-none border rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    className="popup-search-input h-10 pl-10 pr-3 leading-none"
                     value={searchTerm}
                     onChange={handleSearch}
                     aria-label="Search Pull Requests"
@@ -187,7 +190,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
             {filteredPRs.length === 0 ? (
                 <div className="text-center py-8">
-                    <p className="text-gray-500 dark:text-gray-400">
+                    <p className="text-muted-foreground">
                         No pull requests found
                     </p>
                 </div>

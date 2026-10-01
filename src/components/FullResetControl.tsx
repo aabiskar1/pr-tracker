@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { Button } from './ui/button';
+import { Card } from './ui/card';
 
 interface FullResetControlProps {
     onConfirm: () => Promise<boolean>;
@@ -70,40 +72,41 @@ export const FullResetControl: React.FC<FullResetControlProps> = ({
 
     return (
         <>
-            <button
+            <Button
                 ref={triggerRef}
                 type="button"
                 onClick={() => {
                     setError('');
                     setIsOpen(true);
                 }}
-                className="w-full mt-4 bg-red-600 dark:bg-red-700 text-white py-2 px-4 rounded-md hover:bg-red-700 dark:hover:bg-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                variant="destructive"
+                className="mt-4 w-full"
                 aria-label="Full Reset"
                 disabled={isSubmitting}
             >
                 Full Reset
-            </button>
+            </Button>
 
             {isOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-                    <div
+                    <Card
                         role="dialog"
                         aria-modal="true"
                         aria-labelledby="full-reset-title"
                         aria-describedby="full-reset-description"
                         aria-busy={isSubmitting}
                         onKeyDown={handleDialogKeyDown}
-                        className="w-full max-w-sm rounded-xl bg-white p-5 shadow-xl dark:bg-gray-800"
+                        className="w-full max-w-sm gap-0 p-5 shadow-xl"
                     >
                         <h2
                             id="full-reset-title"
-                            className="text-xl font-bold text-gray-900 dark:text-white"
+                            className="text-xl font-bold text-card-foreground"
                         >
                             Reset PR Tracker?
                         </h2>
                         <div
                             id="full-reset-description"
-                            className="mt-3 space-y-2 text-sm text-gray-700 dark:text-gray-300"
+                            className="mt-3 space-y-2 text-sm text-muted-foreground"
                         >
                             <p>
                                 This deletes your saved GitHub token, encrypted
@@ -119,7 +122,7 @@ export const FullResetControl: React.FC<FullResetControlProps> = ({
 
                         {error && (
                             <p
-                                className="mt-4 rounded-md bg-red-100 px-3 py-2 text-sm text-red-800 dark:bg-red-950 dark:text-red-200"
+                                className="mt-4 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
                                 role="alert"
                             >
                                 {error}
@@ -127,26 +130,27 @@ export const FullResetControl: React.FC<FullResetControlProps> = ({
                         )}
 
                         <div className="mt-5 flex gap-3">
-                            <button
+                            <Button
                                 ref={cancelRef}
                                 type="button"
                                 onClick={closeDialog}
                                 disabled={isSubmitting}
-                                className="flex-1 rounded-md bg-primary px-4 py-2 font-medium text-white hover:bg-primary/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
+                                className="flex-1"
                             >
                                 Cancel
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                                 ref={confirmRef}
                                 type="button"
                                 onClick={confirmReset}
                                 disabled={isSubmitting}
-                                className="flex-1 rounded-md bg-red-600 px-4 py-2 font-medium text-white hover:bg-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 dark:bg-red-700 dark:hover:bg-red-600 dark:focus-visible:ring-offset-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
+                                variant="destructive"
+                                className="flex-1"
                             >
                                 {isSubmitting ? 'Resetting…' : 'Full Reset'}
-                            </button>
+                            </Button>
                         </div>
-                    </div>
+                    </Card>
                 </div>
             )}
         </>

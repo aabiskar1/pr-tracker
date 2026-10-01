@@ -1,458 +1,260 @@
-/* Apply theme variables to elements */
-:root {
-    --background-primary: #ffffff;
-    --text-primary: #333333;
-    --border-color: #e0e0e0;
+/*
+ * Transitional styles for production controls that do not yet map cleanly to
+ * a shared primitive. Semantic values live exclusively in styles/tokens.css.
+ */
 
-    /* Badge colors (consistent across themes) */
-    --badge-passing: #28a745;
-    --badge-failing: #cb2431;
-    --badge-pending: #dbab09;
-    --badge-approved: #28a745;
-    --badge-changes: #cb2431;
-}
-
-[data-theme='dark'] {
-    --background-primary: #1e1e1e;
-    --text-primary: #e0e0e0;
-    --border-color: #444444;
-    /* Badge colors remain unchanged */
-}
-
-/* Example usage for badges */
-.badge-passing {
-    background: var(--badge-passing);
-    color: #fff;
-}
-.badge-failing {
-    background: var(--badge-failing);
-    color: #fff;
-}
-.badge-pending {
-    background: var(--badge-pending);
-    color: #fff;
-}
-.badge-approved {
-    background: var(--badge-approved);
-    color: #fff;
-}
-.badge-changes {
-    background: var(--badge-changes);
-    color: #fff;
-}
-.badge-draft {
-    background: var(
-        --draft-badge-bg,
-        #d1d5db
-    ); /* fallback to Tailwind gray-300 */
-    color: var(--draft-badge-text, #374151); /* fallback to Tailwind gray-700 */
-}
-
-html[data-theme='dark'] .badge-draft {
-    background: var(
-        --draft-badge-bg-dark,
-        #374151
-    ); /* fallback to Tailwind gray-600 */
-    color: var(
-        --draft-badge-text-dark,
-        #d1d5db
-    ); /* fallback to Tailwind gray-300 */
-}
-
-.badge-repo {
-    background: var(
-        --repo-badge-bg,
-        #e5e7eb
-    ); /* fallback to Tailwind gray-200 */
-    color: var(--repo-badge-text, #374151); /* fallback to Tailwind gray-700 */
-}
-
-html[data-theme='dark'] .badge-repo {
-    background: var(
-        --repo-badge-bg-dark,
-        #374151
-    ); /* fallback to Tailwind gray-600 */
-    color: var(
-        --repo-badge-text-dark,
-        #d1d5db
-    ); /* fallback to Tailwind gray-300 */
-}
-
-.badge-unselected {
-    background: var(
-        --badge-unselected-bg,
-        #f3f4f6
-    ); /* fallback to Tailwind gray-100 */
-    color: var(
-        --badge-unselected-text,
-        #6b7280
-    ); /* fallback to Tailwind gray-600 */
-}
-
-html[data-theme='dark'] .badge-unselected {
-    background: var(
-        --badge-unselected-bg-dark,
-        #374151
-    ); /* fallback to Tailwind gray-700 */
-    color: var(
-        --badge-unselected-text-dark,
-        #d1d5db
-    ); /* fallback to Tailwind gray-300 */
-}
-
-body,
-html {
-    background: var(--background-primary);
-    color: var(--text-primary);
+html,
+body {
+    background: var(--popup-background);
+    color: var(--popup-foreground);
     transition:
-        background-color 0.3s ease,
-        color 0.3s ease;
+        background-color 0.2s ease,
+        color 0.2s ease;
 }
 
-/* Apply background color to specific container elements */
-.bg-white,
-.dark\:bg-gray-800,
-.rounded-lg,
-.rounded-xl,
-.w-full.max-w-md.mx-auto.p-6,
-.w-full.max-w-3xl.mx-auto.p-4 {
-    background: var(--background-primary) !important;
-    color: var(--text-primary) !important;
-    border-color: var(--border-color) !important;
-}
-
-/* Count pill theming */
-.count-pill {
-    background: var(--badge-unselected-bg, #f3f4f6) !important;
-    color: var(--badge-unselected-text, #374151) !important;
-    border-color: var(--border-color) !important;
-}
-
-input:where(:not([data-slot='input'])),
-select,
-textarea {
-    background: var(--background-primary) !important;
-    color: var(--text-primary) !important;
-    border: 1px solid var(--border-color) !important;
+@media (prefers-reduced-motion: reduce) {
+    html,
+    body {
+        transition: none;
+    }
 }
 
 a {
-    color: var(--link-color);
+    color: var(--popup-primary);
 }
 
 a:hover {
-    color: var(--hover-color);
+    color: var(--popup-primary);
 }
 
-/* Card elements */
-.card,
-.bg-gray-800,
-.bg-zinc-800 {
-    background-color: var(--card-bg) !important;
-}
-
-/* Light theme styles using data-theme attribute */
-html[data-theme='light'] {
-    --text-color: rgba(0, 0, 0, 0.87);
-    --text-color-secondary: #4b5563;
-    --bg-color: #ffffff;
-    --card-bg: #f5f5f5;
-    --hover-color: #4338ca;
-    --link-color: #5046e4;
-    --border-color: #d1d5db;
-    --label-color: #111827;
-    --input-bg: #ffffff;
-    --input-border: #d1d5db;
-    --input-text: #111827;
-    --button-text: #ffffff;
-    --button-bg-secondary: #f3f4f6;
-    --button-text-secondary: #374151;
-}
-
-/* Dark theme styles using data-theme attribute */
-html[data-theme='dark'] {
-    --text-color: #e6edf3;
-    --text-color-secondary: #8b949e;
-    --bg-color: #161b22; /* GitHub's main dark background */
-    --card-bg: #22272e; /* GitHub's card background */
-    --hover-color: #2188ff;
-    --link-color: #58a6ff;
-    --border-color: #30363d;
-    --primary-button-bg: #238636;
-    --primary-button-hover: #2ea043;
-    --label-color: #e6edf3;
-    --input-bg: #161b22;
-    --input-border: #30363d;
-    --input-text: #e6edf3;
-    --button-text: #ffffff;
-    --button-bg-secondary: #21262d;
-    --button-text-secondary: #c9d1d9;
-}
-
-/* Badge theme colors - light mode */
-html[data-theme='light'] .bg-green-900 {
-    background-color: #dcfce7 !important;
-    color: #166534 !important;
-}
-
-html[data-theme='light'] .bg-red-900 {
-    background-color: #fee2e2 !important;
-    color: #991b1b !important;
-}
-
-html[data-theme='light'] .bg-yellow-900 {
-    background-color: #fef9c3 !important;
-    color: #854d0e !important;
-}
-
-html[data-theme='light'] .bg-gray-900 {
-    background-color: #f3f4f6 !important;
-    color: #4b5563 !important;
-}
-
-/* Input fields and form elements - light mode */
-html[data-theme='light'] input:where(:not([data-slot='input'])),
-html[data-theme='light'] select,
-html[data-theme='light'] textarea {
-    background-color: var(--input-bg) !important;
-    color: var(--input-text) !important;
-    border: 1px solid var(--input-border) !important;
-}
-
-html[data-theme='light']
-    button:not(.bg-primary):where(:not([data-slot='button'])) {
-    background-color: var(--button-bg-secondary) !important;
-    color: var(--button-text-secondary) !important;
-    border: 1px solid var(--border-color) !important;
-}
-
-/* Style primary buttons with appropriate text color in light mode */
-html[data-theme='light'] .bg-primary:where(:not([data-slot='button'])) {
-    background-color: var(--link-color) !important;
-    color: var(--button-text) !important;
-}
-
-html[data-theme='light']
-    .hover\:bg-primary\/90:where(:not([data-slot='button'])):hover {
-    background-color: var(--hover-color) !important;
-    opacity: 0.9 !important;
-    color: var(--button-text) !important;
-}
-
-html[data-theme='light'] input:where(:not([data-slot='input'])):focus,
-html[data-theme='light'] select:focus {
-    border-color: var(--link-color) !important;
-    outline-color: var(--link-color) !important;
-}
-
-/* Headings need to have proper contrast */
-html[data-theme='light'] h1,
-html[data-theme='light'] h2,
-html[data-theme='light'] h3:where(:not([data-slot])),
-html[data-theme='light'] h4,
-html[data-theme='light'] h5,
-html[data-theme='light'] h6 {
-    color: var(--label-color) !important;
-}
-
-/* Improved label contrast for light theme */
-html[data-theme='light'] label,
-html[data-theme='light'] .text-gray-600,
-html[data-theme='light'] .text-gray-700,
-html[data-theme='light'] .text-gray-800 {
-    color: var(--text-color-secondary) !important;
-}
-
-/* PR item borders need better visibility in light mode */
-html[data-theme='light'] .pr-item,
-html[data-theme='light'] .border:where(:not([data-slot])),
-html[data-theme='light'] .border-gray-700,
-html[data-theme='light'] .border-zinc-700 {
-    border-color: var(--border-color) !important;
-}
-
-/* Fix scrollbar colors for both themes */
-::-webkit-scrollbar-thumb {
-    background: var(--text-color) !important;
-    opacity: 0.2 !important;
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: var(--text-color) !important;
-    opacity: 0.3 !important;
-}
-
-/* Dark theme specific overrides */
-html[data-theme='dark'] body,
-html[data-theme='dark'] p:where(:not([data-slot])),
-html[data-theme='dark'] div:where(:not([data-slot])),
-html[data-theme='dark'] h1,
-html[data-theme='dark'] h2,
-html[data-theme='dark'] h3:where(:not([data-slot])),
-html[data-theme='dark'] h4,
-html[data-theme='dark'] h5,
-html[data-theme='dark'] h6,
-html[data-theme='dark'] label,
-html[data-theme='dark'] span:where(:not([data-slot])) {
-    color: var(--text-color) !important;
-}
-
-html[data-theme='dark'] .text-gray-600,
-html[data-theme='dark'] .text-gray-700,
-html[data-theme='dark'] .text-gray-800,
-html[data-theme='dark'] .dark\:text-gray-300,
-html[data-theme='dark'] .dark\:text-gray-400 {
-    color: var(--text-color) !important;
-}
-
-html[data-theme='dark'] .help-text,
-html[data-theme='dark'] .repo-name,
-html[data-theme='dark'] .filter-group label {
-    color: #8b949e !important;
-}
-
-html[data-theme='dark'] .filter-bar {
-    background-color: var(--card-bg) !important;
-}
-
-html[data-theme='dark'] .pr-item {
-    border-color: var(--border-color) !important;
-}
-
-html[data-theme='dark'] .bg-primary:where(:not([data-slot='button'])) {
-    background-color: var(--primary-button-bg) !important;
-}
-
-html[data-theme='dark']
-    .hover\:bg-primary\/90:where(:not([data-slot='button'])):hover {
-    background-color: var(--primary-button-hover) !important;
-}
-
-html[data-theme='dark'] input:where(:not([data-slot='input'])),
-html[data-theme='dark'] select,
-html[data-theme='dark'] textarea {
-    background-color: #0d1117 !important;
-    border-color: var(--border-color) !important;
-    color: var(--text-color) !important;
-}
-
-html[data-theme='dark'] input:where(:not([data-slot='input'])):focus,
-html[data-theme='dark'] select:focus,
-html[data-theme='dark'] textarea:focus {
-    border-color: var(--link-color) !important;
-    outline-color: var(--link-color) !important;
-}
-
-html[data-theme='dark']
-    button:not(.bg-primary):where(:not([data-slot='button'])) {
-    background-color: #21262d !important;
-    border-color: var(--border-color) !important;
-    color: var(--text-color) !important;
-}
-
-html[data-theme='dark']
-    button:not(.bg-primary):where(:not([data-slot='button'])):hover {
-    background-color: #30363d !important;
-}
-
-/* Enhance toggle switch appearance for better clarity */
-/* Custom styling for the theme toggle switch */
+/* The notification control remains a purpose-built switch. */
 .theme-toggle-switch .toggle-track {
-    background-color: var(--border-color) !important;
+    background-color: var(--popup-border);
 }
 
-.theme-toggle-switch .toggle-track {
-    background-color: var(--border-color) !important;
-}
 .theme-toggle-switch[data-enabled='true'] .toggle-track {
-    background-color: #22c55e !important; /* green-500 */
+    background-color: var(--popup-notification-enabled);
 }
+
 .theme-toggle-switch .toggle-thumb {
-    background-color: var(--bg-color) !important;
-    border: 1px solid var(--border-color) !important;
-}
-/* Enhance paragraph and description text contrast */
-html[data-theme='light'] p:where(:not([data-slot])),
-html[data-theme='light'] .help-text,
-html[data-theme='light'] .repo-name,
-html[data-theme='light'] .text-gray-500 {
-    color: var(--text-color-secondary) !important;
+    background-color: var(--popup-background);
+    border: 1px solid var(--popup-border);
 }
 
-html[data-theme='dark'] p:where(:not([data-slot])),
-html[data-theme='dark'] div:where(:not([data-slot])),
-html[data-theme='dark'] span:where(:not([data-slot])),
-html[data-theme='dark'] h1,
-html[data-theme='dark'] h2,
-html[data-theme='dark'] h3:where(:not([data-slot])),
-html[data-theme='dark'] h4,
-html[data-theme='dark'] h5,
-html[data-theme='dark'] h6 {
-    color: var(--text-color) !important;
-}
-
-html[data-theme='dark'] .help-text,
-html[data-theme='dark'] .repo-name,
-html[data-theme='dark'] .text-gray-500,
-html[data-theme='dark'] .text-gray-600,
-html[data-theme='dark'] .text-gray-400 {
-    color: var(--text-color-secondary) !important;
-}
-
-/* Make the filter bar match theme properly */
-html[data-theme='light'] .filter-bar {
-    background-color: var(--card-bg) !important;
-    border: 1px solid var(--border-color) !important;
-}
-
-html[data-theme='dark'] .filter-bar {
-    background-color: var(--card-bg) !important;
-    border: 1px solid var(--border-color) !important;
-}
-
-/* Improve filter labels contrast */
-html[data-theme='light'] .filter-group label {
-    color: var(--text-color-secondary) !important;
-}
-
-html[data-theme='dark'] .filter-group label {
-    color: var(--text-color) !important;
-}
-
-/* Force override for specific Tailwind dark mode classes that might cause contrast issues */
-html[data-theme='dark'] .dark\:text-white,
-html[data-theme='dark'] .dark\:text-gray-300,
-html[data-theme='dark'] .dark\:text-gray-400 {
-    color: var(--text-color) !important;
-}
-
-/* Fix: Allow Tailwind color utilities for icons in dark mode */
-html[data-theme='dark'] .text-green-500 {
-    color: #22c55e !important;
-}
-html[data-theme='dark'] .text-yellow-500 {
-    color: #eab308 !important;
-}
-html[data-theme='dark'] .text-red-500 {
-    color: #ef4444 !important;
-}
-
-html[data-theme='dark'] .dark\:bg-gray-700,
-html[data-theme='dark'] .dark\:bg-gray-800 {
-    background-color: var(--card-bg) !important;
-}
-
+/* Existing alert markup remains shared by authentication and dashboard errors. */
 .error-message {
-    background: var(--error-bg, #fee2e2); /* fallback to Tailwind red-100 */
-    color: var(--error-text, #b91c1c); /* fallback to Tailwind red-800 */
-    border: 1px solid var(--error-border, #fca5a5); /* fallback to Tailwind red-400 */
+    background: var(--popup-error-background);
+    color: var(--popup-error-foreground);
+    border: 1px solid var(--popup-error-border);
 }
 
-html[data-theme='dark'] .error-message {
-    background: var(
-        --error-bg-dark,
-        #7f1d1d
-    ); /* fallback to Tailwind red-900 */
-    color: var(--error-text-dark, #fca5a5); /* fallback to Tailwind red-200 */
-    border: 1px solid var(--error-border-dark, #f87171); /* fallback to Tailwind red-400 */
+/* Original production popup treatment; shared primitives retain their own tokens. */
+.screen-prlist,
+.screen-auth {
+    background: var(--popup-background);
+    color: var(--popup-foreground);
+}
+
+.screen-prlist h2,
+.screen-prlist li h3,
+.screen-auth h2 {
+    color: var(--popup-heading);
+}
+
+.screen-auth p {
+    color: var(--popup-auth-description);
+}
+
+.screen-auth a {
+    color: var(--popup-link);
+}
+
+.screen-auth > div:first-child svg {
+    color: var(--popup-heading);
+}
+
+.screen-prlist .filter-bar-container {
+    background: var(--popup-surface);
+    color: var(--popup-filter-foreground);
+    border-color: var(--popup-border);
+    border-radius: 4px;
+    padding: 0.15rem 0.4rem;
+    gap: 0.6rem;
+}
+
+.screen-prlist .pr-card-accent {
+    background: var(--popup-surface);
+    color: var(--popup-foreground);
+    border-color: var(--popup-border);
+    border-radius: 4px;
+}
+
+.screen-prlist .pr-card-accent.bg-muted {
+    background: var(--popup-draft-surface);
+}
+
+.screen-prlist .popup-repo-badge {
+    padding: 0.125rem 0.35rem;
+    border: 0;
+    background: var(--popup-repo);
+    color: var(--popup-repo-foreground);
+    line-height: 16px;
+}
+
+.screen-prlist .popup-draft-badge {
+    padding: 0.125rem 0.35rem;
+    border: 0;
+    background: var(--popup-draft);
+    color: var(--popup-draft-foreground);
+    border-radius: 4px;
+    line-height: 16px;
+}
+
+.screen-prlist [data-slot='badge'][data-ci-status]:not([data-selected='false']),
+.screen-prlist
+    [data-slot='badge'][data-review-status]:not([data-selected='false']) {
+    padding: 0.15rem 0.4rem;
+    border: 0;
+    color: var(--popup-status-foreground);
+    line-height: 16px;
+    font-weight: 400;
+}
+
+.screen-prlist [data-ci-status='passing']:not([data-selected='false']),
+.screen-prlist [data-review-status='approved']:not([data-selected='false']) {
+    background: var(--popup-status-passing);
+}
+
+.screen-prlist [data-ci-status='failing']:not([data-selected='false']),
+.screen-prlist
+    [data-review-status='changes-requested']:not([data-selected='false']) {
+    background: var(--popup-status-failing);
+}
+
+.screen-prlist [data-ci-status='pending']:not([data-selected='false']),
+.screen-prlist [data-review-status='pending']:not([data-selected='false']) {
+    background: var(--popup-status-pending);
+}
+
+.screen-prlist .filter-bar-container [data-slot='badge'][data-ci-status],
+.screen-prlist .filter-bar-container [data-slot='badge'][data-review-status] {
+    border-radius: 4px;
+    padding: 0.125rem 0.35rem;
+}
+
+.screen-prlist select {
+    background: var(--popup-surface);
+    color: var(--popup-heading);
+    border-color: var(--popup-border);
+}
+
+.screen-prlist .popup-search-input,
+.screen-prlist .custom-query-input,
+.screen-auth input[data-slot='input'] {
+    background: var(--popup-surface);
+    color: var(--popup-input-foreground);
+    border-color: var(--popup-border);
+    box-shadow: none;
+}
+
+.screen-prlist .popup-search-input::placeholder,
+.screen-prlist .custom-query-input::placeholder,
+.screen-auth input[data-slot='input']::placeholder {
+    color: color-mix(in oklab, var(--popup-input-foreground) 50%, transparent);
+}
+
+.screen-prlist .popup-search-input {
+    height: 40px;
+    padding-top: 0.35rem;
+    padding-bottom: 0.35rem;
+}
+
+.screen-prlist .custom-query-input {
+    height: 29px;
+    padding-top: 0.35rem;
+    padding-bottom: 0.35rem;
+}
+
+.screen-auth input[data-slot='input'] {
+    height: 31px;
+}
+
+.screen-prlist button[data-slot='button'][aria-label='Refresh Pull Requests'],
+.screen-prlist
+    button[data-slot='button'][aria-label='Save custom search query'],
+.screen-auth button[data-slot='button'][type='submit'] {
+    background: var(--popup-primary);
+    color: var(--popup-primary-foreground);
+}
+
+.screen-prlist
+    button[data-slot='button'][aria-label='Save custom search query']:disabled {
+    opacity: 1;
+}
+
+.screen-prlist button[data-slot='button'][aria-label='Refresh Pull Requests'],
+.screen-prlist button[data-slot='button'][aria-label='Sign Out'],
+.screen-prlist
+    button[data-slot='button'][aria-label='Save custom search query'],
+.screen-prlist
+    .filter-bar-container
+    button[data-slot='button']:not([aria-label]),
+.screen-auth button[data-slot='button'][type='submit'] {
+    height: 22px;
+    padding: 2px 0.75rem;
+    font-size: 12px;
+    line-height: 18px;
+    font-weight: 400;
+}
+
+.screen-auth button[data-slot='button'][type='submit'] {
+    height: 34px;
+}
+
+.screen-prlist button[data-slot='button'][aria-label='Sign Out'],
+.screen-prlist
+    .filter-bar-container
+    button[data-slot='button']:not([aria-label]) {
+    background: var(--popup-secondary);
+    color: var(--popup-secondary-foreground);
+    border: 1px solid var(--popup-border);
+}
+
+.screen-prlist
+    .filter-bar-container
+    button[data-slot='button']:not([aria-label]) {
+    height: 25px;
+    font-size: 0.85rem;
+    line-height: 1.4286;
+}
+
+.screen-prlist .pr-card-accent button[data-slot='button'][aria-label='Hide PR'],
+.screen-prlist
+    .pr-card-accent
+    button[data-slot='button'][aria-label='Unhide PR'] {
+    width: 20px;
+    height: 20px;
+    padding: 4px;
+    background: var(--popup-secondary);
+    color: var(--popup-secondary-foreground);
+    border: 1px solid var(--popup-border);
+}
+
+.screen-prlist button[data-slot='button'][aria-label='Refresh Pull Requests'],
+.screen-prlist button[data-slot='button'][aria-label='Sign Out'] {
+    gap: 0.4rem;
+}
+
+.screen-prlist .popup-filter-check[data-selected='true'] {
+    background: var(--popup-primary);
+    border-color: var(--popup-primary);
+    color: var(--popup-primary-foreground);
+}
+
+.screen-prlist a[aria-label='Buy me a coffee'] {
+    color: var(--popup-heading);
+}
+
+.screen-prlist .theme-toggle-switch + span {
+    color: var(--popup-heading);
 }

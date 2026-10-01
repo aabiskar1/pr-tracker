@@ -1,37 +1,25 @@
 import { useState, useEffect } from 'react';
 import {
-    getStoredTheme,
+    getInitializedTheme,
+    listenToSystemThemeChanges,
     setStoredTheme as setStoredThemeService,
     applyTheme,
     type ThemePreference,
 } from '../services/themeManager';
 
 export function useTheme() {
-    const [theme, setTheme] = useState<ThemePreference>('auto');
+    const [theme, setTheme] = useState<ThemePreference>(getInitializedTheme);
 
     useEffect(() => {
-        let mediaQuery: MediaQueryList | null = null;
-        let handler: ((e: MediaQueryListEvent) => void) | null = null;
-        getStoredTheme().then((storedTheme) => {
-            setTheme(storedTheme);
-            applyTheme(storedTheme);
-            if (storedTheme === 'auto') {
-                mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-                handler = () => applyTheme('auto');
-                mediaQuery.addEventListener('change', handler);
-            }
-        });
+        applyTheme(theme);
+        if (theme !== 'auto') return;
 
-        return () => {
-            if (mediaQuery && handler)
-                mediaQuery.removeEventListener('change', handler);
-        };
-    }, []);
+        return listenToSystemThemeChanges(() => applyTheme('auto'));
+    }, [theme]);
 
     const handleThemeChange = async (newTheme: ThemePreference) => {
         setTheme(newTheme);
         await setStoredThemeService(newTheme);
-        applyTheme(newTheme);
     };
 
     return { theme, handleThemeChange };

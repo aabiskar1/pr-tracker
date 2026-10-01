@@ -100,6 +100,32 @@ describe('preference persistence journeys', () => {
         ).toBe('dark');
     });
 
+    it('follows system changes after switching from an explicit theme to automatic', async () => {
+        const page = await openSeededPopup(github, { theme: 'light' });
+        pages.push(page);
+        await page.emulateMediaFeatures([
+            { name: 'prefers-color-scheme', value: 'dark' },
+        ]);
+        await page.select('[aria-label="Theme selector"]', 'auto');
+        await page.waitForFunction(
+            () => document.documentElement.getAttribute('data-theme') === 'dark'
+        );
+
+        await page.emulateMediaFeatures([
+            { name: 'prefers-color-scheme', value: 'light' },
+        ]);
+        await page.waitForFunction(
+            () =>
+                document.documentElement.getAttribute('data-theme') === 'light'
+        );
+
+        expect(
+            await page.evaluate(() =>
+                chrome.storage.local.get('theme-preference')
+            )
+        ).toEqual({ 'theme-preference': 'auto' });
+    });
+
     it('persists hide and unhide state across popup reloads', async () => {
         const page = await openSeededPopup(github);
         pages.push(page);

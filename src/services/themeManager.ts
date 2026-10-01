@@ -2,6 +2,7 @@ import browser from 'webextension-polyfill';
 import { ThemeStorageSchema } from './storageSchemas';
 
 const THEME_KEY = 'theme-preference'; // 'light', 'dark', or 'auto'
+let initializedTheme: ThemePreference | undefined;
 
 export type ThemePreference = 'light' | 'dark' | 'auto';
 
@@ -27,12 +28,30 @@ export function applyTheme(theme: ThemePreference) {
     document.documentElement.setAttribute('data-theme', effectiveTheme);
 }
 
+export async function initializeTheme(): Promise<ThemePreference> {
+    let theme: ThemePreference = 'auto';
+    try {
+        theme = await getStoredTheme();
+    } catch {
+        // A storage failure must not prevent the popup from mounting.
+    }
+    initializedTheme = theme;
+    applyTheme(theme);
+    return theme;
+}
+
+export function getInitializedTheme(): ThemePreference {
+    return initializedTheme ?? 'auto';
+}
+
 export function listenToSystemThemeChanges(
     callback: (theme: 'light' | 'dark') => void
 ) {
-    window
-        .matchMedia('(prefers-color-scheme: dark)')
-        .addEventListener('change', (e) => {
-            callback(e.matches ? 'dark' : 'light');
-        });
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handler = (event: MediaQueryListEvent) => {
+        callback(event.matches ? 'dark' : 'light');
+    };
+    mediaQuery.addEventListener('change', handler);
+
+    return () => mediaQuery.removeEventListener('change', handler);
 }

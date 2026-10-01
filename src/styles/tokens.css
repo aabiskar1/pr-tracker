@@ -1,8 +1,8 @@
 /*
  * PR Tracker design-system tokens.
  *
- * These semantic variables are the source of truth for new UI primitives.
- * Legacy variables remain in src/theme.css until existing screens are migrated.
+ * These semantic variables are the source of truth for shared primitives and
+ * migrated production UI.
  */
 :root,
 [data-theme='light'] {
@@ -42,6 +42,38 @@
     --status-draft-foreground: #3d444d;
     --status-unavailable: #f6f8fa;
     --status-unavailable-foreground: #59636e;
+    --age-recent-foreground: oklch(0.723 0.219 149.579);
+    --age-warning-foreground: oklch(0.795 0.184 86.047);
+    --age-stale-foreground: oklch(0.637 0.237 25.331);
+
+    /* Original popup treatment, scoped to production screens. */
+    --popup-background: #ffffff;
+    --popup-surface: #ffffff;
+    --popup-draft-surface: #ffffff;
+    --popup-foreground: #333333;
+    --popup-heading: #4b5563;
+    --popup-filter-foreground: #333333;
+    --popup-subtle: #4b5563;
+    --popup-auth-description: #4b5563;
+    --popup-link: #5046e4;
+    --popup-input-foreground: #111827;
+    --popup-border: #d1d5db;
+    --popup-primary: #5046e4;
+    --popup-primary-foreground: #ffffff;
+    --popup-secondary: #f3f4f6;
+    --popup-secondary-foreground: #374151;
+    --popup-repo: #e5e7eb;
+    --popup-repo-foreground: #374151;
+    --popup-draft: #d1d5db;
+    --popup-draft-foreground: #374151;
+    --popup-status-passing: #28a745;
+    --popup-status-failing: #cb2431;
+    --popup-status-pending: #dbab09;
+    --popup-status-foreground: #ffffff;
+    --popup-notification-enabled: #22c55e;
+    --popup-error-background: #fee2e2;
+    --popup-error-foreground: #b91c1c;
+    --popup-error-border: #fca5a5;
 
     --radius: 0.375rem;
 }
@@ -83,6 +115,36 @@
     --status-draft-foreground: #c9d1d9;
     --status-unavailable: #21262d;
     --status-unavailable-foreground: #9da7b3;
+    --age-recent-foreground: #22c55e;
+    --age-warning-foreground: #eab308;
+    --age-stale-foreground: #ef4444;
+    --popup-background: #1e1e1e;
+    --popup-surface: #22272e;
+    --popup-draft-surface: #1e1e1e;
+    --popup-foreground: #e0e0e0;
+    --popup-heading: #e6edf3;
+    --popup-filter-foreground: #e6edf3;
+    --popup-subtle: #8b949e;
+    --popup-auth-description: #e6edf3;
+    --popup-link: #58a6ff;
+    --popup-input-foreground: #e6edf3;
+    --popup-border: #30363d;
+    --popup-primary: #238636;
+    --popup-primary-foreground: #ffffff;
+    --popup-secondary: #21262d;
+    --popup-secondary-foreground: #e6edf3;
+    --popup-repo: #374151;
+    --popup-repo-foreground: #d1d5db;
+    --popup-draft: #374151;
+    --popup-draft-foreground: #d1d5db;
+    --popup-status-passing: #28a745;
+    --popup-status-failing: #cb2431;
+    --popup-status-pending: #dbab09;
+    --popup-status-foreground: #e6edf3;
+    --popup-notification-enabled: #22c55e;
+    --popup-error-background: #7f1d1d;
+    --popup-error-foreground: #e6edf3;
+    --popup-error-border: #f87171;
 }
 
 @theme inline {
@@ -120,6 +182,9 @@
     --color-status-draft-foreground: var(--status-draft-foreground);
     --color-status-unavailable: var(--status-unavailable);
     --color-status-unavailable-foreground: var(--status-unavailable-foreground);
+    --color-age-recent-foreground: var(--age-recent-foreground);
+    --color-age-warning-foreground: var(--age-warning-foreground);
+    --color-age-stale-foreground: var(--age-stale-foreground);
 
     --font-sans:
         system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;

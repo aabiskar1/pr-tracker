@@ -2,8 +2,10 @@ import browser from 'webextension-polyfill';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     applyTheme,
+    getInitializedTheme,
     getStoredTheme,
     getSystemTheme,
+    initializeTheme,
     listenToSystemThemeChanges,
     setStoredTheme,
 } from '../../src/services/themeManager';
@@ -112,7 +114,7 @@ describe('theme persistence', () => {
     it('maps system theme change events to light and dark values', () => {
         const callback = vi.fn();
 
-        listenToSystemThemeChanges(callback);
+        const stopListening = listenToSystemThemeChanges(callback);
         const listener = addEventListener.mock.calls[0][1] as (event: {
             matches: boolean;
         }) => void;
@@ -120,5 +122,28 @@ describe('theme persistence', () => {
         listener({ matches: false });
 
         expect(callback.mock.calls).toEqual([['dark'], ['light']]);
+
+        stopListening();
+        expect(removeEventListener).toHaveBeenCalledWith('change', listener);
+    });
+
+    it('initializes the persisted theme before the popup mounts', async () => {
+        themeStorage.values['theme-preference'] = 'dark';
+
+        await expect(initializeTheme()).resolves.toBe('dark');
+
+        expect(getInitializedTheme()).toBe('dark');
+        expect(setAttribute).toHaveBeenLastCalledWith('data-theme', 'dark');
+    });
+
+    it('falls back to automatic theme when storage cannot be read', async () => {
+        vi.mocked(browser.storage.local.get).mockRejectedValueOnce(
+            new Error('storage unavailable')
+        );
+
+        await expect(initializeTheme()).resolves.toBe('auto');
+
+        expect(getInitializedTheme()).toBe('auto');
+        expect(setAttribute).toHaveBeenLastCalledWith('data-theme', 'light');
     });
 });
