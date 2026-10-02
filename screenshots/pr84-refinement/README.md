@@ -1,5 +1,7 @@
 # PR #84 visual comparison
 
+These captures document refinement `6a62980`. The later [status badge regression fix](../pr84-badge-fix/README.md) supersedes its pending badge foreground and fill.
+
 Compare the same packaged popup fixtures on main (`871cb50`), the previous PR #84 head (`0acd110`), and this refinement. All captures use Chrome headless, device scale 1, reduced motion, fixed popup time (`2026-10-01T12:00:00Z`), and `POPULATED_PRS` restored after startup refresh so all six badge states are present. Main was built in an isolated archive with the existing dependencies.
 
 Normal captures use 750 x 600; wrapping captures use 640 x 600. The wrapping fixture repeats a sentence four times on the first PR and an unbroken string thirty times on the dashboard-components PR. PNGs capture the full page; accompanying JSON records computed title and badge styles.

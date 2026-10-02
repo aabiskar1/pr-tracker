@@ -191,6 +191,38 @@ describe('popup state journeys', () => {
                             badgeWeights: badges.map(
                                 (badge) => getComputedStyle(badge).fontWeight
                             ),
+                            badgePresentation: badges.map((badge) => {
+                                const computed = getComputedStyle(badge);
+                                const bounds = badge.getBoundingClientRect();
+                                return {
+                                    size: computed.fontSize,
+                                    lineHeight: computed.lineHeight,
+                                    foreground: computed.color,
+                                    textColours: Array.from(
+                                        badge.querySelectorAll('span')
+                                    ).map(
+                                        (text) => getComputedStyle(text).color
+                                    ),
+                                    icons: Array.from(
+                                        badge.querySelectorAll('svg')
+                                    ).map((icon) => {
+                                        const style = getComputedStyle(icon);
+                                        const rect =
+                                            icon.getBoundingClientRect();
+                                        return {
+                                            colour: style.color,
+                                            fill: style.fill,
+                                            width: rect.width,
+                                            height: rect.height,
+                                            centerOffset:
+                                                rect.top +
+                                                rect.height / 2 -
+                                                (bounds.top +
+                                                    bounds.height / 2),
+                                        };
+                                    }),
+                                };
+                            }),
                             wrap: style.overflowWrap,
                             clipped: card.scrollWidth > card.clientWidth,
                             childrenFit: Array.from(
@@ -243,6 +275,25 @@ describe('popup state journeys', () => {
                     expect(card.lineHeight).toBe('19.5px');
                     expect(card.titleContrast).toBeGreaterThanOrEqual(4.5);
                     expect(card.badgeWeights).toEqual(['400', '400']);
+                    for (const badge of card.badgePresentation) {
+                        expect(badge.size).toBe('12px');
+                        expect(badge.lineHeight).toBe('16px');
+                        expect(badge.foreground).toBe('rgb(255, 255, 255)');
+                        expect(badge.textColours).toEqual([
+                            badge.foreground,
+                            badge.foreground,
+                        ]);
+                        expect(badge.icons).toHaveLength(2);
+                        for (const icon of badge.icons) {
+                            expect(icon.colour).toBe(badge.foreground);
+                            expect(icon.fill).toBe(badge.foreground);
+                            expect(icon.width).toBe(12);
+                            expect(icon.height).toBe(12);
+                            expect(Math.abs(icon.centerOffset)).toBeLessThan(
+                                0.1
+                            );
+                        }
+                    }
                     expect(card.wrap).toBe('anywhere');
                     expect(card.clipped).toBe(false);
                     expect(card.childrenFit).toBe(true);

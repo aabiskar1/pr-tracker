@@ -72,9 +72,8 @@
     --popup-status-foreground: #ffffff;
     --popup-card-status-passing: #238636;
     --popup-card-status-failing: #c13c47;
-    --popup-card-status-pending: #d8b348;
+    --popup-card-status-pending: #947000;
     --popup-card-status-foreground: #ffffff;
-    --popup-card-status-pending-foreground: #24292f;
     --popup-notification-enabled: #22c55e;
     --popup-error-background: #fee2e2;
     --popup-error-foreground: #b91c1c;

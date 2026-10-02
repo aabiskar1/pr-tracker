@@ -157,8 +157,17 @@ a:hover {
 .screen-prlist .pr-card-accent [data-slot='badge'][data-ci-status],
 .screen-prlist .pr-card-accent [data-slot='badge'][data-review-status] {
     color: var(--popup-card-status-foreground);
+    font-size: 0.75rem;
     font-weight: 400;
+    line-height: 16px;
     gap: 0.25rem;
+}
+
+.screen-prlist .pr-card-accent [data-slot='badge'][data-ci-status] svg,
+.screen-prlist .pr-card-accent [data-slot='badge'][data-review-status] svg {
+    color: inherit;
+    fill: currentColor;
+    top: 0;
 }
 
 .screen-prlist .pr-card-accent [data-ci-status='passing'],
@@ -176,7 +185,6 @@ a:hover {
     .pr-card-accent
     [data-slot='badge'][data-review-status='pending'] {
     background: var(--popup-card-status-pending);
-    color: var(--popup-card-status-pending-foreground);
 }
 
 .screen-prlist .filter-bar-container [data-slot='badge'][data-ci-status],
