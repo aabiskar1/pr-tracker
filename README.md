@@ -2,6 +2,13 @@
   <img src="docs/assets/branding/watchtower-hero.png" alt="PR Tracker — Keep every pull request in sight. Watchtower branding illustration." width="800" />
 </p>
 
+<p align="center">
+  <a href="https://chromewebstore.google.com/detail/pr-tracker/kfeglmkcicfmegclihokchplngcokgil"><img src="https://img.shields.io/badge/Chrome_Web_Store-Install-4285F4" alt="Install from Chrome Web Store" /></a>
+  <a href="https://addons.mozilla.org/en-US/firefox/addon/pr-tracker/"><img src="https://img.shields.io/badge/Firefox_Add--ons-Install-FF7139" alt="Install from Firefox Add-ons" /></a>
+  <a href="https://github.com/aabiskar1/pr-tracker/actions/workflows/build.yml"><img src="https://github.com/aabiskar1/pr-tracker/actions/workflows/build.yml/badge.svg?branch=main" alt="Build and test status on main" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green" alt="MIT License" /></a>
+</p>
+
 **PR Tracker** is a browser extension for Chrome and Firefox that brings your
 GitHub pull requests and review requests into one compact popup. Check review
 and CI status, find the PRs that need your attention, and see when GitHub was
