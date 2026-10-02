@@ -26,7 +26,7 @@ export function LastChecked({
     return (
         <span
             data-testid="last-checked"
-            className="text-xs text-muted-foreground"
+            className="min-w-0 flex-1 text-right text-xs leading-tight text-muted-foreground"
             aria-label={
                 label === 'Not checked yet'
                     ? label

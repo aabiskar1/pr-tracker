@@ -1,5 +1,6 @@
 import React from 'react';
-import { FaSync, FaSignOutAlt, FaSearch, FaCoffee } from 'react-icons/fa';
+import browser from 'webextension-polyfill';
+import { FaSync, FaSignOutAlt, FaSearch } from 'react-icons/fa';
 import { FilterBar, type FilterState, type SortOption } from './FilterBar';
 import { PullRequestList } from './PullRequestList';
 import { Settings } from './Settings';
@@ -94,55 +95,67 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </Button>
                 </div>
             )}
-            <header className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <header className="popup-header mb-4 grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-1.5">
                 <div className="flex shrink-0 items-center gap-2">
-                    <h2 className="text-2xl font-bold text-foreground">
+                    <h2 className="whitespace-nowrap text-xl font-bold text-foreground">
                         Pull Requests
                     </h2>
-                    <a
-                        href="https://buymeacoffee.com/aabiskar1"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="rounded p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        aria-label="Buy me a coffee"
-                        title="Buy me a coffee"
-                    >
-                        <FaCoffee size={16} aria-hidden="true" />
-                    </a>
-                </div>
-                <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-                    <div className="flex items-center gap-2">
-                        <LastChecked
-                            lastSuccessfulRefreshAt={lastSuccessfulRefreshAt}
-                        />
-                        <Button
-                            onClick={refreshPullRequests}
-                            size="sm"
-                            aria-label="Refresh Pull Requests"
-                        >
-                            <FaSync
-                                aria-hidden="true"
-                                className={isLoading ? 'animate-spin' : ''}
-                            />
-                            Refresh
-                        </Button>
-                    </div>
-                    <Settings
-                        theme={theme}
-                        onThemeChange={handleThemeChange}
-                        notificationsEnabled={notificationsEnabled}
-                        onToggleNotifications={handleToggleNotifications}
-                    />
                     <Button
-                        onClick={handleSignOut}
                         variant="secondary"
                         size="sm"
-                        aria-label="Sign Out"
+                        aria-label="Support PR Tracker"
+                        title="Support PR Tracker on Buy Me a Coffee (opens a new tab)"
+                        onClick={() => {
+                            void browser.tabs
+                                .create({
+                                    url: 'https://buymeacoffee.com/aabiskar1',
+                                    active: true,
+                                })
+                                .catch((error) => {
+                                    console.error(
+                                        'Could not open support page:',
+                                        error
+                                    );
+                                    setGlobalError(
+                                        'Unable to open the support page. Please try again.'
+                                    );
+                                });
+                        }}
                     >
-                        <FaSignOutAlt aria-hidden="true" />
-                        Sign Out
+                        Support
                     </Button>
                 </div>
+                <div className="flex min-w-0 items-center gap-1.5">
+                    <LastChecked
+                        lastSuccessfulRefreshAt={lastSuccessfulRefreshAt}
+                    />
+                    <Button
+                        onClick={refreshPullRequests}
+                        size="sm"
+                        aria-label="Refresh Pull Requests"
+                    >
+                        <FaSync
+                            aria-hidden="true"
+                            className={isLoading ? 'animate-spin' : ''}
+                        />
+                        Refresh
+                    </Button>
+                </div>
+                <Settings
+                    theme={theme}
+                    onThemeChange={handleThemeChange}
+                    notificationsEnabled={notificationsEnabled}
+                    onToggleNotifications={handleToggleNotifications}
+                />
+                <Button
+                    onClick={handleSignOut}
+                    variant="secondary"
+                    size="sm"
+                    aria-label="Sign Out"
+                >
+                    <FaSignOutAlt aria-hidden="true" />
+                    Sign Out
+                </Button>
             </header>
             <div className="mb-4">
                 <FilterBar

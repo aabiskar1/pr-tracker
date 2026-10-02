@@ -251,10 +251,14 @@ a:hover {
     color: var(--popup-primary-foreground);
 }
 
-.screen-prlist a[aria-label='Buy me a coffee'] {
+.screen-prlist .theme-toggle-switch + span {
     color: var(--popup-heading);
 }
 
-.screen-prlist .theme-toggle-switch + span {
-    color: var(--popup-heading);
+/* Keep header actions compact with a comfortable click target. */
+.screen-prlist .popup-header button[data-slot='button'] {
+    flex-shrink: 0;
+    height: 28px;
+    padding: 2px 0.5rem;
+    gap: 0.25rem;
 }

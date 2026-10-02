@@ -51,7 +51,7 @@ export function Settings({
     return (
         <div
             ref={containerRef}
-            className="relative"
+            className="relative shrink-0"
             onBlur={(event) => {
                 if (!event.currentTarget.contains(event.relatedTarget))
                     setOpen(false);

@@ -35,49 +35,78 @@ describe('preference persistence journeys', () => {
             const page = await openSeededPopup(github, { theme });
             pages.push(page);
             for (const width of [640, 750]) {
-                await page.setViewport({ width, height: 600 });
-                const layout = await page.evaluate(() => {
-                    const header = document.querySelector('header')!;
-                    const title = header
-                        .querySelector('h2')!
-                        .getBoundingClientRect();
-                    const refresh = header
-                        .querySelector('[aria-label="Refresh Pull Requests"]')!
-                        .getBoundingClientRect();
-                    const checked = header.querySelector(
-                        '[data-testid="last-checked"]'
-                    )!;
-                    return {
-                        sameRow:
-                            Math.abs(
-                                (title.top + title.bottom) / 2 -
-                                    (refresh.top + refresh.bottom) / 2
-                            ) < 2,
-                        fits: header.scrollWidth <= header.clientWidth,
-                        adjacent:
-                            checked.nextElementSibling?.getAttribute(
-                                'aria-label'
-                            ),
-                        themeControls: header.querySelectorAll(
-                            '[aria-label="Theme selector"]'
-                        ).length,
-                        switches:
-                            header.querySelectorAll('[role="switch"]').length,
-                    };
-                });
-                expect(layout).toEqual({
-                    sameRow: true,
-                    fits: true,
-                    adjacent: 'Refresh Pull Requests',
-                    themeControls: 0,
-                    switches: 0,
-                });
+                for (const fontFamily of [
+                    'system-ui',
+                    'Arial, sans-serif',
+                    'monospace',
+                ]) {
+                    await page.setViewport({ width, height: 600 });
+                    await page.evaluate((font) => {
+                        document.querySelector<HTMLElement>(
+                            'header'
+                        )!.style.fontFamily = font;
+                    }, fontFamily);
+                    const layout = await page.evaluate(() => {
+                        const header = document.querySelector('header')!;
+                        const title = header
+                            .querySelector('h2')!
+                            .getBoundingClientRect();
+
+                        const checked = header.querySelector(
+                            '[data-testid="last-checked"]'
+                        )!;
+                        const checkedRect = checked.getBoundingClientRect();
+                        const textRange = document.createRange();
+                        textRange.selectNodeContents(checked);
+                        return {
+                            sameRow: Array.from(
+                                header.querySelectorAll(
+                                    'button[data-slot="button"], [data-testid="last-checked"]'
+                                )
+                            ).every((element) => {
+                                const rect = element.getBoundingClientRect();
+                                return (
+                                    Math.abs(
+                                        (title.top + title.bottom) / 2 -
+                                            (rect.top + rect.bottom) / 2
+                                    ) < 2
+                                );
+                            }),
+                            fits: header.scrollWidth <= header.clientWidth,
+                            freshnessReadable:
+                                checkedRect.width > 0 &&
+                                Array.from(textRange.getClientRects()).every(
+                                    (rect) =>
+                                        rect.left >= checkedRect.left - 1 &&
+                                        rect.right <= checkedRect.right + 1
+                                ),
+                            adjacent:
+                                checked.nextElementSibling?.getAttribute(
+                                    'aria-label'
+                                ),
+                            themeControls: header.querySelectorAll(
+                                '[aria-label="Theme selector"]'
+                            ).length,
+                            switches:
+                                header.querySelectorAll('[role="switch"]')
+                                    .length,
+                        };
+                    });
+                    expect(layout).toEqual({
+                        sameRow: true,
+                        fits: true,
+                        freshnessReadable: true,
+                        adjacent: 'Refresh Pull Requests',
+                        themeControls: 0,
+                        switches: 0,
+                    });
+                }
             }
             expect(
                 await page.$('header [aria-label="Sign Out"]')
             ).not.toBeNull();
             expect(
-                await page.$('header [aria-label="Buy me a coffee"]')
+                await page.$('header [aria-label="Support PR Tracker"]')
             ).not.toBeNull();
 
             await page.focus('[aria-label="Settings"]');

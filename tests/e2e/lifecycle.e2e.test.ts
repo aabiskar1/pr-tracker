@@ -255,18 +255,58 @@ describe('sign-out, reset, and popup lifecycle journeys', () => {
         expect(github.requests.length).toBeGreaterThan(1);
     });
 
-    it('exposes safe external destinations without loading third-party pages', async () => {
-        const page = await openSeededPopup(github);
-        pages.push(page);
-
-        expect(
-            await page.$eval('[aria-label="Buy me a coffee"]', (anchor) => ({
-                href: anchor.href,
-                target: anchor.target,
-            }))
-        ).toEqual({
-            href: 'https://buymeacoffee.com/aabiskar1',
-            target: '_blank',
-        });
-    });
+    it.each(['click', 'keyboard'] as const)(
+        'opens Support exactly once through the tabs API on %s activation',
+        async (activation) => {
+            const page = await openSeededPopup(github);
+            pages.push(page);
+            const requests: chrome.tabs.CreateProperties[] = [];
+            await page.exposeFunction(
+                'recordSupportTab',
+                (properties: chrome.tabs.CreateProperties) => {
+                    requests.push(properties);
+                }
+            );
+            await page.evaluate(() => {
+                // Keep this deterministic: exercise the extension API call without
+                // navigating to the third-party donation site.
+                chrome.tabs.create = (async (
+                    properties: chrome.tabs.CreateProperties
+                ) => {
+                    await (
+                        window as unknown as {
+                            recordSupportTab: (
+                                properties: chrome.tabs.CreateProperties
+                            ) => Promise<void>;
+                        }
+                    ).recordSupportTab(properties);
+                    return { id: 99 };
+                }) as typeof chrome.tabs.create;
+            });
+            const selector = '[aria-label="Support PR Tracker"]';
+            await waitForText(page, selector, 'Support');
+            if (activation === 'click') {
+                await page.click(selector);
+            } else {
+                await page.focus(selector);
+                await page.keyboard.press('Enter');
+            }
+            await expect
+                .poll(() => requests)
+                .toEqual([
+                    { url: 'https://buymeacoffee.com/aabiskar1', active: true },
+                ]);
+            // Flush the click handler before checking the final count.
+            await page.evaluate(
+                () =>
+                    new Promise<void>((resolve) =>
+                        requestAnimationFrame(() => resolve())
+                    )
+            );
+            expect(requests).toHaveLength(1);
+            expect(
+                await page.$('header [aria-label="Refresh Pull Requests"]')
+            ).not.toBeNull();
+        }
+    );
 });
