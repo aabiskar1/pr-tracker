@@ -21,14 +21,20 @@ export function LastChecked({
         date && Number.isFinite(date.getTime())
             ? date.toLocaleString()
             : undefined;
+    const label = formatLastChecked(lastSuccessfulRefreshAt, now);
 
     return (
         <span
             data-testid="last-checked"
             className="text-xs text-muted-foreground"
+            aria-label={
+                label === 'Not checked yet'
+                    ? label
+                    : `Last ${label.toLowerCase()}`
+            }
             title={exactTime ? `Last checked ${exactTime}` : undefined}
         >
-            {formatLastChecked(lastSuccessfulRefreshAt, now)}
+            {label}
         </span>
     );
 }

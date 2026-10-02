@@ -56,6 +56,7 @@ describe('original popup visual compatibility', () => {
             });
             await page.evaluate(() => document.fonts.ready);
 
+            await page.click('[aria-label="Settings"]');
             const metrics = await page.evaluate(() => {
                 const inspect = (selector: string) => {
                     const element = document.querySelector(selector);
@@ -127,6 +128,7 @@ describe('original popup visual compatibility', () => {
                     ),
                 };
             });
+            await page.keyboard.press('Escape');
             expect(metrics.theme).toBe(theme);
             expect(metrics.scrollWidth).toBeLessThanOrEqual(
                 metrics.viewport[0]

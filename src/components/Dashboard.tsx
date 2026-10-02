@@ -2,7 +2,7 @@ import React from 'react';
 import { FaSync, FaSignOutAlt, FaSearch, FaCoffee } from 'react-icons/fa';
 import { FilterBar, type FilterState, type SortOption } from './FilterBar';
 import { PullRequestList } from './PullRequestList';
-import ThemeSwitcher from './ThemeSwitcher';
+import { Settings } from './Settings';
 import type { PullRequest, ThemePreference } from '../types';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -94,75 +94,56 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </Button>
                 </div>
             )}
-            <div className="flex items-center justify-between mb-4 gap-2">
-                <h2 className="flex items-center gap-2 text-2xl font-bold text-foreground">
-                    Pull Requests
-                </h2>
-                <div className="flex flex-wrap items-center gap-2 sm:gap-3 justify-end">
+            <header className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                <div className="flex shrink-0 items-center gap-2">
+                    <h2 className="text-2xl font-bold text-foreground">
+                        Pull Requests
+                    </h2>
                     <a
                         href="https://buymeacoffee.com/aabiskar1"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center p-1 text-muted-foreground transition-colors hover:text-foreground"
+                        className="rounded p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         aria-label="Buy me a coffee"
                         title="Buy me a coffee"
                     >
-                        <FaCoffee size={20} />
+                        <FaCoffee size={16} aria-hidden="true" />
                     </a>
-                    <ThemeSwitcher
+                </div>
+                <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+                    <div className="flex items-center gap-2">
+                        <LastChecked
+                            lastSuccessfulRefreshAt={lastSuccessfulRefreshAt}
+                        />
+                        <Button
+                            onClick={refreshPullRequests}
+                            size="sm"
+                            aria-label="Refresh Pull Requests"
+                        >
+                            <FaSync
+                                aria-hidden="true"
+                                className={isLoading ? 'animate-spin' : ''}
+                            />
+                            Refresh
+                        </Button>
+                    </div>
+                    <Settings
                         theme={theme}
                         onThemeChange={handleThemeChange}
+                        notificationsEnabled={notificationsEnabled}
+                        onToggleNotifications={handleToggleNotifications}
                     />
-                    {/* Notifications toggle */}
-                    <div className="flex items-center gap-2">
-                        <button
-                            type="button"
-                            onClick={handleToggleNotifications}
-                            aria-label={
-                                notificationsEnabled
-                                    ? 'Disable notifications'
-                                    : 'Enable notifications'
-                            }
-                            className="theme-toggle-switch relative inline-flex items-center h-6"
-                            data-enabled={
-                                notificationsEnabled ? 'true' : 'false'
-                            }
-                        >
-                            <span className="toggle-track h-6 w-11 rounded-full transition-colors" />
-                            <span
-                                className={`toggle-thumb absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition-transform transform ${notificationsEnabled ? 'translate-x-5' : 'translate-x-0'}`}
-                            />
-                        </button>
-                        <span className="text-sm text-muted-foreground">
-                            {notificationsEnabled
-                                ? '🔔 Alert on'
-                                : '🔕 Alert off'}
-                        </span>
-                    </div>
-                    <Button
-                        onClick={refreshPullRequests}
-                        size="sm"
-                        aria-label="Refresh Pull Requests"
-                    >
-                        <FaSync className={isLoading ? 'animate-spin' : ''} />
-                        Refresh
-                    </Button>
                     <Button
                         onClick={handleSignOut}
                         variant="secondary"
                         size="sm"
                         aria-label="Sign Out"
                     >
-                        <FaSignOutAlt />
+                        <FaSignOutAlt aria-hidden="true" />
                         Sign Out
                     </Button>
                 </div>
-            </div>
-            <div className="mb-4 text-right">
-                <LastChecked
-                    lastSuccessfulRefreshAt={lastSuccessfulRefreshAt}
-                />
-            </div>
+            </header>
             <div className="mb-4">
                 <FilterBar
                     filters={filterState}

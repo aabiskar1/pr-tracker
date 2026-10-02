@@ -29,10 +29,139 @@ describe('preference persistence journeys', () => {
         await github.close();
     });
 
+    it.each(['light', 'dark'] as const)(
+        'keeps the header compact and Settings keyboard accessible in %s',
+        async (theme) => {
+            const page = await openSeededPopup(github, { theme });
+            pages.push(page);
+            for (const width of [640, 750]) {
+                await page.setViewport({ width, height: 600 });
+                const layout = await page.evaluate(() => {
+                    const header = document.querySelector('header')!;
+                    const title = header
+                        .querySelector('h2')!
+                        .getBoundingClientRect();
+                    const refresh = header
+                        .querySelector('[aria-label="Refresh Pull Requests"]')!
+                        .getBoundingClientRect();
+                    const checked = header.querySelector(
+                        '[data-testid="last-checked"]'
+                    )!;
+                    return {
+                        sameRow:
+                            Math.abs(
+                                (title.top + title.bottom) / 2 -
+                                    (refresh.top + refresh.bottom) / 2
+                            ) < 2,
+                        fits: header.scrollWidth <= header.clientWidth,
+                        adjacent:
+                            checked.nextElementSibling?.getAttribute(
+                                'aria-label'
+                            ),
+                        themeControls: header.querySelectorAll(
+                            '[aria-label="Theme selector"]'
+                        ).length,
+                        switches:
+                            header.querySelectorAll('[role="switch"]').length,
+                    };
+                });
+                expect(layout).toEqual({
+                    sameRow: true,
+                    fits: true,
+                    adjacent: 'Refresh Pull Requests',
+                    themeControls: 0,
+                    switches: 0,
+                });
+            }
+            expect(
+                await page.$('header [aria-label="Sign Out"]')
+            ).not.toBeNull();
+            expect(
+                await page.$('header [aria-label="Buy me a coffee"]')
+            ).not.toBeNull();
+
+            await page.focus('[aria-label="Settings"]');
+            const focusStyle = await page.$eval(
+                '[aria-label="Settings"]',
+                (element) => getComputedStyle(element).boxShadow
+            );
+            expect(focusStyle).not.toBe('none');
+            await page.keyboard.press('Enter');
+            await page.waitForSelector(
+                '[role="dialog"][aria-label="Settings"]'
+            );
+            expect(
+                await page.$eval(
+                    '[aria-label="Settings"][aria-haspopup]',
+                    (element) => element.getAttribute('aria-expanded')
+                )
+            ).toBe('true');
+            expect(
+                await page.evaluate(() =>
+                    document.activeElement?.getAttribute('aria-label')
+                )
+            ).toBe('Theme selector');
+            expect(await page.$$('[aria-label="Theme selector"]')).toHaveLength(
+                1
+            );
+            expect(await page.$$('[role="switch"]')).toHaveLength(1);
+            await waitForText(page, '[role="dialog"]', 'Theme');
+            await waitForText(page, '[role="dialog"]', 'Notifications');
+            await waitForText(page, '[role="dialog"]', 'On');
+            expect(
+                await page.$('[role="dialog"] [data-testid="last-checked"]')
+            ).toBeNull();
+            await page.keyboard.press('Tab');
+            expect(
+                await page.evaluate(() =>
+                    document.activeElement?.getAttribute('role')
+                )
+            ).toBe('switch');
+            await page.keyboard.press('Space');
+            await waitForText(page, '[role="dialog"]', 'Off');
+            await expect
+                .poll(
+                    async () =>
+                        (await readAppData(page)).preferences
+                            ?.notificationsEnabled
+                )
+                .toBe(false);
+            expect(
+                await page.$eval('[role="switch"]', (element) =>
+                    element.getAttribute('aria-checked')
+                )
+            ).toBe('false');
+            await page.keyboard.press('Escape');
+            await page.waitForSelector('[role="dialog"]', { hidden: true });
+            expect(
+                await page.evaluate(() =>
+                    document.activeElement?.getAttribute('aria-label')
+                )
+            ).toBe('Settings');
+            expect(
+                await page.$eval('[aria-label="Settings"]', (element) =>
+                    element.getAttribute('aria-expanded')
+                )
+            ).toBe('false');
+
+            await page.click('[aria-label="Settings"]');
+            await page.click('[aria-label="Settings"]');
+            expect(await page.$('[role="dialog"]')).toBeNull();
+            await page.click('[aria-label="Settings"]');
+            await page.click('header h2');
+            expect(await page.$('[role="dialog"]')).toBeNull();
+            expect(
+                await page.$('header [data-testid="last-checked"]')
+            ).not.toBeNull();
+        }
+    );
+
     it('restores notification, filter, sort, custom-query, and theme choices after reload', async () => {
         const page = await openSeededPopup(github);
         pages.push(page);
+        await page.click('[aria-label="Settings"]');
         await page.click('[aria-label="Disable notifications"]');
+        await page.keyboard.press('Escape');
         await expect
             .poll(
                 async () =>
@@ -62,6 +191,7 @@ describe('preference persistence journeys', () => {
             .toBe('is:open is:pr org:acme');
         await page.waitForSelector('[data-screen="loading"]');
         await waitForDashboard(page);
+        await page.click('[aria-label="Settings"]');
         await page.select('[aria-label="Theme selector"]', 'dark');
         await page.waitForFunction(
             () => document.documentElement.getAttribute('data-theme') === 'dark'
@@ -69,6 +199,7 @@ describe('preference persistence journeys', () => {
 
         await page.reload({ waitUntil: 'domcontentloaded' });
         await waitForDashboard(page);
+        await page.click('[aria-label="Settings"]');
         await page.waitForSelector('[aria-label="Enable notifications"]');
 
         expect(
@@ -106,6 +237,7 @@ describe('preference persistence journeys', () => {
         await page.emulateMediaFeatures([
             { name: 'prefers-color-scheme', value: 'dark' },
         ]);
+        await page.click('[aria-label="Settings"]');
         await page.select('[aria-label="Theme selector"]', 'auto');
         await page.waitForFunction(
             () => document.documentElement.getAttribute('data-theme') === 'dark'
@@ -183,7 +315,9 @@ describe('preference persistence journeys', () => {
     it('replays one grouped notification for PRs discovered while notifications were disabled', async () => {
         const page = await openSeededPopup(github);
         pages.push(page);
+        await page.click('[aria-label="Settings"]');
         await page.click('[aria-label="Disable notifications"]');
+        await page.keyboard.press('Escape');
         await expect
             .poll(
                 async () =>
@@ -227,6 +361,7 @@ describe('preference persistence journeys', () => {
         const reopened = await openExtensionPopup();
         pages.push(reopened);
         await waitForDashboard(reopened);
+        await reopened.click('[aria-label="Settings"]');
         await reopened.waitForSelector('[aria-label="Enable notifications"]');
         await reopened.click('[aria-label="Enable notifications"]');
 

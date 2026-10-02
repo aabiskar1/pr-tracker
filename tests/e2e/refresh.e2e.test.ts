@@ -51,7 +51,7 @@ describe('manual refresh journey', () => {
         await waitForText(
             page,
             '[data-testid="last-checked"]',
-            'Last checked just now'
+            'Checked just now'
         );
         expect(stored.pullRequests.map((pr) => pr.title)).toEqual([
             'Deterministic refresh result',
@@ -89,7 +89,7 @@ describe('manual refresh journey', () => {
         await waitForText(
             page,
             '[data-testid="last-checked"]',
-            'Last checked just now'
+            'Checked just now'
         );
         const stored = await readAppData(page);
         expect(stored.lastSuccessfulRefreshAt).toBe(stored.lastUpdated);
@@ -98,7 +98,7 @@ describe('manual refresh journey', () => {
         await waitForText(
             page,
             '[data-testid="last-checked"]',
-            'Last checked just now'
+            'Checked just now'
         );
         expect((await readAppData(page)).lastSuccessfulRefreshAt).toBe(
             stored.lastSuccessfulRefreshAt

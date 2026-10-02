@@ -36,6 +36,7 @@ describe('sign-out, reset, and popup lifecycle journeys', () => {
         const reopened = await openExtensionPopup();
         pages.push(reopened);
         await waitForDashboard(reopened);
+        await reopened.click('[aria-label="Settings"]');
         expect(
             await reopened.$eval(
                 '[aria-label="Theme selector"]',
@@ -96,6 +97,7 @@ describe('sign-out, reset, and popup lifecycle journeys', () => {
         await page.type('#currentPassword', TEST_PASSWORD);
         await page.click('[aria-label="Sign In"]');
         await waitForDashboard(page);
+        await page.click('[aria-label="Settings"]');
         expect(
             await page.$eval(
                 '[aria-label="Theme selector"]',
