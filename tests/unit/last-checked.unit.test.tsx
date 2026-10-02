@@ -1,0 +1,36 @@
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { LastChecked } from '../../src/components/LastChecked';
+
+const NOW = new Date('2030-06-07T12:00:00.000Z');
+
+describe('Last checked indicator', () => {
+    afterEach(() => vi.useRealTimers());
+
+    it.each([
+        [undefined, 'Not checked yet'],
+        ['invalid', 'Not checked yet'],
+        ['2030-06-07T12:00:00.000Z', 'Last checked just now'],
+        ['2030-06-07T11:59:01.000Z', 'Last checked just now'],
+        ['2030-06-07T11:57:00.000Z', 'Last checked 3 min ago'],
+        ['2030-06-07T11:00:00.000Z', 'Last checked 1 hr ago'],
+        ['2030-06-06T12:00:00.000Z', 'Last checked yesterday'],
+        ['2030-06-04T12:00:00.000Z', 'Last checked 3 days ago'],
+        ['2030-06-07T12:01:00.000Z', 'Last checked just now'],
+    ])('renders %s as %s', (timestamp, expected) => {
+        vi.useFakeTimers();
+        vi.setSystemTime(NOW);
+        const html = renderToStaticMarkup(
+            createElement(LastChecked, { lastSuccessfulRefreshAt: timestamp })
+        );
+        expect(html).toContain(`>${expected}</span>`);
+        if (timestamp && timestamp !== 'invalid') {
+            expect(html).toContain(
+                `title="Last checked ${new Date(timestamp).toLocaleString()}"`
+            );
+        } else {
+            expect(html).not.toContain('title=');
+        }
+    });
+});

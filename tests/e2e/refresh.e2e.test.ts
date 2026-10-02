@@ -7,6 +7,7 @@ import {
     resetManualRefreshThrottle,
     waitForDashboard,
     waitForText,
+    writeAppData,
     type GitHubMock,
 } from './harness.js';
 import { appData, POPULATED_PRS, REFRESHED_PRS } from './fixtures.js';
@@ -46,9 +47,62 @@ describe('manual refresh journey', () => {
             github.requests.some((url) => url.includes('/search/issues'))
         ).toBe(true);
         const stored = await readAppData(page);
+        expect(stored.lastSuccessfulRefreshAt).toBe(stored.lastUpdated);
+        await waitForText(
+            page,
+            '[data-testid="last-checked"]',
+            'Last checked just now'
+        );
         expect(stored.pullRequests.map((pr) => pr.title)).toEqual([
             'Deterministic refresh result',
         ]);
+    });
+
+    it('shows no check for legacy cached data and updates the open popup after a background check', async () => {
+        const page = await openSeededPopup(github, {
+            data: appData([POPULATED_PRS[0]]),
+        });
+        pages.push(page);
+        // Authentication restoration requests a check. Await it before loading
+        // a legacy cache to prove that cache loading itself records no success.
+        await page.evaluate(() =>
+            chrome.runtime.sendMessage({ type: 'CHECK_PRS' })
+        );
+        await writeAppData(page, appData([POPULATED_PRS[0]]));
+        await waitForText(
+            page,
+            '[data-testid="last-checked"]',
+            'Not checked yet'
+        );
+        expect(
+            (await readAppData(page)).lastSuccessfulRefreshAt
+        ).toBeUndefined();
+        await page.evaluate(async () => {
+            await chrome.runtime.sendMessage({
+                type: 'TEST_RESET_BACKGROUND_STATE',
+            });
+            await chrome.runtime.sendMessage({
+                type: 'CHECK_PRS',
+                manual: false,
+            });
+        });
+        await waitForText(
+            page,
+            '[data-testid="last-checked"]',
+            'Last checked just now'
+        );
+        const stored = await readAppData(page);
+        expect(stored.lastSuccessfulRefreshAt).toBe(stored.lastUpdated);
+        expect(stored.lastSuccessfulRefreshAt).toBeDefined();
+        await page.reload({ waitUntil: 'domcontentloaded' });
+        await waitForText(
+            page,
+            '[data-testid="last-checked"]',
+            'Last checked just now'
+        );
+        expect((await readAppData(page)).lastSuccessfulRefreshAt).toBe(
+            stored.lastSuccessfulRefreshAt
+        );
     });
 
     it('preserves the cached snapshot when one required PR detail fails, then recovers', async () => {

@@ -194,7 +194,26 @@ describe('secure storage', () => {
             'notificationsEnabled'
         );
         await expect(decryptAppData(PASSWORD)).resolves.toEqual(appData);
+        await expect(decryptAppData(PASSWORD)).resolves.not.toHaveProperty(
+            'lastSuccessfulRefreshAt'
+        );
         await expect(decryptAppData('incorrect password')).resolves.toBeNull();
+    });
+
+    it('persists the successful refresh timestamp inside encrypted app data', async () => {
+        const data = {
+            pullRequests: [],
+            lastUpdated: '2030-06-07T08:09:10.000Z',
+            lastSuccessfulRefreshAt: '2030-06-07T08:09:10.000Z',
+        };
+        await encryptAppData(data, PASSWORD);
+        await expect(decryptAppData(PASSWORD)).resolves.toEqual(data);
+        expect(JSON.stringify(storageState.values)).not.toContain(
+            'lastSuccessfulRefreshAt'
+        );
+        expect(JSON.stringify(storageState.values)).not.toContain(
+            data.lastSuccessfulRefreshAt
+        );
     });
 
     it('round-trips separately encrypted hidden PR IDs and rejects corrupt ciphertext safely', async () => {

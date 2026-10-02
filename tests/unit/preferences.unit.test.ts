@@ -141,6 +141,26 @@ const encryptedAppDataChange = (version: number) => ({
 });
 
 describe('usePullRequests preference persistence', () => {
+    it('loads the successful timestamp from a background encrypted storage change and clears it when absent', async () => {
+        // State is appended to preserve the existing hook harness indices.
+        const timestamp = '2030-06-07T08:09:10.000Z';
+        vi.mocked(decryptAppData).mockResolvedValueOnce({
+            ...appData(),
+            lastSuccessfulRefreshAt: timestamp,
+        });
+        renderPreferences();
+        const { storageListener } = activateReloadListeners();
+        storageListener(encryptedAppDataChange(1));
+        await vi.waitFor(() =>
+            expect(hookHarness.setters[10]).toHaveBeenCalledWith(timestamp)
+        );
+        vi.mocked(decryptAppData).mockResolvedValueOnce(appData());
+        storageListener(encryptedAppDataChange(2));
+        await vi.waitFor(() =>
+            expect(hookHarness.setters[10]).toHaveBeenLastCalledWith(undefined)
+        );
+        expect(browser.runtime.sendMessage).not.toHaveBeenCalled();
+    });
     beforeEach(() => {
         hookHarness.stateIndex = 0;
         hookHarness.values = [];

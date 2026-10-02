@@ -37,6 +37,9 @@ export function usePullRequests(password: string, authState: AuthState) {
     const [notificationsEnabled, setNotificationsEnabled] =
         useState<boolean>(true);
     const [globalError, setGlobalError] = useState<string>('');
+    const [lastSuccessfulRefreshAt, setLastSuccessfulRefreshAt] = useState<
+        string | undefined
+    >(undefined);
 
     const requestPullRequestReloadRef = useRef<(() => Promise<void>) | null>(
         null
@@ -61,6 +64,7 @@ export function usePullRequests(password: string, authState: AuthState) {
         try {
             if (password && authState === 'authenticated') {
                 const appData = await decryptAppData<AppData>(password);
+                setLastSuccessfulRefreshAt(appData?.lastSuccessfulRefreshAt);
                 if (appData && appData.pullRequests) {
                     console.log('Loaded pull requests from encrypted storage');
 
@@ -489,6 +493,7 @@ export function usePullRequests(password: string, authState: AuthState) {
 
     return {
         pullRequests,
+        lastSuccessfulRefreshAt,
         filteredPRs,
         searchTerm,
         isLoading,

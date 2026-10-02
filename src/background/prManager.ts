@@ -363,6 +363,8 @@ async function runPullRequestCheck(
             (appData) => {
                 appData.pullRequests = uniquePRs;
                 appData.lastUpdated = new Date().toISOString();
+                // Commit the successful check together with its complete PR snapshot.
+                appData.lastSuccessfulRefreshAt = appData.lastUpdated;
             },
             { isValid: refreshSession.isValid }
         );

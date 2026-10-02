@@ -6,6 +6,7 @@ import ThemeSwitcher from './ThemeSwitcher';
 import type { PullRequest, ThemePreference } from '../types';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
+import { LastChecked } from './LastChecked';
 
 interface DashboardProps {
     globalError: string;
@@ -16,6 +17,7 @@ interface DashboardProps {
     handleToggleNotifications: () => void;
     isLoading: boolean;
     refreshPullRequests: () => void;
+    lastSuccessfulRefreshAt?: string;
     handleSignOut: () => void;
     filterState: FilterState;
     handleFilterChange: (filters: FilterState) => void;
@@ -43,6 +45,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     handleToggleNotifications,
     isLoading,
     refreshPullRequests,
+    lastSuccessfulRefreshAt,
     handleSignOut,
     filterState,
     handleFilterChange,
@@ -154,6 +157,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         Sign Out
                     </Button>
                 </div>
+            </div>
+            <div className="mb-4 text-right">
+                <LastChecked
+                    lastSuccessfulRefreshAt={lastSuccessfulRefreshAt}
+                />
             </div>
             <div className="mb-4">
                 <FilterBar

@@ -33,6 +33,7 @@ function App() {
 
     const {
         filteredPRs,
+        lastSuccessfulRefreshAt,
         searchTerm,
         isLoading: isPRLoading,
         filterState,
@@ -137,6 +138,7 @@ function App() {
             handleToggleNotifications={handleToggleNotifications}
             isLoading={isPRLoading}
             refreshPullRequests={refreshPullRequests}
+            lastSuccessfulRefreshAt={lastSuccessfulRefreshAt}
             handleSignOut={handleSignOut}
             filterState={filterState}
             handleFilterChange={handleFilterChange}
