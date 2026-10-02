@@ -256,7 +256,7 @@ describe('sign-out, reset, and popup lifecycle journeys', () => {
     });
 
     it.each(['click', 'keyboard'] as const)(
-        'opens Support exactly once through the tabs API on %s activation',
+        'opens the coffee page exactly once through the tabs API on %s activation',
         async (activation) => {
             const page = await openSeededPopup(github);
             pages.push(page);
@@ -283,12 +283,31 @@ describe('sign-out, reset, and popup lifecycle journeys', () => {
                     return { id: 99 };
                 }) as typeof chrome.tabs.create;
             });
-            const selector = '[aria-label="Support PR Tracker"]';
-            await waitForText(page, selector, 'Support');
+            const selector = '[aria-label="Open Buy Me a Coffee page"]';
+            await page.waitForSelector(selector);
+            expect(
+                await page.$eval(selector, (button) => ({
+                    text: button.textContent?.trim(),
+                    title: button.getAttribute('title'),
+                    decorativeIcon: button
+                        .querySelector('svg')
+                        ?.getAttribute('aria-hidden'),
+                }))
+            ).toEqual({
+                text: '',
+                title: 'Buy me a coffee',
+                decorativeIcon: 'true',
+            });
             if (activation === 'click') {
                 await page.click(selector);
             } else {
                 await page.focus(selector);
+                expect(
+                    await page.$eval(
+                        selector,
+                        (button) => getComputedStyle(button).boxShadow
+                    )
+                ).not.toBe('none');
                 await page.keyboard.press('Enter');
             }
             await expect

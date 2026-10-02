@@ -84,6 +84,13 @@ describe('preference persistence journeys', () => {
                                 checked.nextElementSibling?.getAttribute(
                                     'aria-label'
                                 ),
+                            coffeeBeforeChecked:
+                                header
+                                    .querySelector(
+                                        '[aria-label="Open Buy Me a Coffee page"]'
+                                    )!
+                                    .getBoundingClientRect().right <=
+                                checkedRect.left,
                             themeControls: header.querySelectorAll(
                                 '[aria-label="Theme selector"]'
                             ).length,
@@ -97,6 +104,7 @@ describe('preference persistence journeys', () => {
                         fits: true,
                         freshnessReadable: true,
                         adjacent: 'Refresh Pull Requests',
+                        coffeeBeforeChecked: true,
                         themeControls: 0,
                         switches: 0,
                     });
@@ -106,7 +114,7 @@ describe('preference persistence journeys', () => {
                 await page.$('header [aria-label="Sign Out"]')
             ).not.toBeNull();
             expect(
-                await page.$('header [aria-label="Support PR Tracker"]')
+                await page.$('header [aria-label="Open Buy Me a Coffee page"]')
             ).not.toBeNull();
 
             await page.focus('[aria-label="Settings"]');

@@ -1,6 +1,6 @@
 import React from 'react';
 import browser from 'webextension-polyfill';
-import { FaSync, FaSignOutAlt, FaSearch } from 'react-icons/fa';
+import { FaSync, FaSignOutAlt, FaSearch, FaCoffee } from 'react-icons/fa';
 import { FilterBar, type FilterState, type SortOption } from './FilterBar';
 import { PullRequestList } from './PullRequestList';
 import { Settings } from './Settings';
@@ -101,10 +101,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         Pull Requests
                     </h2>
                     <Button
-                        variant="secondary"
-                        size="sm"
-                        aria-label="Support PR Tracker"
-                        title="Support PR Tracker on Buy Me a Coffee (opens a new tab)"
+                        variant="ghost"
+                        size="icon-sm"
+                        className="text-muted-foreground hover:text-foreground"
+                        aria-label="Open Buy Me a Coffee page"
+                        title="Buy me a coffee"
                         onClick={() => {
                             void browser.tabs
                                 .create({
@@ -122,7 +123,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                 });
                         }}
                     >
-                        Support
+                        <FaCoffee size={14} aria-hidden="true" />
                     </Button>
                 </div>
                 <div className="flex min-w-0 items-center gap-1.5">
