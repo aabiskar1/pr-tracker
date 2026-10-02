@@ -175,6 +175,76 @@ describe('background PR polling and notification decisions', () => {
         vi.restoreAllMocks();
     });
 
+    it.each([true, false])(
+        'records successful refresh only at snapshot commit (manual=%s)',
+        async (manual) => {
+            const pending = deferred<ReturnType<typeof successfulFetch>>();
+            storedData.lastSuccessfulRefreshAt = '2030-06-01T00:00:00.000Z';
+            vi.mocked(fetchPullRequests).mockReturnValueOnce(pending.promise);
+            const refresh = checkPullRequests(manual);
+            await vi.waitFor(() =>
+                expect(fetchPullRequests).toHaveBeenCalledOnce()
+            );
+            expect(storedData.lastSuccessfulRefreshAt).toBe(
+                '2030-06-01T00:00:00.000Z'
+            );
+            vi.setSystemTime(new Date(FIXED_TIME.getTime() + 1000));
+            pending.resolve(successfulFetch([pullRequest(1)]));
+            await refresh;
+            expect(storedData.lastSuccessfulRefreshAt).toBe(
+                new Date(FIXED_TIME.getTime() + 1000).toISOString()
+            );
+            expect(storedData.pullRequests).toEqual([pullRequest(1)]);
+        }
+    );
+
+    it.each(['request', 'required-detail', 'persistence', 'invalidation'])(
+        'preserves the successful timestamp after %s failure',
+        async (failure) => {
+            storedData.lastSuccessfulRefreshAt = '2030-06-01T00:00:00.000Z';
+            const original = clone(storedData);
+            if (failure === 'request') {
+                vi.mocked(fetchPullRequests).mockRejectedValueOnce(
+                    new Error('GitHub unavailable')
+                );
+            } else if (failure === 'required-detail') {
+                vi.mocked(fetchPullRequests).mockResolvedValueOnce({
+                    status: 'failure',
+                });
+            } else if (failure === 'persistence') {
+                vi.mocked(encryptAppData).mockRejectedValueOnce(
+                    new Error('Storage failed')
+                );
+            } else {
+                vi.mocked(fetchPullRequests).mockImplementationOnce(
+                    async () => {
+                        invalidatePullRequestSession();
+                        return successfulFetch([pullRequest(1)]);
+                    }
+                );
+            }
+            await checkPullRequests(true);
+            expect(storedData).toEqual(original);
+            expect(browser.runtime.sendMessage).not.toHaveBeenCalledWith(
+                expect.objectContaining({ type: 'DATA_UPDATED' })
+            );
+        }
+    );
+
+    it('does not record success when reset invalidates the session during encryption', async () => {
+        storedData.lastSuccessfulRefreshAt = '2030-06-01T00:00:00.000Z';
+        const original = clone(storedData);
+        vi.mocked(encryptAppData).mockImplementationOnce(
+            async (_data, _password, beforeStore) => {
+                invalidatePullRequestSession();
+                beforeStore?.();
+                throw new Error('Invalidated write should not reach storage');
+            }
+        );
+        await checkPullRequests(true);
+        expect(storedData).toEqual(original);
+    });
+
     it('fetches, badges, persists, publishes an update, and advances the comparison snapshot', async () => {
         const prs = [pullRequest(1), pullRequest(2)];
         storedData = appData({
@@ -215,6 +285,7 @@ describe('background PR polling and notification decisions', () => {
             pullRequests: prs,
             oldPullRequests: prs,
             lastUpdated: FIXED_TIME.toISOString(),
+            lastSuccessfulRefreshAt: FIXED_TIME.toISOString(),
             preferences: {
                 notificationsEnabled: true,
                 customQuery: 'is:pr org:acme',

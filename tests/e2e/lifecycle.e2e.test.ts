@@ -36,6 +36,7 @@ describe('sign-out, reset, and popup lifecycle journeys', () => {
         const reopened = await openExtensionPopup();
         pages.push(reopened);
         await waitForDashboard(reopened);
+        await reopened.click('[aria-label="Settings"]');
         expect(
             await reopened.$eval(
                 '[aria-label="Theme selector"]',
@@ -96,6 +97,7 @@ describe('sign-out, reset, and popup lifecycle journeys', () => {
         await page.type('#currentPassword', TEST_PASSWORD);
         await page.click('[aria-label="Sign In"]');
         await waitForDashboard(page);
+        await page.click('[aria-label="Settings"]');
         expect(
             await page.$eval(
                 '[aria-label="Theme selector"]',
@@ -253,18 +255,77 @@ describe('sign-out, reset, and popup lifecycle journeys', () => {
         expect(github.requests.length).toBeGreaterThan(1);
     });
 
-    it('exposes safe external destinations without loading third-party pages', async () => {
-        const page = await openSeededPopup(github);
-        pages.push(page);
-
-        expect(
-            await page.$eval('[aria-label="Buy me a coffee"]', (anchor) => ({
-                href: anchor.href,
-                target: anchor.target,
-            }))
-        ).toEqual({
-            href: 'https://buymeacoffee.com/aabiskar1',
-            target: '_blank',
-        });
-    });
+    it.each(['click', 'keyboard'] as const)(
+        'opens the coffee page exactly once through the tabs API on %s activation',
+        async (activation) => {
+            const page = await openSeededPopup(github);
+            pages.push(page);
+            const requests: chrome.tabs.CreateProperties[] = [];
+            await page.exposeFunction(
+                'recordSupportTab',
+                (properties: chrome.tabs.CreateProperties) => {
+                    requests.push(properties);
+                }
+            );
+            await page.evaluate(() => {
+                // Keep this deterministic: exercise the extension API call without
+                // navigating to the third-party donation site.
+                chrome.tabs.create = (async (
+                    properties: chrome.tabs.CreateProperties
+                ) => {
+                    await (
+                        window as unknown as {
+                            recordSupportTab: (
+                                properties: chrome.tabs.CreateProperties
+                            ) => Promise<void>;
+                        }
+                    ).recordSupportTab(properties);
+                    return { id: 99 };
+                }) as typeof chrome.tabs.create;
+            });
+            const selector = '[aria-label="Open Buy Me a Coffee page"]';
+            await page.waitForSelector(selector);
+            expect(
+                await page.$eval(selector, (button) => ({
+                    text: button.textContent?.trim(),
+                    title: button.getAttribute('title'),
+                    decorativeIcon: button
+                        .querySelector('svg')
+                        ?.getAttribute('aria-hidden'),
+                }))
+            ).toEqual({
+                text: '',
+                title: 'Buy me a coffee',
+                decorativeIcon: 'true',
+            });
+            if (activation === 'click') {
+                await page.click(selector);
+            } else {
+                await page.focus(selector);
+                expect(
+                    await page.$eval(
+                        selector,
+                        (button) => getComputedStyle(button).boxShadow
+                    )
+                ).not.toBe('none');
+                await page.keyboard.press('Enter');
+            }
+            await expect
+                .poll(() => requests)
+                .toEqual([
+                    { url: 'https://buymeacoffee.com/aabiskar1', active: true },
+                ]);
+            // Flush the click handler before checking the final count.
+            await page.evaluate(
+                () =>
+                    new Promise<void>((resolve) =>
+                        requestAnimationFrame(() => resolve())
+                    )
+            );
+            expect(requests).toHaveLength(1);
+            expect(
+                await page.$('header [aria-label="Refresh Pull Requests"]')
+            ).not.toBeNull();
+        }
+    );
 });

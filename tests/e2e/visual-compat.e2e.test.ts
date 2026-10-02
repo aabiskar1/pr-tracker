@@ -40,6 +40,184 @@ describe('original popup visual compatibility', () => {
         await github.close();
     });
 
+    it('opens the native Chrome action popup at 750px without clipping', async () => {
+        github.setScenario({ pullRequests: POPULATED_PRS });
+        const seed = await openSeededPopup(github);
+        const windowSession = await seed.createCDPSession();
+        const { windowId } = await windowSession.send(
+            'Browser.getWindowForTarget'
+        );
+        await windowSession.send('Browser.setWindowBounds', {
+            windowId,
+            bounds: { width: 1280, height: 800 },
+        });
+        await windowSession.detach();
+        await seed.close();
+        const browser = getBrowser();
+        const worker = await browser.waitForTarget(
+            (target) => target.type() === 'service_worker'
+        );
+        const popupTarget = browser.waitForTarget(
+            (target) =>
+                target.type() === 'page' &&
+                target.url() ===
+                    `chrome-extension://${getExtensionId()}/popup.html`
+        );
+        await (await worker.worker())!.evaluate(() =>
+            chrome.action.openPopup()
+        );
+        const page = await (await popupTarget).asPage();
+        pages.push(page);
+        // Use the native popup viewport; do not set Puppeteer's tab viewport.
+        await page.waitForSelector('.screen-prlist', { timeout: 5000 });
+        await page.waitForFunction(
+            () =>
+                document.documentElement.dataset.screen === 'prlist' &&
+                window.innerWidth >= 750
+        );
+        const width = await page.evaluate(() => ({
+            viewport: window.innerWidth,
+            content: document.documentElement.getBoundingClientRect().width,
+            right: document
+                .querySelector('.screen-prlist')!
+                .getBoundingClientRect().right,
+            scrollWidth: document.documentElement.scrollWidth,
+        }));
+        // Chrome adds its vertical scrollbar outside the 750px content area.
+        expect(width.content).toBe(750);
+        expect(width.viewport).toBeGreaterThanOrEqual(width.content);
+        expect(width.viewport).toBeLessThanOrEqual(800);
+        expect(width.right).toBeLessThanOrEqual(width.viewport);
+        expect(width.scrollWidth).toBeLessThanOrEqual(width.viewport);
+    });
+
+    it.each(['light', 'dark'] as const)(
+        'fits the fixed PR-list width in Chrome and Firefox CSS paths in %s',
+        async (theme) => {
+            github.setScenario({ pullRequests: POPULATED_PRS });
+            const page = await openSeededPopup(github, { theme });
+            pages.push(page);
+            await page.setViewport({ width: 750, height: 600 });
+            for (const firefox of [false, true]) {
+                if (firefox) {
+                    // The runtime harness is Chrome-only. Activate the actual
+                    // Firefox CSS branch and disable the Chrome branch in CSSOM.
+                    const changed = await page.evaluate(() => {
+                        let count = 0;
+                        const visit = (
+                            parent: CSSStyleSheet | CSSGroupingRule
+                        ) => {
+                            for (let i = 0; i < parent.cssRules.length; i++) {
+                                const rule = parent.cssRules[i];
+                                if (
+                                    rule instanceof CSSSupportsRule &&
+                                    rule.conditionText.includes(
+                                        '-moz-appearance'
+                                    )
+                                ) {
+                                    const enabled =
+                                        !rule.conditionText.includes(
+                                            '-webkit-appearance'
+                                        );
+                                    const contents = Array.from(rule.cssRules)
+                                        .map((child) => child.cssText)
+                                        .join('\n');
+                                    parent.deleteRule(i);
+                                    parent.insertRule(
+                                        `@supports (display: ${enabled ? 'block' : 'invalid'}) { ${contents} }`,
+                                        i
+                                    );
+                                    count++;
+                                } else if (rule instanceof CSSGroupingRule) {
+                                    visit(rule);
+                                }
+                            }
+                        };
+                        Array.from(document.styleSheets).forEach(visit);
+                        return count;
+                    });
+                    expect(changed).toBe(2);
+                }
+                const layout = await page.evaluate(() => {
+                    const html = document.documentElement;
+                    const dashboard = document.querySelector('.screen-prlist')!;
+                    const bounds = dashboard.getBoundingClientRect();
+                    const surfaces = [
+                        document.body,
+                        document.querySelector('#root')!,
+                        dashboard,
+                        document.querySelector('header')!,
+                        document.querySelector('.filter-bar-container')!,
+                        document.querySelector(
+                            '[aria-label="Search Pull Requests"]'
+                        )!,
+                        ...document.querySelectorAll('li'),
+                    ];
+                    const title = document
+                        .querySelector('h2')!
+                        .getBoundingClientRect();
+                    return {
+                        width: html.getBoundingClientRect().width,
+                        cssWidth: getComputedStyle(html).width,
+                        overflow: surfaces
+                            .filter((element) => {
+                                const rect = element.getBoundingClientRect();
+                                return (
+                                    rect.left < 0 ||
+                                    rect.right > window.innerWidth ||
+                                    element.scrollWidth > element.clientWidth
+                                );
+                            })
+                            .map((element) => ({
+                                tag: element.tagName,
+                                className: element.className,
+                                width: element.clientWidth,
+                                scroll: element.scrollWidth,
+                                rect: element.getBoundingClientRect().toJSON(),
+                            })),
+                        fits:
+                            surfaces.every((element) => {
+                                const rect = element.getBoundingClientRect();
+                                return (
+                                    rect.left >= 0 &&
+                                    rect.right <= window.innerWidth &&
+                                    element.scrollWidth <= element.clientWidth
+                                );
+                            }) && html.scrollWidth <= window.innerWidth,
+                        contentFits: surfaces.slice(3).every((element) => {
+                            const rect = element.getBoundingClientRect();
+                            return (
+                                rect.left >= bounds.left &&
+                                rect.right <= bounds.right
+                            );
+                        }),
+                        sameRow: Array.from(
+                            document.querySelectorAll(
+                                'header button[data-slot="button"], [data-testid="last-checked"]'
+                            )
+                        ).every((element) => {
+                            const rect = element.getBoundingClientRect();
+                            return (
+                                Math.abs(
+                                    (rect.top + rect.bottom) / 2 -
+                                        (title.top + title.bottom) / 2
+                                ) < 2
+                            );
+                        }),
+                    };
+                });
+                expect(layout, firefox ? 'Firefox CSS' : 'Chrome CSS').toEqual({
+                    width: 750,
+                    cssWidth: '750px',
+                    overflow: [],
+                    fits: true,
+                    contentFits: true,
+                    sameRow: true,
+                });
+            }
+        }
+    );
+
     it.each(['light', 'dark'] as const)(
         'captures the same dashboard, error, and auth states in %s',
         async (theme) => {
@@ -56,6 +234,7 @@ describe('original popup visual compatibility', () => {
             });
             await page.evaluate(() => document.fonts.ready);
 
+            await page.click('[aria-label="Settings"]');
             const metrics = await page.evaluate(() => {
                 const inspect = (selector: string) => {
                     const element = document.querySelector(selector);
@@ -127,6 +306,7 @@ describe('original popup visual compatibility', () => {
                     ),
                 };
             });
+            await page.keyboard.press('Escape');
             expect(metrics.theme).toBe(theme);
             expect(metrics.scrollWidth).toBeLessThanOrEqual(
                 metrics.viewport[0]

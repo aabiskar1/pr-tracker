@@ -1,11 +1,13 @@
 import React from 'react';
+import browser from 'webextension-polyfill';
 import { FaSync, FaSignOutAlt, FaSearch, FaCoffee } from 'react-icons/fa';
 import { FilterBar, type FilterState, type SortOption } from './FilterBar';
 import { PullRequestList } from './PullRequestList';
-import ThemeSwitcher from './ThemeSwitcher';
+import { Settings } from './Settings';
 import type { PullRequest, ThemePreference } from '../types';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
+import { LastChecked } from './LastChecked';
 
 interface DashboardProps {
     globalError: string;
@@ -16,6 +18,7 @@ interface DashboardProps {
     handleToggleNotifications: () => void;
     isLoading: boolean;
     refreshPullRequests: () => void;
+    lastSuccessfulRefreshAt?: string;
     handleSignOut: () => void;
     filterState: FilterState;
     handleFilterChange: (filters: FilterState) => void;
@@ -43,6 +46,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     handleToggleNotifications,
     isLoading,
     refreshPullRequests,
+    lastSuccessfulRefreshAt,
     handleSignOut,
     filterState,
     handleFilterChange,
@@ -91,70 +95,69 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </Button>
                 </div>
             )}
-            <div className="flex items-center justify-between mb-4 gap-2">
-                <h2 className="flex items-center gap-2 text-2xl font-bold text-foreground">
-                    Pull Requests
-                </h2>
-                <div className="flex flex-wrap items-center gap-2 sm:gap-3 justify-end">
-                    <a
-                        href="https://buymeacoffee.com/aabiskar1"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center p-1 text-muted-foreground transition-colors hover:text-foreground"
-                        aria-label="Buy me a coffee"
+            <header className="popup-header mb-4 flex flex-nowrap items-center justify-between gap-3">
+                <div className="shrink-0">
+                    <h2 className="whitespace-nowrap text-xl font-bold text-foreground">
+                        Pull Requests
+                    </h2>
+                </div>
+                <div className="flex min-w-0 flex-nowrap items-center gap-1.5">
+                    <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        className="mr-1 text-muted-foreground/80 hover:text-foreground focus-visible:text-foreground"
+                        aria-label="Open Buy Me a Coffee page"
                         title="Buy me a coffee"
+                        onClick={() => {
+                            void browser.tabs
+                                .create({
+                                    url: 'https://buymeacoffee.com/aabiskar1',
+                                    active: true,
+                                })
+                                .catch((error) => {
+                                    console.error(
+                                        'Could not open support page:',
+                                        error
+                                    );
+                                    setGlobalError(
+                                        'Unable to open the support page. Please try again.'
+                                    );
+                                });
+                        }}
                     >
-                        <FaCoffee size={20} />
-                    </a>
-                    <ThemeSwitcher
-                        theme={theme}
-                        onThemeChange={handleThemeChange}
+                        <FaCoffee size={14} aria-hidden="true" />
+                    </Button>
+                    <LastChecked
+                        lastSuccessfulRefreshAt={lastSuccessfulRefreshAt}
                     />
-                    {/* Notifications toggle */}
-                    <div className="flex items-center gap-2">
-                        <button
-                            type="button"
-                            onClick={handleToggleNotifications}
-                            aria-label={
-                                notificationsEnabled
-                                    ? 'Disable notifications'
-                                    : 'Enable notifications'
-                            }
-                            className="theme-toggle-switch relative inline-flex items-center h-6"
-                            data-enabled={
-                                notificationsEnabled ? 'true' : 'false'
-                            }
-                        >
-                            <span className="toggle-track h-6 w-11 rounded-full transition-colors" />
-                            <span
-                                className={`toggle-thumb absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition-transform transform ${notificationsEnabled ? 'translate-x-5' : 'translate-x-0'}`}
-                            />
-                        </button>
-                        <span className="text-sm text-muted-foreground">
-                            {notificationsEnabled
-                                ? '🔔 Alert on'
-                                : '🔕 Alert off'}
-                        </span>
-                    </div>
                     <Button
                         onClick={refreshPullRequests}
                         size="sm"
                         aria-label="Refresh Pull Requests"
                     >
-                        <FaSync className={isLoading ? 'animate-spin' : ''} />
+                        <FaSync
+                            aria-hidden="true"
+                            className={isLoading ? 'animate-spin' : ''}
+                        />
                         Refresh
                     </Button>
+                    <Settings
+                        theme={theme}
+                        onThemeChange={handleThemeChange}
+                        notificationsEnabled={notificationsEnabled}
+                        onToggleNotifications={handleToggleNotifications}
+                    />
                     <Button
                         onClick={handleSignOut}
                         variant="secondary"
                         size="sm"
                         aria-label="Sign Out"
                     >
-                        <FaSignOutAlt />
+                        <FaSignOutAlt aria-hidden="true" />
                         Sign Out
                     </Button>
                 </div>
-            </div>
+            </header>
             <div className="mb-4">
                 <FilterBar
                     filters={filterState}

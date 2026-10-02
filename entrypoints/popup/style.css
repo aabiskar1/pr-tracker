@@ -55,28 +55,6 @@ body,
         min-height: 420px !important;
     }
 
-    /* PR list screen: larger */
-    /* PR list screen: larger - Matching Chrome dimensions */
-    html[data-screen='prlist'] body,
-    html[data-screen='prlist'] #root {
-        min-width: 640px !important;
-        max-width: 750px !important;
-        min-height: 600px !important;
-    }
-
-    /* Ensure a visible right-side gutter on the PR list screen (Firefox) */
-    html[data-screen='prlist'] body,
-    html[data-screen='prlist'] #root {
-        padding-right: 0px !important;
-        /* remove extra padding that causes gap */
-        box-sizing: border-box !important;
-    }
-
-    /* Stabilize scrollbar spacing in Firefox on the PR list screen */
-    html[data-screen='prlist'] body {
-        scrollbar-gutter: stable both-edges !important;
-    }
-
     .container {
         max-width: 100% !important;
         width: 100% !important;
@@ -86,16 +64,6 @@ body,
         /* remove right gutter that causes gap */
         margin-left: auto !important;
         margin-right: auto !important;
-        box-sizing: border-box !important;
-    }
-
-    /* Main app container width */
-    html[data-screen='prlist'] .screen-prlist {
-        max-width: 100% !important;
-        width: 100% !important;
-        margin-left: auto !important;
-        margin-right: auto !important;
-        padding: 0.5rem 1rem !important;
         box-sizing: border-box !important;
     }
 
@@ -111,12 +79,6 @@ body,
     * {
         scrollbar-width: thin !important;
         scrollbar-color: rgba(175, 175, 175, 0.3) transparent !important;
-    }
-
-    /* Add a small visual gutter on the right in PR list to avoid edge-hugging */
-    html[data-screen='prlist'] .screen-prlist {
-        padding-right: 0rem !important;
-        /* remove extra padding */
     }
 
     /* Fix button text alignment in Firefox */
@@ -142,15 +104,6 @@ body,
         min-height: 420px !important;
     }
 
-    html[data-screen='prlist'] body,
-    html[data-screen='prlist'] #root {
-        min-width: 640px !important;
-        /* increased from 620px for Chrome to fit Reset button */
-        max-width: 750px !important;
-        /* increased from 720px for Chrome */
-        min-height: 600px !important;
-    }
-
     /* Global container width */
     .container {
         max-width: 750px !important;
@@ -173,15 +126,37 @@ body,
         margin-left: auto !important;
         margin-right: auto !important;
     }
+}
 
-    /* Main container padding */
-    html[data-screen='prlist'] .screen-prlist {
-        padding: 0.5rem 1rem !important;
-        max-width: 750px !important;
-        /* increased to match new Chrome width */
-        width: 100% !important;
-        box-sizing: border-box !important;
-    }
+/* Fix the PR-list viewport instead of leaving intrinsic sizing to each browser. */
+html[data-screen='prlist'] {
+    width: 750px !important;
+    min-width: 750px !important;
+    max-width: 750px !important;
+    box-sizing: border-box !important;
+    scrollbar-gutter: auto;
+}
+
+html[data-screen='prlist'] body,
+html[data-screen='prlist'] #root {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    min-height: 600px !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+}
+
+/* Auto width excludes the root scrollbar gutters from the body content box. */
+html[data-screen='prlist'] body {
+    width: auto !important;
+}
+
+html[data-screen='prlist'] .screen-prlist {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0.5rem 1rem !important;
+    box-sizing: border-box !important;
 }
 
 /* Global Compact Styles (Applies to both Chrome and Firefox for consistency) */

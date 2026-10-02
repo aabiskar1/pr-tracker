@@ -57,6 +57,7 @@ export type AppPreferences = {
 export type AppData = {
     pullRequests: PullRequest[];
     lastUpdated: string;
+    lastSuccessfulRefreshAt?: string;
     preferences?: AppPreferences;
     oldPullRequests?: PullRequest[];
     pendingNotificationPullRequestIds?: number[];
