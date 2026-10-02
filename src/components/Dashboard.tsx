@@ -105,7 +105,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     <Button
                         variant="ghost"
                         size="icon-sm"
-                        className="text-muted-foreground hover:text-foreground"
+                        className="mr-1 text-muted-foreground/80 hover:text-foreground focus-visible:text-foreground"
                         aria-label="Open Buy Me a Coffee page"
                         title="Buy me a coffee"
                         onClick={() => {

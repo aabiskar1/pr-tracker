@@ -61,6 +61,9 @@ describe('preference persistence journeys', () => {
                         )!;
                         const titleElement = header.querySelector('h2')!;
                         const actions = checked.parentElement!;
+                        const coffeeCheckedGap =
+                            checkedRect.left -
+                            coffee.getBoundingClientRect().right;
                         const textRange = document.createRange();
                         textRange.selectNodeContents(checked);
                         return {
@@ -115,9 +118,7 @@ describe('preference persistence journeys', () => {
                                     )
                                 ),
                             coffeeCheckedGap:
-                                checkedRect.left -
-                                    coffee.getBoundingClientRect().right <=
-                                8,
+                                coffeeCheckedGap > 8 && coffeeCheckedGap <= 12,
                             themeControls: header.querySelectorAll(
                                 '[aria-label="Theme selector"]'
                             ).length,
