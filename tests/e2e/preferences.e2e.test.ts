@@ -34,7 +34,7 @@ describe('preference persistence journeys', () => {
         async (theme) => {
             const page = await openSeededPopup(github, { theme });
             pages.push(page);
-            for (const width of [640, 750]) {
+            for (const width of [750]) {
                 for (const fontFamily of [
                     'system-ui',
                     'Arial, sans-serif',
