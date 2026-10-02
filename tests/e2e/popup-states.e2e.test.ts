@@ -12,7 +12,12 @@ import {
     writeAppData,
     type GitHubMock,
 } from './harness.js';
-import { appData, POPULATED_PRS, TEST_PASSWORD } from './fixtures.js';
+import {
+    appData,
+    FIXED_UPDATED_AT,
+    POPULATED_PRS,
+    TEST_PASSWORD,
+} from './fixtures.js';
 
 describe('popup state journeys', () => {
     let github: GitHubMock;
@@ -106,6 +111,237 @@ describe('popup state journeys', () => {
         });
         expect(await page.$$('li img')).not.toHaveLength(0);
     });
+
+    it.each(['light', 'dark'] as const)(
+        'keeps card titles, metadata, and all status badges readable in %s',
+        async (theme) => {
+            const titles = [
+                'Explain a long pull request title without hiding its useful context '.repeat(
+                    4
+                ),
+                'unbroken-title-'.repeat(30),
+            ];
+            const prs = POPULATED_PRS.map((pr, index) => ({
+                ...pr,
+                title: titles[index] ?? pr.title,
+            }));
+            const page = await openSeededPopup(github, {
+                theme,
+                data: appData(prs),
+            });
+            pages.push(page);
+
+            await page.evaluateOnNewDocument(() => {
+                Date.now = () => Date.parse('2026-10-01T12:00:00.000Z');
+            });
+            await page.reload({ waitUntil: 'domcontentloaded' });
+            await waitForText(page, 'li', titles[0]);
+            // Let startup refresh finish before restoring the exact visual fixture.
+            await expect
+                .poll(async () => (await readAppData(page)).lastUpdated)
+                .not.toBe(FIXED_UPDATED_AT);
+            await writeAppData(page, appData(prs));
+            await page.waitForSelector(
+                '.pr-card-accent [data-ci-status="failing"]'
+            );
+
+            for (const width of [640, 750]) {
+                await page.setViewport({ width, height: 600 });
+                const cards = await page.$$eval('.pr-card-accent', (elements) =>
+                    elements.map((card) => {
+                        const title = card.querySelector('h3')!;
+                        const style = getComputedStyle(title);
+                        const bounds = card.getBoundingClientRect();
+                        const badges = Array.from(
+                            card.querySelectorAll(
+                                '[data-ci-status], [data-review-status]'
+                            )
+                        );
+                        const luminance = (colour: string) => {
+                            const channels = colour
+                                .match(/[\d.]+/g)!
+                                .slice(0, 3);
+                            return channels.reduce((sum, channel, index) => {
+                                const value = Number(channel) / 255;
+                                const linear =
+                                    value <= 0.04045
+                                        ? value / 12.92
+                                        : ((value + 0.055) / 1.055) ** 2.4;
+                                return (
+                                    sum +
+                                    linear * [0.2126, 0.7152, 0.0722][index]
+                                );
+                            }, 0);
+                        };
+                        return {
+                            title: title.textContent,
+                            fontSize: style.fontSize,
+                            lineHeight: style.lineHeight,
+                            weight: Number(style.fontWeight),
+                            titleContrast: (() => {
+                                const foreground = luminance(style.color);
+                                const background = luminance(
+                                    getComputedStyle(card).backgroundColor
+                                );
+                                return (
+                                    (Math.max(foreground, background) + 0.05) /
+                                    (Math.min(foreground, background) + 0.05)
+                                );
+                            })(),
+                            badgeWeights: badges.map(
+                                (badge) => getComputedStyle(badge).fontWeight
+                            ),
+                            badgePresentation: badges.map((badge) => {
+                                const computed = getComputedStyle(badge);
+                                const bounds = badge.getBoundingClientRect();
+                                return {
+                                    size: computed.fontSize,
+                                    lineHeight: computed.lineHeight,
+                                    foreground: computed.color,
+                                    textColours: Array.from(
+                                        badge.querySelectorAll('span')
+                                    ).map(
+                                        (text) => getComputedStyle(text).color
+                                    ),
+                                    icons: Array.from(
+                                        badge.querySelectorAll('svg')
+                                    ).map((icon) => {
+                                        const style = getComputedStyle(icon);
+                                        const rect =
+                                            icon.getBoundingClientRect();
+                                        return {
+                                            colour: style.color,
+                                            fill: style.fill,
+                                            width: rect.width,
+                                            height: rect.height,
+                                            centerOffset:
+                                                rect.top +
+                                                rect.height / 2 -
+                                                (bounds.top +
+                                                    bounds.height / 2),
+                                        };
+                                    }),
+                                };
+                            }),
+                            wrap: style.overflowWrap,
+                            clipped: card.scrollWidth > card.clientWidth,
+                            childrenFit: Array.from(
+                                card.querySelectorAll('h3, span, img, button')
+                            ).every((element) => {
+                                const rect = element.getBoundingClientRect();
+                                return (
+                                    rect.left >= bounds.left &&
+                                    rect.right <= bounds.right
+                                );
+                            }),
+                            contrasts: badges.map((badge) => {
+                                const computed = getComputedStyle(badge);
+                                const foreground = luminance(computed.color);
+                                const background = luminance(
+                                    computed.backgroundColor
+                                );
+                                return (
+                                    (Math.max(foreground, background) + 0.05) /
+                                    (Math.min(foreground, background) + 0.05)
+                                );
+                            }),
+                            labels: badges.map((badge) =>
+                                badge.getAttribute('aria-label')
+                            ),
+                            ageClass: card.querySelector(
+                                '.text-xs.whitespace-nowrap'
+                            )!.className,
+                        };
+                    })
+                );
+                expect(cards).toHaveLength(4);
+                expect(new Set(cards.flatMap((card) => card.labels))).toEqual(
+                    new Set([
+                        'CI: passing',
+                        'CI: failing',
+                        'CI: pending',
+                        'Review: approved',
+                        'Review: changes-requested',
+                        'Review: pending',
+                    ])
+                );
+                expect(cards[0].title).toBe(titles[0]);
+                expect(
+                    cards.some((card) => card.title?.includes(titles[1]))
+                ).toBe(true);
+                for (const card of cards) {
+                    expect(card.weight).toBe(500);
+                    expect(card.fontSize).toBe('13px');
+                    expect(card.lineHeight).toBe('19.5px');
+                    expect(card.titleContrast).toBeGreaterThanOrEqual(4.5);
+                    expect(card.badgeWeights).toEqual(['400', '400']);
+                    for (const badge of card.badgePresentation) {
+                        expect(badge.size).toBe('12px');
+                        expect(badge.lineHeight).toBe('16px');
+                        expect(badge.foreground).toBe('rgb(255, 255, 255)');
+                        expect(badge.textColours).toEqual([
+                            badge.foreground,
+                            badge.foreground,
+                        ]);
+                        expect(badge.icons).toHaveLength(2);
+                        for (const icon of badge.icons) {
+                            expect(icon.colour).toBe(badge.foreground);
+                            expect(icon.fill).toBe(badge.foreground);
+                            expect(icon.width).toBe(12);
+                            expect(icon.height).toBe(12);
+                            expect(Math.abs(icon.centerOffset)).toBeLessThan(
+                                0.1
+                            );
+                        }
+                    }
+                    expect(card.wrap).toBe('anywhere');
+                    expect(card.clipped).toBe(false);
+                    expect(card.childrenFit).toBe(true);
+                    expect(card.contrasts).toHaveLength(2);
+                    for (const contrast of card.contrasts) {
+                        expect(contrast).toBeGreaterThanOrEqual(4.5);
+                    }
+                    expect(card.labels[0]).toMatch(/^CI: /);
+                    expect(card.labels[1]).toMatch(/^Review: /);
+                    expect(card.ageClass).toContain(
+                        'text-age-stale-foreground'
+                    );
+                }
+            }
+
+            await page.hover('.pr-card-link');
+            expect(
+                await page.$eval(
+                    '.pr-card-title',
+                    (title) => getComputedStyle(title).textDecorationLine
+                )
+            ).toBe('underline');
+            // Traverse with the keyboard to prove the link has a visible focus state.
+            await page.click('h2');
+            for (let index = 0; index < 40; index++) {
+                await page.keyboard.press('Tab');
+                if (
+                    await page.$eval(
+                        '.pr-card-link',
+                        (link) => link === document.activeElement
+                    )
+                )
+                    break;
+            }
+            const focus = await page.$eval('.pr-card-link', (link) => ({
+                visible: link.matches(':focus-visible'),
+                outline: getComputedStyle(link).outlineStyle,
+                width: getComputedStyle(link).outlineWidth,
+                offset: getComputedStyle(link).outlineOffset,
+            }));
+            expect(focus).toEqual({
+                visible: true,
+                outline: 'solid',
+                width: '2px',
+                offset: '-3px',
+            });
+        }
+    );
 
     it.each([
         [

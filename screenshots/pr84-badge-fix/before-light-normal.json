@@ -1,0 +1,266 @@
+[
+    {
+        "title": {
+            "size": "13px",
+            "weight": "500",
+            "lineHeight": "19.5px",
+            "color": "rgb(75, 85, 99)"
+        },
+        "badges": [
+            {
+                "color": "rgb(255, 255, 255)",
+                "background": "rgb(35, 134, 54)",
+                "weight": "400",
+                "size": "12px",
+                "lineHeight": "16px",
+                "gap": "4px",
+                "icons": [
+                    {
+                        "color": "rgb(255, 255, 255)",
+                        "fill": "rgb(255, 255, 255)",
+                        "top": "-0.6px",
+                        "opacity": "0.8",
+                        "width": 12,
+                        "height": 12,
+                        "centerOffset": -0.59375
+                    },
+                    {
+                        "color": "rgb(255, 255, 255)",
+                        "fill": "rgb(255, 255, 255)",
+                        "top": "-0.6px",
+                        "opacity": "1",
+                        "width": 12,
+                        "height": 12,
+                        "centerOffset": -0.59375
+                    }
+                ]
+            },
+            {
+                "color": "rgb(36, 41, 47)",
+                "background": "rgb(216, 179, 72)",
+                "weight": "400",
+                "size": "12px",
+                "lineHeight": "16px",
+                "gap": "4px",
+                "icons": [
+                    {
+                        "color": "rgb(36, 41, 47)",
+                        "fill": "rgb(36, 41, 47)",
+                        "top": "-0.6px",
+                        "opacity": "0.8",
+                        "width": 12,
+                        "height": 12,
+                        "centerOffset": -0.59375
+                    },
+                    {
+                        "color": "rgb(36, 41, 47)",
+                        "fill": "rgb(36, 41, 47)",
+                        "top": "-0.6px",
+                        "opacity": "1",
+                        "width": 12,
+                        "height": 12,
+                        "centerOffset": -0.59375
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "title": {
+            "size": "13px",
+            "weight": "500",
+            "lineHeight": "19.5px",
+            "color": "rgb(75, 85, 99)"
+        },
+        "badges": [
+            {
+                "color": "rgb(255, 255, 255)",
+                "background": "rgb(35, 134, 54)",
+                "weight": "400",
+                "size": "12px",
+                "lineHeight": "16px",
+                "gap": "4px",
+                "icons": [
+                    {
+                        "color": "rgb(255, 255, 255)",
+                        "fill": "rgb(255, 255, 255)",
+                        "top": "-0.6px",
+                        "opacity": "0.8",
+                        "width": 12,
+                        "height": 12,
+                        "centerOffset": -0.59375
+                    },
+                    {
+                        "color": "rgb(255, 255, 255)",
+                        "fill": "rgb(255, 255, 255)",
+                        "top": "-0.6px",
+                        "opacity": "1",
+                        "width": 12,
+                        "height": 12,
+                        "centerOffset": -0.59375
+                    }
+                ]
+            },
+            {
+                "color": "rgb(36, 41, 47)",
+                "background": "rgb(216, 179, 72)",
+                "weight": "400",
+                "size": "12px",
+                "lineHeight": "16px",
+                "gap": "4px",
+                "icons": [
+                    {
+                        "color": "rgb(36, 41, 47)",
+                        "fill": "rgb(36, 41, 47)",
+                        "top": "-0.6px",
+                        "opacity": "0.8",
+                        "width": 12,
+                        "height": 12,
+                        "centerOffset": -0.59375
+                    },
+                    {
+                        "color": "rgb(36, 41, 47)",
+                        "fill": "rgb(36, 41, 47)",
+                        "top": "-0.6px",
+                        "opacity": "1",
+                        "width": 12,
+                        "height": 12,
+                        "centerOffset": -0.59375
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "title": {
+            "size": "13px",
+            "weight": "500",
+            "lineHeight": "19.5px",
+            "color": "rgb(75, 85, 99)"
+        },
+        "badges": [
+            {
+                "color": "rgb(36, 41, 47)",
+                "background": "rgb(216, 179, 72)",
+                "weight": "400",
+                "size": "12px",
+                "lineHeight": "16px",
+                "gap": "4px",
+                "icons": [
+                    {
+                        "color": "rgb(36, 41, 47)",
+                        "fill": "rgb(36, 41, 47)",
+                        "top": "-0.6px",
+                        "opacity": "0.8",
+                        "width": 12,
+                        "height": 12,
+                        "centerOffset": -0.59375
+                    },
+                    {
+                        "color": "rgb(36, 41, 47)",
+                        "fill": "rgb(36, 41, 47)",
+                        "top": "-0.6px",
+                        "opacity": "1",
+                        "width": 12,
+                        "height": 12,
+                        "centerOffset": -0.59375
+                    }
+                ]
+            },
+            {
+                "color": "rgb(255, 255, 255)",
+                "background": "rgb(193, 60, 71)",
+                "weight": "400",
+                "size": "12px",
+                "lineHeight": "16px",
+                "gap": "4px",
+                "icons": [
+                    {
+                        "color": "rgb(255, 255, 255)",
+                        "fill": "rgb(255, 255, 255)",
+                        "top": "-0.6px",
+                        "opacity": "0.8",
+                        "width": 12,
+                        "height": 12,
+                        "centerOffset": -0.59375
+                    },
+                    {
+                        "color": "rgb(255, 255, 255)",
+                        "fill": "rgb(255, 255, 255)",
+                        "top": "-0.6px",
+                        "opacity": "1",
+                        "width": 12,
+                        "height": 12,
+                        "centerOffset": -0.59375
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "title": {
+            "size": "13px",
+            "weight": "500",
+            "lineHeight": "19.5px",
+            "color": "rgb(75, 85, 99)"
+        },
+        "badges": [
+            {
+                "color": "rgb(255, 255, 255)",
+                "background": "rgb(193, 60, 71)",
+                "weight": "400",
+                "size": "12px",
+                "lineHeight": "16px",
+                "gap": "4px",
+                "icons": [
+                    {
+                        "color": "rgb(255, 255, 255)",
+                        "fill": "rgb(255, 255, 255)",
+                        "top": "-0.6px",
+                        "opacity": "0.8",
+                        "width": 12,
+                        "height": 12,
+                        "centerOffset": -0.59375
+                    },
+                    {
+                        "color": "rgb(255, 255, 255)",
+                        "fill": "rgb(255, 255, 255)",
+                        "top": "-0.6px",
+                        "opacity": "1",
+                        "width": 12,
+                        "height": 12,
+                        "centerOffset": -0.59375
+                    }
+                ]
+            },
+            {
+                "color": "rgb(255, 255, 255)",
+                "background": "rgb(35, 134, 54)",
+                "weight": "400",
+                "size": "12px",
+                "lineHeight": "16px",
+                "gap": "4px",
+                "icons": [
+                    {
+                        "color": "rgb(255, 255, 255)",
+                        "fill": "rgb(255, 255, 255)",
+                        "top": "-0.6px",
+                        "opacity": "0.8",
+                        "width": 12,
+                        "height": 12,
+                        "centerOffset": -0.59375
+                    },
+                    {
+                        "color": "rgb(255, 255, 255)",
+                        "fill": "rgb(255, 255, 255)",
+                        "top": "-0.6px",
+                        "opacity": "1",
+                        "width": 12,
+                        "height": 12,
+                        "centerOffset": -0.59375
+                    }
+                ]
+            }
+        ]
+    }
+]

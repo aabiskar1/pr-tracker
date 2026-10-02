@@ -93,6 +93,23 @@ a:hover {
     background: var(--popup-draft-surface);
 }
 
+.screen-prlist .pr-card-title {
+    color: var(--popup-heading);
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.screen-prlist .pr-card-link:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: -3px;
+}
+
+.screen-prlist .pr-card-link:hover .pr-card-title {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
 .screen-prlist .popup-repo-badge {
     padding: 0.125rem 0.35rem;
     border: 0;
@@ -134,6 +151,40 @@ a:hover {
 .screen-prlist [data-ci-status='pending']:not([data-selected='false']),
 .screen-prlist [data-review-status='pending']:not([data-selected='false']) {
     background: var(--popup-status-pending);
+}
+
+/* Keep solid status labels, with card-only contrast and consistent icon spacing. */
+.screen-prlist .pr-card-accent [data-slot='badge'][data-ci-status],
+.screen-prlist .pr-card-accent [data-slot='badge'][data-review-status] {
+    color: var(--popup-card-status-foreground);
+    font-size: 0.75rem;
+    font-weight: 400;
+    line-height: 16px;
+    gap: 0.25rem;
+}
+
+.screen-prlist .pr-card-accent [data-slot='badge'][data-ci-status] svg,
+.screen-prlist .pr-card-accent [data-slot='badge'][data-review-status] svg {
+    color: inherit;
+    fill: currentColor;
+    top: 0;
+}
+
+.screen-prlist .pr-card-accent [data-ci-status='passing'],
+.screen-prlist .pr-card-accent [data-review-status='approved'] {
+    background: var(--popup-card-status-passing);
+}
+
+.screen-prlist .pr-card-accent [data-ci-status='failing'],
+.screen-prlist .pr-card-accent [data-review-status='changes-requested'] {
+    background: var(--popup-card-status-failing);
+}
+
+.screen-prlist .pr-card-accent [data-slot='badge'][data-ci-status='pending'],
+.screen-prlist
+    .pr-card-accent
+    [data-slot='badge'][data-review-status='pending'] {
+    background: var(--popup-card-status-pending);
 }
 
 .screen-prlist .filter-bar-container [data-slot='badge'][data-ci-status],

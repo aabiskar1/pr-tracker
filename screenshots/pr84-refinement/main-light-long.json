@@ -1,0 +1,82 @@
+[
+    {
+        "title": {
+            "size": "12px",
+            "weight": "500",
+            "lineHeight": "18px",
+            "color": "rgb(75, 85, 99)"
+        },
+        "badges": [
+            {
+                "color": "rgb(255, 255, 255)",
+                "background": "rgb(40, 167, 69)",
+                "weight": "400"
+            },
+            {
+                "color": "rgb(255, 255, 255)",
+                "background": "rgb(219, 171, 9)",
+                "weight": "400"
+            }
+        ]
+    },
+    {
+        "title": {
+            "size": "12px",
+            "weight": "500",
+            "lineHeight": "18px",
+            "color": "rgb(75, 85, 99)"
+        },
+        "badges": [
+            {
+                "color": "rgb(255, 255, 255)",
+                "background": "rgb(40, 167, 69)",
+                "weight": "400"
+            },
+            {
+                "color": "rgb(255, 255, 255)",
+                "background": "rgb(219, 171, 9)",
+                "weight": "400"
+            }
+        ]
+    },
+    {
+        "title": {
+            "size": "12px",
+            "weight": "500",
+            "lineHeight": "18px",
+            "color": "rgb(75, 85, 99)"
+        },
+        "badges": [
+            {
+                "color": "rgb(255, 255, 255)",
+                "background": "rgb(219, 171, 9)",
+                "weight": "400"
+            },
+            {
+                "color": "rgb(255, 255, 255)",
+                "background": "rgb(203, 36, 49)",
+                "weight": "400"
+            }
+        ]
+    },
+    {
+        "title": {
+            "size": "12px",
+            "weight": "500",
+            "lineHeight": "18px",
+            "color": "rgb(75, 85, 99)"
+        },
+        "badges": [
+            {
+                "color": "rgb(255, 255, 255)",
+                "background": "rgb(203, 36, 49)",
+                "weight": "400"
+            },
+            {
+                "color": "rgb(255, 255, 255)",
+                "background": "rgb(40, 167, 69)",
+                "weight": "400"
+            }
+        ]
+    }
+]
