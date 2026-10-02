@@ -95,8 +95,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </Button>
                 </div>
             )}
-            <header className="popup-header mb-4 grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-1.5">
-                <div className="flex shrink-0 items-center gap-2">
+            <header className="popup-header mb-4 flex flex-nowrap items-center justify-between gap-3">
+                <div className="flex shrink-0 items-center gap-1">
                     <h2 className="whitespace-nowrap text-xl font-bold text-foreground">
                         Pull Requests
                     </h2>
@@ -126,7 +126,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         <FaCoffee size={14} aria-hidden="true" />
                     </Button>
                 </div>
-                <div className="flex min-w-0 items-center gap-1.5">
+                <div className="flex min-w-0 flex-nowrap items-center gap-1.5">
                     <LastChecked
                         lastSuccessfulRefreshAt={lastSuccessfulRefreshAt}
                     />
@@ -141,22 +141,22 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         />
                         Refresh
                     </Button>
+                    <Settings
+                        theme={theme}
+                        onThemeChange={handleThemeChange}
+                        notificationsEnabled={notificationsEnabled}
+                        onToggleNotifications={handleToggleNotifications}
+                    />
+                    <Button
+                        onClick={handleSignOut}
+                        variant="secondary"
+                        size="sm"
+                        aria-label="Sign Out"
+                    >
+                        <FaSignOutAlt aria-hidden="true" />
+                        Sign Out
+                    </Button>
                 </div>
-                <Settings
-                    theme={theme}
-                    onThemeChange={handleThemeChange}
-                    notificationsEnabled={notificationsEnabled}
-                    onToggleNotifications={handleToggleNotifications}
-                />
-                <Button
-                    onClick={handleSignOut}
-                    variant="secondary"
-                    size="sm"
-                    aria-label="Sign Out"
-                >
-                    <FaSignOutAlt aria-hidden="true" />
-                    Sign Out
-                </Button>
             </header>
             <div className="mb-4">
                 <FilterBar

@@ -56,6 +56,11 @@ describe('preference persistence journeys', () => {
                             '[data-testid="last-checked"]'
                         )!;
                         const checkedRect = checked.getBoundingClientRect();
+                        const coffee = header.querySelector(
+                            '[aria-label="Open Buy Me a Coffee page"]'
+                        )!;
+                        const titleElement = header.querySelector('h2')!;
+                        const actions = checked.parentElement!;
                         const textRange = document.createRange();
                         textRange.selectNodeContents(checked);
                         return {
@@ -91,6 +96,25 @@ describe('preference persistence journeys', () => {
                                     )!
                                     .getBoundingClientRect().right <=
                                 checkedRect.left,
+                            grouped:
+                                header.children.length === 2 &&
+                                titleElement.nextElementSibling === coffee &&
+                                titleElement.parentElement
+                                    ?.nextElementSibling === actions &&
+                                actions.contains(
+                                    header.querySelector(
+                                        '[aria-label="Settings"]'
+                                    )
+                                ) &&
+                                actions.contains(
+                                    header.querySelector(
+                                        '[aria-label="Sign Out"]'
+                                    )
+                                ),
+                            titleCoffeeGap:
+                                coffee.getBoundingClientRect().left -
+                                    title.right <=
+                                8,
                             themeControls: header.querySelectorAll(
                                 '[aria-label="Theme selector"]'
                             ).length,
@@ -105,6 +129,8 @@ describe('preference persistence journeys', () => {
                         freshnessReadable: true,
                         adjacent: 'Refresh Pull Requests',
                         coffeeBeforeChecked: true,
+                        grouped: true,
+                        titleCoffeeGap: true,
                         themeControls: 0,
                         switches: 0,
                     });
