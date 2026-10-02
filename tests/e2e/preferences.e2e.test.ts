@@ -98,9 +98,12 @@ describe('preference persistence journeys', () => {
                                 checkedRect.left,
                             grouped:
                                 header.children.length === 2 &&
-                                titleElement.nextElementSibling === coffee &&
+                                titleElement.parentElement?.children.length ===
+                                    1 &&
                                 titleElement.parentElement
                                     ?.nextElementSibling === actions &&
+                                actions.firstElementChild === coffee &&
+                                coffee.nextElementSibling === checked &&
                                 actions.contains(
                                     header.querySelector(
                                         '[aria-label="Settings"]'
@@ -111,9 +114,9 @@ describe('preference persistence journeys', () => {
                                         '[aria-label="Sign Out"]'
                                     )
                                 ),
-                            titleCoffeeGap:
-                                coffee.getBoundingClientRect().left -
-                                    title.right <=
+                            coffeeCheckedGap:
+                                checkedRect.left -
+                                    coffee.getBoundingClientRect().right <=
                                 8,
                             themeControls: header.querySelectorAll(
                                 '[aria-label="Theme selector"]'
@@ -130,7 +133,7 @@ describe('preference persistence journeys', () => {
                         adjacent: 'Refresh Pull Requests',
                         coffeeBeforeChecked: true,
                         grouped: true,
-                        titleCoffeeGap: true,
+                        coffeeCheckedGap: true,
                         themeControls: 0,
                         switches: 0,
                     });

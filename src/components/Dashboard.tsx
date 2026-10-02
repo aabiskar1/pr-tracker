@@ -96,10 +96,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
             )}
             <header className="popup-header mb-4 flex flex-nowrap items-center justify-between gap-3">
-                <div className="flex shrink-0 items-center gap-1">
+                <div className="shrink-0">
                     <h2 className="whitespace-nowrap text-xl font-bold text-foreground">
                         Pull Requests
                     </h2>
+                </div>
+                <div className="flex min-w-0 flex-nowrap items-center gap-1.5">
                     <Button
                         variant="ghost"
                         size="icon-sm"
@@ -125,8 +127,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     >
                         <FaCoffee size={14} aria-hidden="true" />
                     </Button>
-                </div>
-                <div className="flex min-w-0 flex-nowrap items-center gap-1.5">
                     <LastChecked
                         lastSuccessfulRefreshAt={lastSuccessfulRefreshAt}
                     />
