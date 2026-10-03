@@ -96,9 +96,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
             )}
             <header className="popup-header mb-4 flex flex-nowrap items-center justify-between gap-3">
-                <div className="shrink-0">
+                <div className="flex shrink-0 items-center gap-2">
+                    <img
+                        src={browser.runtime.getURL('icons/icon-128.png')}
+                        alt=""
+                        aria-hidden="true"
+                        width={24}
+                        height={24}
+                        className="size-6 shrink-0 object-contain"
+                    />
                     <h2 className="whitespace-nowrap text-xl font-bold text-foreground">
-                        Pull Requests
+                        PR Tracker
                     </h2>
                 </div>
                 <div className="flex min-w-0 flex-nowrap items-center gap-1.5">

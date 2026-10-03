@@ -34,6 +34,9 @@ describe('preference persistence journeys', () => {
         async (theme) => {
             const page = await openSeededPopup(github, { theme });
             pages.push(page);
+            await page.$eval('header img', (image) =>
+                (image as HTMLImageElement).decode()
+            );
             for (const width of [750]) {
                 for (const fontFamily of [
                     'system-ui',
@@ -60,6 +63,8 @@ describe('preference persistence journeys', () => {
                             '[aria-label="Open Buy Me a Coffee page"]'
                         )!;
                         const titleElement = header.querySelector('h2')!;
+                        const logo = header.querySelector('img')!;
+                        const logoRect = logo.getBoundingClientRect();
                         const actions = checked.parentElement!;
                         const coffeeCheckedGap =
                             checkedRect.left -
@@ -81,6 +86,22 @@ describe('preference persistence journeys', () => {
                                 );
                             }),
                             fits: header.scrollWidth <= header.clientWidth,
+                            branding:
+                                titleElement.textContent?.trim() ===
+                                    'PR Tracker' &&
+                                logo.src.endsWith('/icons/icon-128.png') &&
+                                logo.naturalWidth === 128 &&
+                                logo.alt === '' &&
+                                logo.getAttribute('aria-hidden') === 'true' &&
+                                logoRect.width === 24 &&
+                                logoRect.height === 24 &&
+                                Math.abs(
+                                    (logoRect.top + logoRect.bottom) / 2 -
+                                        (title.top + title.bottom) / 2
+                                ) < 1 &&
+                                title.left - logoRect.right > 0 &&
+                                title.left - logoRect.right <= 8 &&
+                                header.getBoundingClientRect().height === 28,
                             freshnessReadable:
                                 checkedRect.width > 0 &&
                                 Array.from(textRange.getClientRects()).every(
@@ -102,7 +123,8 @@ describe('preference persistence journeys', () => {
                             grouped:
                                 header.children.length === 2 &&
                                 titleElement.parentElement?.children.length ===
-                                    1 &&
+                                    2 &&
+                                titleElement.previousElementSibling === logo &&
                                 titleElement.parentElement
                                     ?.nextElementSibling === actions &&
                                 actions.firstElementChild === coffee &&
@@ -130,6 +152,7 @@ describe('preference persistence journeys', () => {
                     expect(layout).toEqual({
                         sameRow: true,
                         fits: true,
+                        branding: true,
                         freshnessReadable: true,
                         adjacent: 'Refresh Pull Requests',
                         coffeeBeforeChecked: true,
