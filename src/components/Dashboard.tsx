@@ -113,7 +113,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     <Button
                         variant="ghost"
                         size="icon-sm"
-                        className="mr-1 text-muted-foreground/80 hover:text-foreground focus-visible:text-foreground"
+                        className="mr-1 px-[7px]! text-muted-foreground/80 hover:text-foreground focus-visible:text-foreground"
                         aria-label="Open Buy Me a Coffee page"
                         title="Buy me a coffee"
                         onClick={() => {
@@ -133,7 +133,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                 });
                         }}
                     >
-                        <FaCoffee size={14} aria-hidden="true" />
+                        <FaCoffee
+                            size={16}
+                            className="top-0! translate-y-px"
+                            aria-hidden="true"
+                        />
                     </Button>
                     <LastChecked
                         lastSuccessfulRefreshAt={lastSuccessfulRefreshAt}

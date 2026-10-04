@@ -79,6 +79,11 @@ describe('preference persistence journeys', () => {
                         const coffee = header.querySelector(
                             '[aria-label="Open Buy Me a Coffee page"]'
                         )!;
+                        const coffeeIcon = coffee.querySelector('svg')!;
+                        const coffeeIconRect =
+                            coffeeIcon.getBoundingClientRect();
+                        const coffeeRect = coffee.getBoundingClientRect();
+                        const coffeeStyle = getComputedStyle(coffee);
                         const titleElement = header.querySelector('h2')!;
                         const logo = header.querySelector('img')!;
                         const logoRect = logo.getBoundingClientRect();
@@ -103,6 +108,26 @@ describe('preference persistence journeys', () => {
                                 );
                             }),
                             fits: header.scrollWidth <= header.clientWidth,
+                            coffeeIconAligned:
+                                coffeeIconRect.width === 16 &&
+                                coffeeIconRect.height === 16 &&
+                                coffeeRect.width === 32 &&
+                                coffeeRect.height === 28 &&
+                                coffeeStyle.paddingLeft === '7px' &&
+                                coffeeStyle.paddingRight === '7px' &&
+                                Math.abs(
+                                    (coffeeIconRect.top +
+                                        coffeeIconRect.bottom) /
+                                        2 -
+                                        (title.top + title.bottom) / 2 -
+                                        1
+                                ) < 0.1 &&
+                                Math.abs(
+                                    (coffeeIconRect.left +
+                                        coffeeIconRect.right) /
+                                        2 -
+                                        (coffeeRect.left + coffeeRect.right) / 2
+                                ) < 0.1,
                             branding:
                                 titleElement.textContent?.trim() ===
                                     'PR Tracker' &&
@@ -171,6 +196,7 @@ describe('preference persistence journeys', () => {
                     expect(layout).toEqual({
                         sameRow: true,
                         fits: true,
+                        coffeeIconAligned: true,
                         branding: true,
                         freshnessReadable: true,
                         adjacent: 'Refresh Pull Requests',
