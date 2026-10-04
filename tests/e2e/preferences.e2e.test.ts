@@ -37,6 +37,23 @@ describe('preference persistence journeys', () => {
             await page.$eval('header img', (image) =>
                 (image as HTMLImageElement).decode()
             );
+            const manifestIcons = await page.evaluate(() => {
+                const manifest = chrome.runtime.getManifest();
+                return {
+                    icons: manifest.icons,
+                    toolbar: manifest.action?.default_icon,
+                };
+            });
+            const originalIcons = {
+                16: '/icons/icon-16.png',
+                32: '/icons/icon-32.png',
+                48: '/icons/icon-48.png',
+                128: '/icons/icon-128.png',
+            };
+            expect(manifestIcons).toEqual({
+                icons: originalIcons,
+                toolbar: originalIcons,
+            });
             for (const width of [750]) {
                 for (const fontFamily of [
                     'system-ui',
@@ -89,8 +106,9 @@ describe('preference persistence journeys', () => {
                             branding:
                                 titleElement.textContent?.trim() ===
                                     'PR Tracker' &&
-                                logo.src.endsWith('/icons/icon-128.png') &&
-                                logo.naturalWidth === 128 &&
+                                logo.src.endsWith('/branding/watchtower.png') &&
+                                logo.naturalWidth === 102 &&
+                                logo.naturalHeight === 102 &&
                                 logo.alt === '' &&
                                 logo.getAttribute('aria-hidden') === 'true' &&
                                 logoRect.width === 24 &&

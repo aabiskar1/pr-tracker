@@ -98,7 +98,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <header className="popup-header mb-4 flex flex-nowrap items-center justify-between gap-3">
                 <div className="flex shrink-0 items-center gap-2">
                     <img
-                        src={browser.runtime.getURL('icons/icon-128.png')}
+                        src={browser.runtime.getURL('branding/watchtower.png')}
                         alt=""
                         aria-hidden="true"
                         width={24}
