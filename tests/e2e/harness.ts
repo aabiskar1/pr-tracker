@@ -380,7 +380,7 @@ export async function openSeededPopup(
     const page = await openCleanPopup();
     await seedEncryptedState(page, options);
     await page.reload({ waitUntil: 'domcontentloaded' });
-    await waitForText(page, 'h2', 'Pull Requests');
+    await waitForText(page, 'h2', 'PR Tracker');
     const expectedPrs = options.data?.pullRequests ?? POPULATED_PRS;
     if (expectedPrs.length > 0) {
         await waitForText(page, 'li', expectedPrs[0].title);
@@ -411,7 +411,7 @@ export async function waitForText(
 }
 
 export async function waitForDashboard(page: Page) {
-    await waitForText(page, 'h2', 'Pull Requests');
+    await waitForText(page, 'h2', 'PR Tracker');
     await page.waitForSelector('[aria-label="Refresh Pull Requests"]');
 }
 

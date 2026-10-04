@@ -96,16 +96,24 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
             )}
             <header className="popup-header mb-4 flex flex-nowrap items-center justify-between gap-3">
-                <div className="shrink-0">
+                <div className="flex shrink-0 items-center gap-2">
+                    <img
+                        src={browser.runtime.getURL('branding/watchtower.png')}
+                        alt=""
+                        aria-hidden="true"
+                        width={26}
+                        height={26}
+                        className="size-[26px] translate-y-px shrink-0 object-contain"
+                    />
                     <h2 className="whitespace-nowrap text-xl font-bold text-foreground">
-                        Pull Requests
+                        PR Tracker
                     </h2>
                 </div>
                 <div className="flex min-w-0 flex-nowrap items-center gap-1.5">
                     <Button
                         variant="ghost"
                         size="icon-sm"
-                        className="mr-1 text-muted-foreground/80 hover:text-foreground focus-visible:text-foreground"
+                        className="mr-1 px-[7px]! text-muted-foreground/80 hover:text-foreground focus-visible:text-foreground"
                         aria-label="Open Buy Me a Coffee page"
                         title="Buy me a coffee"
                         onClick={() => {
@@ -125,7 +133,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                 });
                         }}
                     >
-                        <FaCoffee size={14} aria-hidden="true" />
+                        <FaCoffee
+                            size={16}
+                            className="top-0! translate-y-px"
+                            aria-hidden="true"
+                        />
                     </Button>
                     <LastChecked
                         lastSuccessfulRefreshAt={lastSuccessfulRefreshAt}

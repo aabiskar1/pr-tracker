@@ -34,6 +34,26 @@ describe('preference persistence journeys', () => {
         async (theme) => {
             const page = await openSeededPopup(github, { theme });
             pages.push(page);
+            await page.$eval('header img', (image) =>
+                (image as HTMLImageElement).decode()
+            );
+            const manifestIcons = await page.evaluate(() => {
+                const manifest = chrome.runtime.getManifest();
+                return {
+                    icons: manifest.icons,
+                    toolbar: manifest.action?.default_icon,
+                };
+            });
+            const originalIcons = {
+                16: '/icons/icon-16.png',
+                32: '/icons/icon-32.png',
+                48: '/icons/icon-48.png',
+                128: '/icons/icon-128.png',
+            };
+            expect(manifestIcons).toEqual({
+                icons: originalIcons,
+                toolbar: originalIcons,
+            });
             for (const width of [750]) {
                 for (const fontFamily of [
                     'system-ui',
@@ -59,7 +79,14 @@ describe('preference persistence journeys', () => {
                         const coffee = header.querySelector(
                             '[aria-label="Open Buy Me a Coffee page"]'
                         )!;
+                        const coffeeIcon = coffee.querySelector('svg')!;
+                        const coffeeIconRect =
+                            coffeeIcon.getBoundingClientRect();
+                        const coffeeRect = coffee.getBoundingClientRect();
+                        const coffeeStyle = getComputedStyle(coffee);
                         const titleElement = header.querySelector('h2')!;
+                        const logo = header.querySelector('img')!;
+                        const logoRect = logo.getBoundingClientRect();
                         const actions = checked.parentElement!;
                         const coffeeCheckedGap =
                             checkedRect.left -
@@ -81,6 +108,44 @@ describe('preference persistence journeys', () => {
                                 );
                             }),
                             fits: header.scrollWidth <= header.clientWidth,
+                            coffeeIconAligned:
+                                coffeeIconRect.width === 16 &&
+                                coffeeIconRect.height === 16 &&
+                                coffeeRect.width === 32 &&
+                                coffeeRect.height === 28 &&
+                                coffeeStyle.paddingLeft === '7px' &&
+                                coffeeStyle.paddingRight === '7px' &&
+                                Math.abs(
+                                    (coffeeIconRect.top +
+                                        coffeeIconRect.bottom) /
+                                        2 -
+                                        (title.top + title.bottom) / 2 -
+                                        1
+                                ) < 0.1 &&
+                                Math.abs(
+                                    (coffeeIconRect.left +
+                                        coffeeIconRect.right) /
+                                        2 -
+                                        (coffeeRect.left + coffeeRect.right) / 2
+                                ) < 0.1,
+                            branding:
+                                titleElement.textContent?.trim() ===
+                                    'PR Tracker' &&
+                                logo.src.endsWith('/branding/watchtower.png') &&
+                                logo.naturalWidth === 96 &&
+                                logo.naturalHeight === 98 &&
+                                logo.alt === '' &&
+                                logo.getAttribute('aria-hidden') === 'true' &&
+                                logoRect.width === 26 &&
+                                logoRect.height === 26 &&
+                                Math.abs(
+                                    (logoRect.top + logoRect.bottom) / 2 -
+                                        (title.top + title.bottom) / 2 -
+                                        1
+                                ) < 0.1 &&
+                                title.left - logoRect.right > 0 &&
+                                title.left - logoRect.right <= 8 &&
+                                header.getBoundingClientRect().height === 28,
                             freshnessReadable:
                                 checkedRect.width > 0 &&
                                 Array.from(textRange.getClientRects()).every(
@@ -102,7 +167,8 @@ describe('preference persistence journeys', () => {
                             grouped:
                                 header.children.length === 2 &&
                                 titleElement.parentElement?.children.length ===
-                                    1 &&
+                                    2 &&
+                                titleElement.previousElementSibling === logo &&
                                 titleElement.parentElement
                                     ?.nextElementSibling === actions &&
                                 actions.firstElementChild === coffee &&
@@ -130,6 +196,8 @@ describe('preference persistence journeys', () => {
                     expect(layout).toEqual({
                         sameRow: true,
                         fits: true,
+                        coffeeIconAligned: true,
+                        branding: true,
                         freshnessReadable: true,
                         adjacent: 'Refresh Pull Requests',
                         coffeeBeforeChecked: true,
