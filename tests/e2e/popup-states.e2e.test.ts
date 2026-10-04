@@ -198,6 +198,13 @@ describe('popup state journeys', () => {
                                     size: computed.fontSize,
                                     lineHeight: computed.lineHeight,
                                     foreground: computed.color,
+                                    background: computed.backgroundColor,
+                                    pending:
+                                        badge.getAttribute('data-ci-status') ===
+                                            'pending' ||
+                                        badge.getAttribute(
+                                            'data-review-status'
+                                        ) === 'pending',
                                     textColours: Array.from(
                                         badge.querySelectorAll('span')
                                     ).map(
@@ -279,6 +286,9 @@ describe('popup state journeys', () => {
                         expect(badge.size).toBe('12px');
                         expect(badge.lineHeight).toBe('16px');
                         expect(badge.foreground).toBe('rgb(255, 255, 255)');
+                        if (badge.pending) {
+                            expect(badge.background).toBe('rgb(180, 95, 0)');
+                        }
                         expect(badge.textColours).toEqual([
                             badge.foreground,
                             badge.foreground,
