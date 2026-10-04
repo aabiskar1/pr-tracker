@@ -107,16 +107,17 @@ describe('preference persistence journeys', () => {
                                 titleElement.textContent?.trim() ===
                                     'PR Tracker' &&
                                 logo.src.endsWith('/branding/watchtower.png') &&
-                                logo.naturalWidth === 102 &&
-                                logo.naturalHeight === 102 &&
+                                logo.naturalWidth === 96 &&
+                                logo.naturalHeight === 98 &&
                                 logo.alt === '' &&
                                 logo.getAttribute('aria-hidden') === 'true' &&
-                                logoRect.width === 24 &&
-                                logoRect.height === 24 &&
+                                logoRect.width === 26 &&
+                                logoRect.height === 26 &&
                                 Math.abs(
                                     (logoRect.top + logoRect.bottom) / 2 -
-                                        (title.top + title.bottom) / 2
-                                ) < 1 &&
+                                        (title.top + title.bottom) / 2 -
+                                        1
+                                ) < 0.1 &&
                                 title.left - logoRect.right > 0 &&
                                 title.left - logoRect.right <= 8 &&
                                 header.getBoundingClientRect().height === 28,

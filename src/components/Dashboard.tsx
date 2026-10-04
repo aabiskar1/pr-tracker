@@ -101,9 +101,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         src={browser.runtime.getURL('branding/watchtower.png')}
                         alt=""
                         aria-hidden="true"
-                        width={24}
-                        height={24}
-                        className="size-6 shrink-0 object-contain"
+                        width={26}
+                        height={26}
+                        className="size-[26px] translate-y-px shrink-0 object-contain"
                     />
                     <h2 className="whitespace-nowrap text-xl font-bold text-foreground">
                         PR Tracker
