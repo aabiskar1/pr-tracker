@@ -14,8 +14,8 @@ on:
                 type: choice
                 default: both
                 options: [chrome, firefox, both]
-            retry-failed:
-                description: I verified the selected store did not accept the previous failed submission
+            confirm-store-status:
+                description: I checked the selected store dashboards and this version has not been accepted
                 type: boolean
                 default: false
 
@@ -29,135 +29,50 @@ jobs:
         outputs:
             snapshot: ${{ steps.validate.outputs.snapshot }}
         steps:
+            # Dispatch is restricted to main; pin all jobs to that workflow revision.
+            - uses: actions/checkout@v7
+              with:
+                  ref: ${{ github.sha }}
+                  persist-credentials: false
             - uses: actions/setup-node@v7
               with:
                   node-version: '24'
+            - name: Confirm store dashboard verification
+              env:
+                  CONFIRMED: ${{ inputs.confirm-store-status }}
+              run: test "$CONFIRMED" = true
             - name: Validate release and original assets
               id: validate
               env:
                   GH_TOKEN: ${{ github.token }}
                   TAG: ${{ inputs.release-tag }}
                   STORE: ${{ inputs.store }}
-                  RETRY_FAILED: ${{ inputs.retry-failed }}
-              # Shared inline validation; no checkout, dependencies, or rebuilding.
-              run: &validate-release |
-                  node <<'NODE'
-                  const { execFileSync } = require('node:child_process');
-                  const { writeFileSync, appendFileSync } = require('node:fs');
-                  const { createHash } = require('node:crypto');
-                  const assert = (ok, message) => { if (!ok) throw new Error(message); };
-                  const { TAG, STORE, RETRY_FAILED, EXPECTED_SNAPSHOT, GITHUB_REPOSITORY: repo } = process.env;
-                  assert(repo === 'aabiskar1/pr-tracker', 'Unexpected repository');
-                  assert(/^v\d+\.\d+\.\d+$/.test(TAG), 'Expected a stable vMAJOR.MINOR.PATCH tag');
-                  assert(['chrome', 'firefox', 'both'].includes(STORE), 'Invalid store');
-                  assert(process.env.GITHUB_RUN_ATTEMPT === '1', 'Use a new dispatch, not a rerun');
-                  assert(RETRY_FAILED !== 'true' || STORE !== 'both', 'Retry only one failed store at a time');
-                  const api = path => JSON.parse(execFileSync('gh', ['api', `repos/${repo}/${path}`], { encoding: 'utf8' }));
-                  const pages = path => JSON.parse(execFileSync('gh', ['api', '--paginate', '--slurp', `repos/${repo}/${path}`], { encoding: 'utf8' }));
-                  const release = api(`releases/tags/${TAG}`);
-                  assert(release.tag_name === TAG && release.draft === false && release.prerelease === false && release.published_at, 'Release must be published and stable');
-                  assert(Number.isSafeInteger(release.id) && release.id > 0, 'Invalid release ID');
-                  let ref = api(`git/ref/tags/${TAG}`);
-                  assert(ref.ref === `refs/tags/${TAG}`, 'Tag mismatch');
-                  let object = ref.object;
-                  for (let depth = 0; object.type === 'tag' && depth < 5; depth++) {
-                    assert(/^[a-f0-9]{40}$/.test(object.sha), 'Invalid tag object');
-                    object = api(`git/tags/${object.sha}`).object;
-                  }
-                  assert(object.type === 'commit' && /^[a-f0-9]{40}$/.test(object.sha), 'Tag must resolve to a commit');
-                  const sha = object.sha;
-                  assert(api(`commits/${sha}`).sha === sha, 'Commit missing from repository');
-                  // Historical releases are allowed, but only commits in main's history.
-                  const comparison = api(`compare/${sha}...main`);
-                  assert(['ahead', 'identical'].includes(comparison.status), 'Tagged commit must belong to main history');
-                  if (/^[a-f0-9]{40}$/.test(release.target_commitish)) assert(release.target_commitish === sha, 'Release target differs from tag');
-                  const contents = api(`contents/package.json?ref=${sha}`);
-                  assert(contents.encoding === 'base64', 'Unexpected package response');
-                  assert(JSON.parse(Buffer.from(contents.content, 'base64')).version === TAG.slice(1), 'Tagged package version mismatch');
-                  const expected = EXPECTED_SNAPSHOT ? JSON.parse(EXPECTED_SNAPSHOT) : null;
-                  if (expected) {
-                    assert(expected.id === release.id && expected.sha === sha, 'Release or tag changed after inspection');
-                    // This executes under the per-version/store lock, after environment approval.
-                    const runs = pages('actions/workflows/publish-stores.yml/runs?per_page=100').flatMap(page => page.workflow_runs);
-                    for (const run of runs) {
-                      if (String(run.id) === process.env.GITHUB_RUN_ID || !run.display_title.startsWith(`Publish ${TAG} to `)) continue;
-                      const jobs = pages(`actions/runs/${run.id}/jobs?filter=all&per_page=100`).flatMap(page => page.jobs);
-                      for (const job of jobs.filter(job => job.name === `Publish ${STORE} ${TAG}`)) {
-                        const submission = job.steps?.find(step => step.name === `Submit to ${STORE}`);
-                        if (!submission?.started_at || submission.conclusion === 'skipped') continue;
-                        assert(submission.conclusion !== 'success', `Already submitted to ${STORE} in run ${run.id}`);
-                        assert(run.status === 'completed' && RETRY_FAILED === 'true', `Uncertain prior submission in run ${run.id}; check the store dashboard and explicitly acknowledge a single-store retry`);
-                      }
-                    }
-                  }
-                  const snapshot = { id: release.id, sha, assets: {} };
-                  for (const browser of STORE === 'both' ? ['chrome', 'firefox'] : [STORE]) {
-                    const name = `extension-${browser}.zip`;
-                    const assets = release.assets.filter(asset => asset.name === name);
-                    assert(assets.length === 1, `Expected exactly one ${name}`);
-                    const asset = assets[0];
-                    assert(Number.isSafeInteger(asset.id) && asset.id > 0 && asset.state === 'uploaded', 'Invalid asset identity/state');
-                    assert(Number.isSafeInteger(asset.size) && asset.size > 0 && asset.size < 50 * 1024 * 1024, 'Invalid asset size');
-                    assert(!asset.digest || /^sha256:[a-f0-9]{64}$/.test(asset.digest), 'Unsupported asset digest');
-                    // Fixed repository/asset ID, never an API-provided download URL.
-                    const data = execFileSync('gh', ['api', `repos/${repo}/releases/assets/${asset.id}`, '-H', 'Accept: application/octet-stream'], { maxBuffer: 50 * 1024 * 1024 });
-                    assert(data.length === asset.size, 'Asset size mismatch');
-                    const hash = createHash('sha256').update(data).digest('hex');
-                    assert(!asset.digest || asset.digest === `sha256:${hash}`, 'Asset SHA-256 mismatch');
-                    const identity = { id: asset.id, size: asset.size, digest: asset.digest || null, sha256: hash };
-                    if (expected) assert(JSON.stringify(expected.assets[browser]) === JSON.stringify(identity), 'Asset changed after inspection');
-                    snapshot.assets[browser] = identity;
-                    writeFileSync(name, data);
-                    execFileSync('unzip', ['-t', name], { stdio: 'pipe' });
-                    const entries = execFileSync('unzip', ['-Z1', name], { encoding: 'utf8' }).trim().split('\n');
-                    assert(new Set(entries).size === entries.length, 'Duplicate ZIP entries');
-                    assert(entries.every(entry => !/(^\/|(^|\/)\.\.(\/|$)|\\|\.(ts|tsx|map)$|(^|\/)(node_modules|tests?|\.git|\.env)(\/|$))/i.test(entry)), 'Unsafe or development ZIP contents');
-                    const manifest = JSON.parse(execFileSync('unzip', ['-p', name, 'manifest.json'], { encoding: 'utf8', maxBuffer: 1024 * 1024 }));
-                    const scripts = entries.filter(entry => entry.endsWith('.js'));
-                    assert(scripts.length > 0, 'Missing extension JavaScript');
-                    const javascript = execFileSync('unzip', ['-p', name, ...scripts], { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 });
-                    assert(!/TEST_RESET_BACKGROUND_STATE|design-system-showcase/.test(javascript), 'Test code in production ZIP');
-                    assert(manifest.version === TAG.slice(1) && manifest.name === 'PR Tracker', 'Manifest identity/version mismatch');
-                    assert(manifest.manifest_version === (browser === 'chrome' ? 3 : 2), 'Incorrect browser manifest format');
-                    if (browser === 'firefox') {
-                      assert(manifest.browser_specific_settings?.gecko?.id === '{dabd690e-283a-4c0a-98de-3fc963365d13}', 'Firefox extension ID mismatch');
-                    } else if (manifest.key) {
-                      const id = createHash('sha256').update(Buffer.from(manifest.key, 'base64')).digest('hex').slice(0, 32).replace(/[0-9a-f]/g, digit => String.fromCharCode(97 + parseInt(digit, 16)));
-                      assert(id === 'kfeglmkcicfmegclihokchplngcokgil', 'Chrome public key ID mismatch');
-                    }
-                    const paths = [...Object.values(manifest.icons || {}), ...Object.values(manifest.action?.default_icon || manifest.browser_action?.default_icon || {})];
-                    for (const path of [...paths, 'branding/watchtower.png', 'icons/icon-16.png', 'icons/icon-32.png', 'icons/icon-48.png', 'icons/icon-128.png']) {
-                      assert(typeof path === 'string' && entries.includes(path.replace(/^\//, '')), 'Missing icon/branding asset');
-                    }
-                    console.log(`Validated ${name}: ${hash}`);
-                  }
-                  appendFileSync(process.env.GITHUB_OUTPUT, `snapshot=${JSON.stringify(snapshot)}\n`);
-                  NODE
+              run: node scripts/validate-release.mjs
 
     publish-chrome:
         name: Publish chrome ${{ inputs.release-tag }}
         needs: inspect
-        if: ${{ inputs.store == 'chrome' || inputs.store == 'both' }}
+        if: ${{ github.ref == 'refs/heads/main' && github.run_attempt == 1 && (inputs.store == 'chrome' || inputs.store == 'both') }}
         runs-on: ubuntu-24.04
         environment: browser-stores
-        permissions:
-            contents: read
-            actions: read
         concurrency:
             group: store-chrome-${{ inputs.release-tag }}
             cancel-in-progress: false
         steps:
+            - uses: actions/checkout@v7
+              with:
+                  ref: ${{ github.sha }}
+                  persist-credentials: false
             - uses: actions/setup-node@v7
               with:
                   node-version: '24'
-            - name: Revalidate original release and submission history
+            - name: Revalidate original release and assets
               env:
                   GH_TOKEN: ${{ github.token }}
                   TAG: ${{ inputs.release-tag }}
                   STORE: chrome
-                  RETRY_FAILED: ${{ inputs.retry-failed }}
                   EXPECTED_SNAPSHOT: ${{ needs.inspect.outputs.snapshot }}
-              run: *validate-release
+              run: node scripts/validate-release.mjs
             - name: Verify Chrome submission target
               env:
                   EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
@@ -181,27 +96,27 @@ jobs:
     publish-firefox:
         name: Publish firefox ${{ inputs.release-tag }}
         needs: inspect
-        if: ${{ inputs.store == 'firefox' || inputs.store == 'both' }}
+        if: ${{ github.ref == 'refs/heads/main' && github.run_attempt == 1 && (inputs.store == 'firefox' || inputs.store == 'both') }}
         runs-on: ubuntu-24.04
         environment: browser-stores
-        permissions:
-            contents: read
-            actions: read
         concurrency:
             group: store-firefox-${{ inputs.release-tag }}
             cancel-in-progress: false
         steps:
+            - uses: actions/checkout@v7
+              with:
+                  ref: ${{ github.sha }}
+                  persist-credentials: false
             - uses: actions/setup-node@v7
               with:
                   node-version: '24'
-            - name: Revalidate original release and submission history
+            - name: Revalidate original release and assets
               env:
                   GH_TOKEN: ${{ github.token }}
                   TAG: ${{ inputs.release-tag }}
                   STORE: firefox
-                  RETRY_FAILED: ${{ inputs.retry-failed }}
                   EXPECTED_SNAPSHOT: ${{ needs.inspect.outputs.snapshot }}
-              run: *validate-release
+              run: node scripts/validate-release.mjs
             - name: Create Artifacts Directory
               run: mkdir -p web-ext-artifacts
             - name: Submit to firefox

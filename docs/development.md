@@ -260,8 +260,11 @@ an environment requirement, document that fact rather than silently omitting it.
 
 ## Releases
 
-Release automation has three independent workflows. There are no standalone
-release scripts or Python requirements.
+Release automation has three independent workflows. Store artifact validation
+and downloads live in `scripts/validate-release.mjs`, using Node built-ins,
+GitHub CLI and `unzip` already available on the runner. It needs no npm install
+or Python. The workflow checks out its exact dispatched `main` revision with
+`persist-credentials: false` in every job; it never executes code from the release tag.
 
 | Workflow                                     | Trigger                  | Responsibility                                                                                                                                                                                      |
 | -------------------------------------------- | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -294,8 +297,11 @@ Dry runs remain possible for versions that already have a release.
 
 For example, to publish the existing **v1.0.22** release without recreating it:
 
-1. Dispatch **Publish to Stores** from `main`, enter `v1.0.22`, and choose
-   `chrome`, `firefox`, or `both`. Leave **retry-failed** disabled initially.
+1. Check the selected store dashboards to confirm that this version has not
+   already been accepted and no submission is still processing. Dispatch
+   **Publish to Stores** from `main`, enter `v1.0.22`, choose `chrome`, `firefox`,
+   or `both`, and enable **confirm-store-status**. It defaults to false and
+   validation stops unless confirmed.
 2. Inspect the validation job. It verifies the published stable release, resolves
    lightweight or annotated tags to a repository commit in `main` history, and
    checks the tagged package version. The tagged commit need not be latest main.
@@ -317,8 +323,9 @@ configured submission target is the existing public store ID
 `kfeglmkcicfmegclihokchplngcokgil`. This is a target check, not a signed assertion
 of a keyless archive's identity.
 
-Store jobs have only `contents: read` and `actions: read`; the latter supports
-submission-history checks. Each job references only its own store credentials.
+All store workflow jobs have only `contents: read`. The same validator runs for
+initial inspection and after approval, checking release identity and the original
+downloaded bytes. Each publishing job references only its own store credentials.
 Credentials remain in GitHub Actions secrets, are not printed, and are used only
 after the environment approval gate. Third-party publishing actions retain their
 existing version references and necessarily receive their respective store
@@ -336,28 +343,28 @@ approve runs dispatched by `aabiskar1`. Keep the environment approval requiremen
 and protected `main` policy in place.
 
 Chrome and Firefox jobs are independent, with separate concurrency locks per
-tag/store. A failure in one does not cancel the other. Under that lock, each job
-checks previous workflow attempts and refuses a previously successful submission
-for the same version/store. A prior started but failed/cancelled submission is
-treated as uncertain, since a remote store may have accepted it before failure.
+tag/store. A failure in one does not cancel the other. Workflow reruns are blocked
+in every job to prevent replaying an uncertain external submission. The workflow
+does not scan historical job titles or step names or claim an automatic exactly-once
+guarantee: GitHub job history is not an authoritative store receipt. Every new
+dispatch requires the dashboard confirmation as well as environment approval.
 
 For a partial failure:
 
 1. Inspect the failed submission step and the store dashboard. Wait for any
    previous attempt to finish, including remote processing. Never resubmit a
    version already accepted by that store.
-2. Dispatch a **new run** selecting only the failed store. If the earlier attempt
-   reached the submission action, enable **retry-failed** only after confirming
-   that the store did not accept it. A successful submission cannot be overridden
-   by this acknowledgement. Both-store retries with the acknowledgement are rejected.
+2. Dispatch a **new run** selecting only the failed store and confirm its dashboard
+   status again. Do this only after verifying that the previous attempt was not
+   accepted. An action failure or cancellation can occur after a remote store has
+   accepted an upload; when uncertain, investigate or wait rather than retrying.
 3. Review and approve the new environment deployment. Do not rerun old jobs;
-   workflow reruns are rejected. Failures before submission need no acknowledgement.
+   workflow reruns are rejected. Do not resubmit the successful store.
 
-GitHub run history is a guard, not a permanent store receipt. Retention expiry,
-deleted runs, submissions outside this workflow (including the former combined
-workflow), or misleading action results cannot be fully detected with read-only
-permissions. Preserve publishing run history and check both store dashboards
-before the first submission through this workflow or any uncertain recovery.
+With read-only GitHub permissions there is no durable store-submission ledger.
+Concurrency prevents overlapping jobs for the same tag/store, but it cannot
+prevent a later new dispatch or an upload outside GitHub Actions. Operators must
+check store state and must not approve a version already accepted by that store.
 Concurrent pending runs may also be replaced by GitHub's concurrency scheduler;
-dispatch deliberately and inspect the resulting job states. Never work around a
-duplicate guard by deleting history or changing a published release's assets.
+dispatch deliberately and inspect the resulting job states. Never change a
+published release's assets to work around a validation failure.
