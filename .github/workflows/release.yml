@@ -3,15 +3,28 @@ name: Release Extension
 on:
     workflow_dispatch:
         inputs:
-            dry-run:
-                description: 'Dry Run (Build and Zip only, no upload)'
-                type: boolean
-                required: false
-                default: false
+            release-mode:
+                description: Release mode
+                type: choice
+                required: true
+                default: dry-run
+                options:
+                    - dry-run
+                    - github-release
+                    - full-release
+
+permissions:
+    contents: read
+
+concurrency:
+    group: release-extension
+    cancel-in-progress: false
 
 jobs:
     build:
         runs-on: ubuntu-24.04
+        outputs:
+            version: ${{ steps.version.outputs.version }}
         steps:
             - uses: actions/checkout@v7
 
@@ -24,11 +37,31 @@ jobs:
             - name: Install dependencies
               run: npm ci
 
+            - name: Run checks before packaging
+              run: |
+                  npm run compile
+                  npm run lint
+                  npm run check-format
+                  npm run test:unit
+                  npm run test:headless
+
             - name: Build for Chrome
               run: npm run build
 
             - name: Build for Firefox
               run: npm run build:firefox
+
+            - name: Check package and manifest versions
+              id: version
+              run: |
+                  version=$(jq -r '.version' package.json)
+                  [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+                  test "$(jq -r '.version' package-lock.json)" = "$version"
+                  test "$(jq -r '.packages[""].version' package-lock.json)" = "$version"
+                  test "$(jq -r '.version' .output/chrome-mv3/manifest.json)" = "$version"
+                  test "$(jq -r '.version' .output/firefox-mv2/manifest.json)" = "$version"
+                  test -s "docs/release-notes-$version.md"
+                  echo "version=$version" >> "$GITHUB_OUTPUT"
 
             - name: Zip Chrome Extension
               run: |
@@ -50,9 +83,45 @@ jobs:
                       extension-chrome.zip
                       extension-firefox.zip
 
-    publish-chrome:
+    release:
         needs: build
-        if: ${{ github.event.inputs.dry-run != 'true' }}
+        if: ${{ (inputs.release-mode == 'github-release' || inputs.release-mode == 'full-release') && github.ref == 'refs/heads/main' && github.run_attempt == 1 }}
+        runs-on: ubuntu-24.04
+        permissions:
+            contents: write
+        steps:
+            - uses: actions/checkout@v7
+              with:
+                  persist-credentials: false
+
+            - uses: actions/download-artifact@v8
+              with:
+                  name: extension-builds
+
+            - name: Create version tag and GitHub Release
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  VERSION: ${{ needs.build.outputs.version }}
+              run: |
+                  # Fail closed on retries, stale main, or an existing tag/release.
+                  test "$GITHUB_RUN_ATTEMPT" = 1
+                  test "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" = "$GITHUB_SHA"
+                  tag="v$VERSION"
+                  for path in "git/ref/tags/$tag" "releases/tags/$tag"; do
+                    status=$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
+                      -H "Authorization: Bearer $GH_TOKEN" "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/$path")
+                    test "$status" = 404 || { echo "::error::Tag/release already exists or lookup failed (HTTP $status)"; exit 1; }
+                  done
+                  gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+                    -f "ref=refs/tags/$tag" -f "sha=$GITHUB_SHA"
+                  gh release create "$tag" extension-chrome.zip extension-firefox.zip \
+                    --verify-tag --target "$GITHUB_SHA" --title "PR Tracker $VERSION" \
+                    --notes-file "docs/release-notes-$VERSION.md"
+
+    publish-chrome:
+        needs: release
+        if: ${{ inputs.release-mode == 'full-release' && github.run_attempt == 1 }}
+        environment: browser-stores
         runs-on: ubuntu-24.04
         steps:
             - uses: actions/download-artifact@v8
@@ -67,14 +136,15 @@ jobs:
                   client-id: ${{ secrets.GOOGLE_CLIENT_ID }}
                   client-secret: ${{ secrets.GOOGLE_CLIENT_SECRET }}
                   refresh-token: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
-                  publish: true # Set to false if you want to manually publish after upload
+                  publish: true
 
     publish-firefox:
-        needs: build
-        if: ${{ github.event.inputs.dry-run != 'true' }}
+        needs: release
+        if: ${{ inputs.release-mode == 'full-release' && github.run_attempt == 1 }}
+        environment: browser-stores
         runs-on: ubuntu-24.04
         steps:
-            - uses: actions/checkout@v7 # Required for web-ext to read manifest if needed, though we are using built artifact
+            - uses: actions/checkout@v7
 
             - uses: actions/download-artifact@v8
               with:
