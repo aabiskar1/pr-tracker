@@ -6,7 +6,7 @@ feature exists or a test has a broad name.
 
 ## Current tooling and layout
 
-Vitest `5.0.0` is the test runner. `vitest.config.ts` is the browser-free unit
+Vitest `5.0.5` is the test runner. `vitest.config.ts` is the browser-free unit
 configuration and uses a Node environment. `vitest.e2e.config.ts` extends it
 with the packaged-browser setup used only by E2E and screenshot runs. Test
 files are selected through the script filters in `package.json`.
@@ -32,6 +32,9 @@ with popup request interception, and exercise refresh/error integration by
 intercepting the packaged service worker's `api.github.com` requests through
 the Chrome DevTools Protocol. Normal production builds do not contain the
 test-only background-state reset message handler.
+
+The harness uses Puppeteer directly; it does not require `vitest-puppeteer`
+or its separate environment/server packages.
 
 Unit workers never load Puppeteer setup. The current unit suites use mocked
 browser boundaries or pure TypeScript and therefore launch no Chrome process.
