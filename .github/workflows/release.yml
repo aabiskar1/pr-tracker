@@ -69,7 +69,7 @@ jobs:
             - name: Headed Chrome E2E tests
               env:
                   CI: 'false'
-              run: xvfb-run --auto-servernum npm run test:e2e
+              run: xvfb-run --auto-servernum npm run test:e2e -- --no-file-parallelism
 
             - name: Headless Chrome E2E tests
               run: npm run test:headless

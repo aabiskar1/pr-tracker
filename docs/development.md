@@ -285,6 +285,12 @@ npm run zip -- -b firefox --no-sources
 python3 scripts/validate-release-packages.py
 ```
 
+On the shared Linux virtual display, the workflow adds
+`-- --no-file-parallelism` to the headed E2E command so independent Chrome
+windows do not steal focus from accessibility and native-popup checks.
+Headless files retain their normal parallel scheduling. Lifecycle assertions
+wait for committed encrypted preferences before checking the reopened popup.
+
 Use PowerShell environment assignment (`$env:CI = 'true'`,
 `$env:VISUAL_REF = 'release'`) on Windows. If PowerShell's `npm.ps1` drops command
 flags, use `npm.cmd run zip -- -b firefox --no-sources`. Python 3 is needed only
