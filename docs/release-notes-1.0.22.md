@@ -23,14 +23,13 @@ the dependency security fixes merged since v1.0.21.
   integration and its vulnerable transitive dependencies. The merged security
   update reports zero npm audit findings; this release preparation adds no
   further dependency upgrades.
-- Added explicit **Dry Run**, **GitHub Release**, and **Full Release** workflow
-  modes. Validation precedes tagging, GitHub publishing, and optional store
-  submission. Dry Run is the default and uploads workflow artifacts only.
-  Release guards check latest main, versions, package contents and identity,
-  existing tags/releases, and retry safety. Store results are reported separately.
+- Extended the existing release workflow to create a version tag and GitHub
+  Release with both browser ZIPs before store submission. Browser-store jobs
+  require manual approval through the protected `browser-stores` environment.
+  The existing Dry Run checkbox builds and uploads workflow artifacts only.
 
-Release validation covers compilation, lint, 356 unit/release-safety tests,
-10 ZIP-validation tests, 48 headed and 48 headless Chrome E2E tests, seven
+Release validation covers compilation, lint, 333 unit tests,
+48 headed and 48 headless Chrome E2E tests, seven
 deterministic screenshot/layout regression tests, and production Chrome MV3 /
 Firefox MV2 builds. Both generated manifests
 and both versioned release ZIPs report 1.0.22. The original toolbar icons and

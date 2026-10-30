@@ -117,8 +117,6 @@ describe('reviewed PR retention', () => {
         await page.reload({ waitUntil: 'domcontentloaded' });
         await count(page, 3);
         expect(await checked(page)).toBe(false);
-        await page.close();
-        pages.splice(pages.indexOf(page), 1);
         const reopened = await openExtensionPopup();
         pages.push(reopened);
         await count(reopened, 3);
@@ -130,6 +128,8 @@ describe('reviewed PR retention', () => {
         await count(reopened, 3);
         expect(await checked(reopened)).toBe(false);
         await reopened.click('button::-p-text(Reset Filters)');
+        await count(reopened, 6);
+        expect(await checked(reopened)).toBe(true);
         await expect
             .poll(
                 async () =>
@@ -137,8 +137,6 @@ describe('reviewed PR retention', () => {
                         ?.showReviewed
             )
             .toBe(true);
-        await expect.poll(() => checked(reopened)).toBe(true);
-        await count(reopened, 6);
         // Repeated activity still retains all open reviewed PRs with no duplicates.
         github.setScenario({
             pullRequests: reviewedPRs.map((pr) => ({

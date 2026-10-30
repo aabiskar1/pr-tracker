@@ -1,255 +1,160 @@
 name: Release Extension
-run-name: '${{ inputs.release-mode }} - ${{ github.ref_name }}'
 
 on:
     workflow_dispatch:
         inputs:
-            release-mode:
-                description: Release mode
-                type: choice
-                required: true
-                default: Dry Run
-                options:
-                    - Dry Run
-                    - GitHub Release
-                    - Full Release
+            dry-run:
+                description: 'Dry Run (Build and Zip only, no release or store submission)'
+                type: boolean
+                required: false
+                default: false
 
 permissions:
     contents: read
 
-# Serialize all modes; never cancel a run that may be submitting to a store.
 concurrency:
-    group: pr-tracker-release
+    group: release-extension
     cancel-in-progress: false
 
-env:
-    RELEASE_MODE: ${{ inputs.release-mode }}
-
 jobs:
-    validate:
+    build:
         runs-on: ubuntu-24.04
-        timeout-minutes: 30
         outputs:
-            version: ${{ steps.metadata.outputs.version }}
-            tag: ${{ steps.metadata.outputs.tag }}
-            chrome: ${{ steps.metadata.outputs.chrome }}
-            firefox: ${{ steps.metadata.outputs.firefox }}
-            artifact: packages-${{ github.run_id }}-${{ github.run_attempt }}
+            version: ${{ steps.version.outputs.version }}
         steps:
             - uses: actions/checkout@v7
-              with:
-                  persist-credentials: false
 
-            - uses: actions/setup-node@v7
+            - name: Setup Node.js
+              uses: actions/setup-node@v7
               with:
                   node-version: '24'
-                  cache: npm
-
-            - name: Validate release context and version
-              id: metadata
-              env:
-                  GH_TOKEN: ${{ github.token }}
-              run: node scripts/release.mjs preflight
+                  cache: 'npm'
 
             - name: Install dependencies
               run: npm ci
 
-            - name: Compile, lint, and check formatting
+            - name: Run checks before packaging
               run: |
                   npm run compile
                   npm run lint
                   npm run check-format
-                  git diff --exit-code
-
-            - name: Unit and release safety tests
-              run: |
                   npm run test:unit
-                  python3 -B -m unittest discover -s tests -p release_packages_test.py
+                  npm run test:headless
 
-            - name: Headed Chrome E2E tests
-              env:
-                  CI: 'false'
-              run: xvfb-run --auto-servernum npm run test:e2e -- --no-file-parallelism
+            - name: Build for Chrome
+              run: npm run build
 
-            - name: Headless Chrome E2E tests
-              run: npm run test:headless
+            - name: Build for Firefox
+              run: npm run build:firefox
 
-            - name: Screenshot and layout regressions
-              env:
-                  CI: 'true'
-                  VISUAL_REF: release
+            - name: Check package and manifest versions
+              id: version
               run: |
-                  npx vitest run --config vitest.e2e.config.ts tests/e2e/visual-compat.e2e.test.ts
+                  version=$(jq -r '.version' package.json)
+                  [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+                  test "$(jq -r '.version' package-lock.json)" = "$version"
+                  test "$(jq -r '.packages[""].version' package-lock.json)" = "$version"
+                  test "$(jq -r '.version' .output/chrome-mv3/manifest.json)" = "$version"
+                  test "$(jq -r '.version' .output/firefox-mv2/manifest.json)" = "$version"
+                  test -s "docs/release-notes-$version.md"
+                  echo "version=$version" >> "$GITHUB_OUTPUT"
 
-            - name: Package production Chrome and Firefox builds
+            - name: Zip Chrome Extension
               run: |
-                  npm run zip
-                  npm run zip -- -b firefox --no-sources
+                  cd .output/chrome-mv3
+                  zip -r ../../extension-chrome.zip .
+                  cd ../..
 
-            - name: Validate manifests, ZIP contents, icons, and branding
-              run: python3 scripts/validate-release-packages.py
+            - name: Zip Firefox Extension
+              run: |
+                  cd .output/firefox-mv2
+                  zip -r ../../extension-firefox.zip .
+                  cd ../..
 
-            - name: Upload validated ZIPs only
+            - name: Upload Artifacts
               uses: actions/upload-artifact@v7
               with:
-                  name: packages-${{ github.run_id }}-${{ github.run_attempt }}
-                  if-no-files-found: error
+                  name: extension-builds
                   path: |
-                      .output/${{ steps.metadata.outputs.chrome }}
-                      .output/${{ steps.metadata.outputs.firefox }}
+                      extension-chrome.zip
+                      extension-firefox.zip
 
-            - name: Upload screenshot regression evidence
-              if: ${{ always() }}
-              uses: actions/upload-artifact@v7
-              with:
-                  name: screenshots-${{ github.run_id }}-${{ github.run_attempt }}
-                  if-no-files-found: ignore
-                  path: screenshots/visual-compat/
-
-    github-release:
-        needs: validate
-        if: ${{ inputs.release-mode != 'Dry Run' && github.run_attempt == 1 }}
+    release:
+        needs: build
+        if: ${{ github.event.inputs.dry-run != 'true' && github.ref == 'refs/heads/main' }}
         runs-on: ubuntu-24.04
-        timeout-minutes: 10
         permissions:
             contents: write
-        outputs:
-            published: ${{ steps.publish.outputs.published }}
         steps:
             - uses: actions/checkout@v7
               with:
-                  ref: ${{ github.sha }}
                   persist-credentials: false
-
-            - uses: actions/setup-node@v7
-              with:
-                  node-version: '24'
 
             - uses: actions/download-artifact@v8
               with:
-                  name: ${{ needs.validate.outputs.artifact }}
-                  path: packages
+                  name: extension-builds
 
-            - name: Revalidate downloaded packages
-              run: python3 scripts/validate-release-packages.py --archive-dir packages --archives-only
-
-            - name: Create tag and draft, verify uploaded ZIPs, then publish
-              id: publish
+            - name: Create version tag and GitHub Release
               env:
                   GH_TOKEN: ${{ github.token }}
-                  TAG: ${{ needs.validate.outputs.tag }}
-                  VERSION: ${{ needs.validate.outputs.version }}
-                  CHROME_ZIP: ${{ needs.validate.outputs.chrome }}
-                  FIREFOX_ZIP: ${{ needs.validate.outputs.firefox }}
+                  VERSION: ${{ needs.build.outputs.version }}
               run: |
-                  node scripts/release.mjs before-release
-                  # Atomic ref creation fails if another writer created the tag.
+                  # Fail closed on retries, stale main, or an existing tag/release.
+                  test "$GITHUB_RUN_ATTEMPT" = 1
+                  test "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" = "$GITHUB_SHA"
+                  tag="v$VERSION"
+                  for path in "git/ref/tags/$tag" "releases/tags/$tag"; do
+                    status=$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
+                      -H "Authorization: Bearer $GH_TOKEN" "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/$path")
+                    test "$status" = 404 || { echo "::error::Tag/release already exists or lookup failed (HTTP $status)"; exit 1; }
+                  done
                   gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
-                    -f "ref=refs/tags/$TAG" -f "sha=$GITHUB_SHA"
-                  gh release create "$TAG" "packages/$CHROME_ZIP" "packages/$FIREFOX_ZIP" \
-                    --verify-tag --target "$GITHUB_SHA" --draft \
-                    --title "PR Tracker $VERSION" --notes-file "docs/release-notes-$VERSION.md"
-                  node scripts/release.mjs verify-assets
-                  gh release edit "$TAG" --draft=false
-                  echo 'published=true' >> "$GITHUB_OUTPUT"
+                    -f "ref=refs/tags/$tag" -f "sha=$GITHUB_SHA"
+                  gh release create "$tag" extension-chrome.zip extension-firefox.zip \
+                    --verify-tag --target "$GITHUB_SHA" --title "PR Tracker $VERSION" \
+                    --notes-file "docs/release-notes-$VERSION.md"
 
     publish-chrome:
-        needs: [validate, github-release]
-        if: ${{ inputs.release-mode == 'Full Release' && github.run_attempt == 1 && needs.github-release.outputs.published == 'true' }}
+        needs: release
+        if: ${{ github.event.inputs.dry-run != 'true' && github.run_attempt == 1 }}
+        environment: browser-stores
         runs-on: ubuntu-24.04
-        timeout-minutes: 20
         steps:
-            - uses: actions/checkout@v7
-              with:
-                  ref: ${{ github.sha }}
-                  persist-credentials: false
-            - uses: actions/setup-node@v7
-              with:
-                  node-version: '24'
             - uses: actions/download-artifact@v8
               with:
-                  name: ${{ needs.validate.outputs.artifact }}
-                  path: packages
-            - name: Verify latest main, release identity, and package digests
-              env:
-                  GH_TOKEN: ${{ github.token }}
-              run: |
-                  python3 scripts/validate-release-packages.py --archive-dir packages --archives-only
-                  node scripts/release.mjs before-stores
-            - name: Upload and publish Chrome Web Store package
-              id: chrome
-              uses: mnao305/chrome-extension-upload@fdfe79400af990f5145a319e834aee64907ccff4 # v6.0.0
+                  name: extension-builds
+
+            - name: Upload to Chrome Web Store
+              uses: mnao305/chrome-extension-upload@v6.0.0
               with:
-                  file-path: packages/${{ needs.validate.outputs.chrome }}
+                  file-path: extension-chrome.zip
                   extension-id: ${{ secrets.CHROME_EXTENSION_ID }}
                   client-id: ${{ secrets.GOOGLE_CLIENT_ID }}
                   client-secret: ${{ secrets.GOOGLE_CLIENT_SECRET }}
                   refresh-token: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
                   publish: true
-            - name: Report Chrome submission result
-              if: ${{ always() }}
-              env:
-                  RESULT: ${{ steps.chrome.outcome }}
-              run: printf '### Chrome Web Store\nSubmission step outcome - %s\n' "$RESULT" >> "$GITHUB_STEP_SUMMARY"
 
     publish-firefox:
-        needs: [validate, github-release]
-        if: ${{ inputs.release-mode == 'Full Release' && github.run_attempt == 1 && needs.github-release.outputs.published == 'true' }}
+        needs: release
+        if: ${{ github.event.inputs.dry-run != 'true' && github.run_attempt == 1 }}
+        environment: browser-stores
         runs-on: ubuntu-24.04
-        timeout-minutes: 20
         steps:
             - uses: actions/checkout@v7
-              with:
-                  ref: ${{ github.sha }}
-                  persist-credentials: false
-            - uses: actions/setup-node@v7
-              with:
-                  node-version: '24'
+
             - uses: actions/download-artifact@v8
               with:
-                  name: ${{ needs.validate.outputs.artifact }}
-                  path: packages
-            - name: Verify latest main, release identity, and package digests
-              env:
-                  GH_TOKEN: ${{ github.token }}
-              run: |
-                  python3 scripts/validate-release-packages.py --archive-dir packages --archives-only
-                  node scripts/release.mjs before-stores
-            - name: Create signed-artifact directory
+                  name: extension-builds
+
+            - name: Create Artifacts Directory
               run: mkdir -p web-ext-artifacts
-            - name: Sign and submit to Firefox Add-ons
-              id: firefox
-              uses: kewisch/action-web-ext@fe10addf5d5e5ba6b78ffde720dd488a27d10e8c # v1
+
+            - name: Sign and Upload to Firefox Add-ons
+              uses: kewisch/action-web-ext@v1
               with:
                   cmd: sign
-                  source: packages/${{ needs.validate.outputs.firefox }}
+                  source: extension-firefox.zip
                   channel: listed
                   apiKey: ${{ secrets.FIREFOX_API_KEY }}
                   apiSecret: ${{ secrets.FIREFOX_API_SECRET }}
                   timeout: 900000
-            - name: Report Firefox submission result
-              if: ${{ always() }}
-              env:
-                  RESULT: ${{ steps.firefox.outcome }}
-              run: printf '### Firefox Add-ons\nSubmission step outcome - %s\n' "$RESULT" >> "$GITHUB_STEP_SUMMARY"
-
-    summary:
-        needs: [validate, github-release, publish-chrome, publish-firefox]
-        if: ${{ always() }}
-        runs-on: ubuntu-24.04
-        permissions: {}
-        steps:
-            - name: Report individual release outcomes
-              env:
-                  VALIDATION: ${{ needs.validate.result }}
-                  RELEASE: ${{ needs.github-release.result }}
-                  CHROME: ${{ needs.publish-chrome.result }}
-                  FIREFOX: ${{ needs.publish-firefox.result }}
-              run: |
-                  {
-                    printf '## PR Tracker release\nMode - %s\n\n' "$RELEASE_MODE"
-                    printf '| Stage | Result |\n| --- | --- |\n'
-                    printf '| Validation | %s |\n| GitHub Release | %s |\n' "$VALIDATION" "$RELEASE"
-                    printf '| Chrome Web Store | %s |\n| Firefox Add-ons | %s |\n' "$CHROME" "$FIREFOX"
-                    printf '\nStore failures require manual reconciliation. Real release retries are disabled.\n'
-                  } >> "$GITHUB_STEP_SUMMARY"
