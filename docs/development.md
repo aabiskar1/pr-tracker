@@ -260,17 +260,31 @@ an environment requirement, document that fact rather than silently omitting it.
 
 ## Releases
 
-The **Release Extension** workflow keeps the existing **Dry Run** checkbox.
-Check it to run checks/builds and upload the Chrome/Firefox ZIPs as workflow
-artifacts without creating a tag, GitHub Release, or store submission.
+The **Release Extension** workflow has a **Release mode** dropdown:
+
+| Mode                | Behaviour                                                                                                                     |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `dry-run` (default) | Run validation/builds and upload the Chrome/Firefox ZIPs as workflow artifacts only. No tags, GitHub Releases, or store jobs. |
+| `github-release`    | Validate, create the version tag and GitHub Release, and attach both ZIPs. Store jobs are skipped entirely.                   |
+| `full-release`      | Perform the GitHub Release steps, then wait for approval before starting browser-store publication.                           |
 
 For a real release, run the workflow from the latest `main`. After successful
 checks and builds, it creates `vVERSION` from `package.json`, publishes a
 GitHub Release using `docs/release-notes-VERSION.md`, and attaches both ZIPs.
-The Chrome and Firefox submission jobs then wait for approval through the
-`browser-stores` GitHub environment. Use **Review deployments** in the workflow
-run to approve store submission. The environment requires approval from
-`aabiskar1`; credentials remain in the existing GitHub Actions secrets.
+Only `full-release` schedules the Chrome and Firefox submission jobs. Both use
+the `browser-stores` GitHub environment. Use **Review deployments** in the
+workflow run to approve the desired store jobs. Credentials remain in the
+existing GitHub Actions secrets.
+
+The environment is configured with `aabiskar1` as its required reviewer and
+**Prevent self-review disabled** (`prevent_self_review: false`). This lets
+`aabiskar1` dispatch the release and subsequently approve their own store jobs;
+approval is still manual. Deployments are restricted to protected branches.
+These are repository settings, not YAML settings: maintain them under
+**Settings → Environments → browser-stores**. If Prevent self-review is enabled
+later, another eligible required reviewer must approve releases dispatched by
+`aabiskar1`. A `github-release` run never requests store approval and cannot be
+promoted to `full-release` by rerunning it: the version already has a tag/release.
 
 Existing tags/releases and real-release retries are rejected. If publishing
 partially fails, inspect the tag, release, and store dashboards before manual

@@ -26,7 +26,9 @@ the dependency security fixes merged since v1.0.21.
 - Extended the existing release workflow to create a version tag and GitHub
   Release with both browser ZIPs before store submission. Browser-store jobs
   require manual approval through the protected `browser-stores` environment.
-  The existing Dry Run checkbox builds and uploads workflow artifacts only.
+  The release-mode dropdown defaults to `dry-run`, which only validates/builds
+  and uploads workflow artifacts. `github-release` publishes the GitHub Release
+  without scheduling store jobs; `full-release` also requests store approval.
 
 Release validation covers compilation, lint, 333 unit tests,
 48 headed and 48 headless Chrome E2E tests, seven
