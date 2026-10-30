@@ -84,6 +84,7 @@ export const DEFAULT_FILTERS = {
     showDrafts: true,
     showReady: true,
     showHidden: false,
+    showReviewed: true,
     ageFilter: 'all' as const,
     reviewStatus: ['approved', 'changes-requested', 'pending'] as const,
     ciStatus: ['passing', 'failing', 'pending'] as const,

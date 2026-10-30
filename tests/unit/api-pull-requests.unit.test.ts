@@ -122,6 +122,7 @@ describe('fetchPullRequests search and transformation behavior', () => {
         expect(searchUrls.map(queryFromSearchUrl)).toEqual([
             'is:open is:pr author:octo-user archived:false',
             'is:open is:pr review-requested:octo-user archived:false',
+            'is:open is:pr reviewed-by:octo-user archived:false',
         ]);
         expect(
             searchUrls.every(
@@ -149,6 +150,7 @@ describe('fetchPullRequests search and transformation behavior', () => {
                     avatar_url: 'https://avatars.example/reviewer.png',
                 },
             ],
+            discoverySources: ['authored', 'review-requested', 'reviewed'],
             review_status: 'approved',
             ci_status: 'passing',
             author: {
@@ -177,6 +179,175 @@ describe('fetchPullRequests search and transformation behavior', () => {
         }
     });
 
+    it.each(['APPROVED', 'CHANGES_REQUESTED', 'COMMENTED'])(
+        'discovers historical %s reviews through reviewed-by across later commits',
+        async (state) => {
+            const urls: string[] = [];
+            let headVersion = 0;
+            installFetch((url) => {
+                urls.push(url);
+                if (isSearchUrl(url))
+                    return searchResponse(
+                        queryFromSearchUrl(url).includes('reviewed-by:')
+                            ? [searchItem(1)]
+                            : []
+                    );
+                if (url === prUrl(1))
+                    return jsonResponse(
+                        prDetail(1, {
+                            head: { sha: `subsequent-commit-${headVersion++}` },
+                        })
+                    );
+                if (url.endsWith('/reviews'))
+                    return jsonResponse([
+                        { user: { id: 1 }, state },
+                        { user: { id: 2 }, state: 'APPROVED' },
+                    ]);
+                return successfulSupportingResponse(url);
+            });
+            for (let refresh = 0; refresh < 2; refresh++) {
+                const prs = expectSuccessfulPullRequests(
+                    await fetchPullRequests(
+                        TOKEN,
+                        USER,
+                        undefined,
+                        createNotificationMock()
+                    )
+                );
+                expect(prs).toHaveLength(1);
+                expect(prs[0].discoverySources).toEqual(['reviewed']);
+            }
+            expect(urls.filter((url) => url === prUrl(1))).toHaveLength(2);
+        }
+    );
+
+    it('keeps an outstanding request when another reviewer requests changes', async () => {
+        installFetch((url) => {
+            if (isSearchUrl(url))
+                return searchResponse(
+                    queryFromSearchUrl(url).includes('review-requested:')
+                        ? [searchItem(1)]
+                        : []
+                );
+            if (url.endsWith('/reviews'))
+                return jsonResponse([
+                    { user: { id: 2 }, state: 'CHANGES_REQUESTED' },
+                ]);
+            if (url === prUrl(1))
+                return jsonResponse(
+                    prDetail(1, {
+                        requested_reviewers: [
+                            USER,
+                            { login: 'other', avatar_url: 'data:,' },
+                        ],
+                    })
+                );
+            return successfulSupportingResponse(url);
+        });
+        const prs = expectSuccessfulPullRequests(
+            await fetchPullRequests(
+                TOKEN,
+                USER,
+                undefined,
+                createNotificationMock()
+            )
+        );
+        expect(prs[0].discoverySources).toEqual(['review-requested']);
+        expect(prs[0].review_status).toBe('changes-requested');
+    });
+
+    it.each([true, false])(
+        'excludes closed canonical details even when search indexing lags (merged=%s)',
+        async (merged) => {
+            installFetch((url) => {
+                if (isSearchUrl(url))
+                    return searchResponse(
+                        queryFromSearchUrl(url).includes('reviewed-by:')
+                            ? [searchItem(1)]
+                            : []
+                    );
+                if (url === prUrl(1))
+                    return jsonResponse(
+                        prDetail(1, { state: 'closed', merged })
+                    );
+                return successfulSupportingResponse(url);
+            });
+            expect(
+                expectSuccessfulPullRequests(
+                    await fetchPullRequests(
+                        TOKEN,
+                        USER,
+                        undefined,
+                        createNotificationMock()
+                    )
+                )
+            ).toEqual([]);
+            // Explicit custom searches still return closed PRs as before.
+            expect(
+                expectSuccessfulPullRequests(
+                    await fetchPullRequests(
+                        TOKEN,
+                        USER,
+                        'is:pr reviewed-by:octo-user',
+                        createNotificationMock()
+                    )
+                )
+            ).toHaveLength(1);
+        }
+    );
+
+    it.each(['success', 'http', 'rate-limit', 'incomplete'])(
+        'paginates the required reviewed search and handles page-two %s',
+        async (outcome) => {
+            const urls: string[] = [];
+            installFetch((url) => {
+                urls.push(url);
+                if (isSearchUrl(url)) {
+                    if (!queryFromSearchUrl(url).includes('reviewed-by:'))
+                        return searchResponse([]);
+                    if (new URL(url).searchParams.get('page') === '1')
+                        return searchResponse(
+                            Array.from({ length: 100 }, () => searchItem(1)),
+                            { total_count: 101 }
+                        );
+                    if (outcome === 'http') return jsonResponse({}, 503);
+                    if (outcome === 'rate-limit')
+                        return jsonResponse(
+                            { message: 'API rate limit exceeded' },
+                            429,
+                            { 'retry-after': '60' }
+                        );
+                    return searchResponse([searchItem(2)], {
+                        total_count: 101,
+                        incomplete_results: outcome === 'incomplete',
+                    });
+                }
+                return successfulSupportingResponse(url);
+            });
+            const result = await fetchPullRequests(
+                TOKEN,
+                USER,
+                undefined,
+                createNotificationMock()
+            );
+            if (outcome === 'success') {
+                const prs = expectSuccessfulPullRequests(result);
+                expect(prs.map((pr) => pr.id)).toEqual([1, 2]);
+                expect(
+                    prs.every(
+                        (pr) => pr.discoverySources?.join() === 'reviewed'
+                    )
+                ).toBe(true);
+                expect(urls.filter((url) => url === prUrl(1))).toHaveLength(1);
+            } else {
+                expect(result.status).toBe('failure');
+                expect(urls.every(isSearchUrl)).toBe(true);
+                if (outcome === 'rate-limit')
+                    expect(result).toHaveProperty('rateLimit');
+            }
+        }
+    );
+
     it('uses one URL-encoded custom search instead of the defaults', async () => {
         const customQuery =
             'is:pr is:open org:acme label:"needs review" archived:false';
@@ -200,6 +371,7 @@ describe('fetchPullRequests search and transformation behavior', () => {
         );
 
         expect(result.map((pr) => pr.id)).toEqual([3]);
+        expect(result[0]).not.toHaveProperty('discoverySources');
         expect(searchUrls).toHaveLength(1);
         expect(searchUrls[0]).toContain(encodeURIComponent(customQuery));
         expect(queryFromSearchUrl(searchUrls[0])).toBe(customQuery);
@@ -222,6 +394,7 @@ describe('fetchPullRequests search and transformation behavior', () => {
         expect(queries).toEqual([
             'is:open is:pr author:octo-user archived:false',
             'is:open is:pr review-requested:octo-user archived:false',
+            'is:open is:pr reviewed-by:octo-user archived:false',
         ]);
     });
 

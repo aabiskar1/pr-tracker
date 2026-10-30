@@ -24,8 +24,8 @@ This README describes the current source; store releases may lag behind it.
 
 ## Features
 
-- **Track your work:** open PRs you authored and PRs requesting your review,
-  or a saved custom GitHub search query.
+- **Track your work:** open PRs you authored, PRs requesting your review,
+  and PRs you previously reviewed; or use a saved custom GitHub search query.
 - **Find what matters:** search titles and repository names; filter by age,
   draft/ready state, review status, and CI status. Sort by newest, oldest,
   reviewer count, or staleness. Hide PRs and show them again when needed.
@@ -61,11 +61,25 @@ These captures use generic demonstration data from the current popup.
 2. Create a password to encrypt your token and unlock stored data later.
    Optionally choose **Remember password for 12 hours**.
 3. PR Tracker sends authenticated HTTPS requests directly to GitHub. By
-   default it searches for your open authored PRs and review requests; saving
-   a custom query replaces those default searches.
+   default it searches for your open authored PRs, review requests, and previously
+   reviewed PRs. Saving a custom query replaces those default searches.
 4. Use Refresh whenever needed. Background checks are scheduled every five
    minutes while an unlocked session is available, subject to browser scheduling
    and GitHub rate limits.
+
+**Reviewed** is enabled by default, including after upgrading. It includes open
+PRs reviewed by **you**, whether you approved, requested changes, or submitted
+a comment-only review. It refers to your review history, independently of the
+Approved / Changes / Pending aggregate status filters. Regular conversation
+comments and unsubmitted draft reviews are not submitted reviews.
+
+Reviewed PRs stay tracked through later commits and reviews until merged or
+closed, then disappear on the next successful refresh. Uncheck Reviewed to
+restore the original visible list of authored PRs and outstanding review
+requests immediately from cached data. The checkbox is saved with your other
+encrypted filters; Reset Filters enables it again. Historical reviewed-only
+discoveries do not trigger new-PR notifications. Custom queries replace all
+default searches and keep their existing semantics regardless of this checkbox.
 
 **Checked …** represents the last successful GitHub refresh whose PR data was
 saved to encrypted storage. Opening the popup, loading cached data, or a failed

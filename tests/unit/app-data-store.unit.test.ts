@@ -25,6 +25,7 @@ const FILTERS: FilterState = {
     showDrafts: false,
     showReady: true,
     showHidden: false,
+    showReviewed: true,
     ageFilter: 'week',
     reviewStatus: ['pending'],
     ciStatus: ['passing'],
@@ -80,6 +81,38 @@ describe('background-owned encrypted app-data mutations', () => {
         vi.mocked(encryptHiddenPrIds).mockImplementation(async (ids) => {
             hiddenIds = [...ids];
         });
+    });
+
+    it('migrates legacy filters in mutations and stored preferences without losing other state', async () => {
+        const legacy = { ...FILTERS };
+        Reflect.deleteProperty(legacy, 'showReviewed');
+        expect(
+            parseAppDataMutation({ kind: 'set-filters', filters: legacy })
+        ).toEqual({
+            kind: 'set-filters',
+            filters: { ...legacy, showReviewed: true },
+        });
+        expect(
+            parseAppDataMutation({
+                kind: 'set-filters',
+                filters: { ...FILTERS, showReviewed: 'false' },
+            })
+        ).toBeNull();
+        storedData.preferences = {
+            filters: legacy,
+            notificationsEnabled: false,
+            sort: 'oldest',
+        };
+        await applyAppDataMutation(PASSWORD, {
+            kind: 'set-sort',
+            sort: 'newest',
+        });
+        expect(storedData.preferences).toEqual({
+            filters: { ...legacy, showReviewed: true },
+            notificationsEnabled: false,
+            sort: 'newest',
+        });
+        expect(storedData.pullRequests).toEqual([pullRequest(1)]);
     });
 
     it('preserves a popup preference while an overlapping refresh updates PR data', async () => {

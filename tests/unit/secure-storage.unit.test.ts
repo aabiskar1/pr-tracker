@@ -180,6 +180,7 @@ describe('secure storage', () => {
                     showDrafts: false,
                     showReady: true,
                     showHidden: true,
+                    showReviewed: true,
                     ageFilter: 'week',
                     reviewStatus: ['approved'],
                     ciStatus: ['passing'],
@@ -199,6 +200,28 @@ describe('secure storage', () => {
         );
         await expect(decryptAppData('incorrect password')).resolves.toBeNull();
     });
+
+    it.each([undefined, false, true])(
+        'round-trips legacy and current reviewed preferences (%s) and snapshots',
+        async (showReviewed) => {
+            const data = {
+                pullRequests: [
+                    { id: 17, title: 'Legacy snapshot without sources' },
+                ],
+                preferences: {
+                    filters: {
+                        showDrafts: false,
+                        ...(showReviewed === undefined ? {} : { showReviewed }),
+                    },
+                },
+            };
+            await encryptAppData(data, PASSWORD);
+            expect(JSON.stringify(storageState.values)).not.toContain(
+                'Legacy snapshot'
+            );
+            await expect(decryptAppData(PASSWORD)).resolves.toEqual(data);
+        }
+    );
 
     it('persists the successful refresh timestamp inside encrypted app data', async () => {
         const data = {

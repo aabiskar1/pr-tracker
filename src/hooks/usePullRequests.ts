@@ -9,11 +9,13 @@ import type {
 } from '../types';
 import { decryptAppData, decryptHiddenPrIds } from '../services/secureStorage';
 import type { AuthState } from './useAuth';
+import { isReviewedOnly } from '../utils/discoverySources';
 
 const DEFAULT_FILTERS: FilterState = {
     showDrafts: true,
     showReady: true,
     showHidden: false,
+    showReviewed: true,
     ageFilter: 'all',
     reviewStatus: ['approved', 'changes-requested', 'pending'],
     ciStatus: ['passing', 'failing', 'pending'],
@@ -104,7 +106,13 @@ export function usePullRequests(password: string, authState: AuthState) {
                             setIsCustomQueryActive(true);
                         }
                         if (appData.preferences.filters) {
-                            setFilterState(appData.preferences.filters);
+                            setFilterState({
+                                ...DEFAULT_FILTERS,
+                                ...appData.preferences.filters,
+                                showReviewed:
+                                    appData.preferences.filters.showReviewed ??
+                                    true,
+                            });
                         }
                         if (appData.preferences.sort) {
                             setSortOption(appData.preferences.sort);
@@ -267,6 +275,7 @@ export function usePullRequests(password: string, authState: AuthState) {
         (filters: FilterState, prs: PullRequest[], sort: SortOption) => {
             let filtered = prs.filter((pr) => {
                 if (!filters.showHidden && pr.hidden) return false;
+                if (!filters.showReviewed && isReviewedOnly(pr)) return false;
 
                 if (pr.draft && !filters.showDrafts) return false;
                 if (!pr.draft && !filters.showReady) return false;

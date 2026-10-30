@@ -556,6 +556,10 @@ export async function fetchPullRequests(
 ): Promise<PullRequestFetchResult> {
     assertRefreshSessionValid(refreshSession);
     let prItems: GitHubIssueSearchItem[] = [];
+    const discoverySources = new Map<
+        string,
+        NonNullable<PullRequest['discoverySources']>
+    >();
 
     if (customQuery && customQuery.trim()) {
         const customResult = await fetchSearchResults(
@@ -581,28 +585,41 @@ export async function fetchPullRequests(
     } else {
         const searchQuery = `is:open is:pr author:${user.login} archived:false`;
         const assignedQuery = `is:open is:pr review-requested:${user.login} archived:false`;
+        const reviewedQuery = `is:open is:pr reviewed-by:${user.login} archived:false`;
 
-        const [authoredResult, reviewResult] = await Promise.all([
-            fetchSearchResults(
-                searchQuery,
-                token,
-                'Authored PR search',
-                refreshSession
-            ),
-            fetchSearchResults(
-                assignedQuery,
-                token,
-                'Review PR search',
-                refreshSession
-            ),
-        ]);
+        const [authoredResult, reviewResult, reviewedResult] =
+            await Promise.all([
+                fetchSearchResults(
+                    searchQuery,
+                    token,
+                    'Authored PR search',
+                    refreshSession
+                ),
+                fetchSearchResults(
+                    assignedQuery,
+                    token,
+                    'Review PR search',
+                    refreshSession
+                ),
+                fetchSearchResults(
+                    reviewedQuery,
+                    token,
+                    'Reviewed PR search',
+                    refreshSession
+                ),
+            ]);
         assertRefreshSessionValid(refreshSession);
 
         if (
             authoredResult.status === 'failure' ||
-            reviewResult.status === 'failure'
+            reviewResult.status === 'failure' ||
+            reviewedResult.status === 'failure'
         ) {
-            const searchFailures = [authoredResult, reviewResult].filter(
+            const searchFailures = [
+                authoredResult,
+                reviewResult,
+                reviewedResult,
+            ].filter(
                 (
                     result
                 ): result is Extract<
@@ -624,7 +641,20 @@ export async function fetchPullRequests(
             };
         }
 
-        prItems = [...authoredResult.items, ...reviewResult.items];
+        for (const [result, source] of [
+            [authoredResult, 'authored'],
+            [reviewResult, 'review-requested'],
+            [reviewedResult, 'reviewed'],
+        ] as const) {
+            prItems.push(...result.items);
+            for (const item of result.items) {
+                const url = item.pull_request?.url;
+                if (!url) continue;
+                const sources = discoverySources.get(url) ?? [];
+                if (!sources.includes(source)) sources.push(source);
+                discoverySources.set(url, sources);
+            }
+        }
     }
 
     prItems = deduplicateSearchItems(prItems);
@@ -709,6 +739,9 @@ export async function fetchPullRequests(
                 status: 'success',
                 pullRequest: {
                     ...pullRequest,
+                    ...(discoverySources.has(prUrl)
+                        ? { discoverySources: discoverySources.get(prUrl) }
+                        : {}),
                     review_status: reviewResult.status,
                     ci_status: ciResult.status,
                 },
@@ -763,10 +796,14 @@ export async function fetchPullRequests(
     );
     const uniquePRs = Array.from(
         new Map(
-            successfulDetails.map((result) => [
-                result.pullRequest.id,
-                result.pullRequest,
-            ])
+            successfulDetails
+                .filter(
+                    (result) =>
+                        // Search indexing can lag a merge/close; canonical state wins.
+                        customQuery?.trim() ||
+                        result.pullRequest.state === 'open'
+                )
+                .map((result) => [result.pullRequest.id, result.pullRequest])
         ).values()
     );
 

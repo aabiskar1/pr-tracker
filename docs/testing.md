@@ -52,6 +52,15 @@ The manual-refresh E2E coverage also verifies that one failed canonical PR
 detail request preserves the encrypted cached and notification-comparison
 snapshots, and that the next complete refresh recovers normally.
 
+Reviewed-retention coverage exercises discovery-source union/deduplication,
+approval/change-request/comment-only results, cached filtering, legacy encrypted
+preferences and snapshots, reload/unlock/reset persistence, custom-query
+isolation, merged/closed removal (including stale search hits), historical
+notification suppression, and required reviewed-search pagination failures.
+API semantics are mocked deterministically; GitHub's search-index freshness is
+not under extension control. Browser tests run the existing filter layout
+checks in both Chrome and Firefox CSS paths; Firefox runtime remains build-only.
+
 Behavioural fixtures contain no `Math.random()`, uncontrolled fixture time,
 live GitHub data, or arbitrary test delays. Screenshot demo fixtures remain
 separate and may vary because they are not regression assertions.

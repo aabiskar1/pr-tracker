@@ -18,6 +18,7 @@ const FilterStateSchema = z
         showDrafts: z.boolean(),
         showReady: z.boolean(),
         showHidden: z.boolean(),
+        showReviewed: z.boolean().default(true),
         ageFilter: z.enum(['all', 'today', 'week', 'older']),
         reviewStatus: z.array(
             z.enum(['approved', 'changes-requested', 'pending'])
@@ -64,7 +65,18 @@ function normalizeAppData(data: AppData | null): AppData {
         ...data,
         pullRequests: data?.pullRequests ?? [],
         lastUpdated: data?.lastUpdated ?? new Date().toISOString(),
-        preferences: data?.preferences ?? {},
+        preferences: {
+            ...data?.preferences,
+            ...(data?.preferences?.filters
+                ? {
+                      filters: {
+                          ...data.preferences.filters,
+                          showReviewed:
+                              data.preferences.filters.showReviewed ?? true,
+                      },
+                  }
+                : {}),
+        },
         oldPullRequests: data?.oldPullRequests ?? [],
         pendingNotificationPullRequestIds:
             data?.pendingNotificationPullRequestIds ?? [],

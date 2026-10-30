@@ -7,6 +7,7 @@ import {
     type RefreshSessionContext,
 } from './refreshSession';
 import { constants, state } from './state';
+import { isReviewedOnly } from '../utils/discoverySources';
 
 export type PendingNotificationReplayResult =
     | 'displayed'
@@ -27,19 +28,24 @@ export async function advancePullRequestNotificationState(
     notifyOnFirstRun: boolean,
     refreshSession: RefreshSessionContext
 ): Promise<AppData> {
-    const currentIds = new Set(currentPullRequests.map((pr) => pr.id));
+    const eligiblePRs = currentPullRequests.filter((pr) => !isReviewedOnly(pr));
+    const currentIds = new Set(eligiblePRs.map((pr) => pr.id));
 
     return updateEncryptedAppData(
         password,
         (appData) => {
             const oldPullRequests = appData.oldPullRequests ?? [];
-            const oldIds = new Set(oldPullRequests.map((pr) => pr.id));
-            const newIds = currentPullRequests
-                .filter((pr) => !oldIds.has(pr.id))
+            const oldById = new Map(oldPullRequests.map((pr) => [pr.id, pr]));
+            const newIds = eligiblePRs
+                .filter(
+                    (pr) =>
+                        !oldById.has(pr.id) ||
+                        isReviewedOnly(oldById.get(pr.id)!)
+                )
                 .map((pr) => pr.id);
             const isFirstRun =
                 oldPullRequests.length === 0 &&
-                newIds.length === currentPullRequests.length;
+                newIds.length === eligiblePRs.length;
             const eligibleNewIds =
                 !isFirstRun || notifyOnFirstRun ? newIds : [];
             const relevantPendingIds = (
@@ -68,7 +74,9 @@ async function runPendingNotificationReplay(
             async (appData) => {
                 assertRefreshSessionValid(refreshSession);
                 const currentIds = new Set(
-                    appData.pullRequests.map((pr) => pr.id)
+                    appData.pullRequests
+                        .filter((pr) => !isReviewedOnly(pr))
+                        .map((pr) => pr.id)
                 );
                 const storedPendingIds = uniqueIds(
                     appData.pendingNotificationPullRequestIds ?? []
