@@ -53,6 +53,12 @@ describe('authentication journeys', () => {
         await page.click('#rememberPassword');
         await page.click('[aria-label="Create Password"]');
         await waitForDashboard(page);
+        expect(
+            await page.$eval(
+                '[aria-label="Show Reviewed"]',
+                (el) => (el as HTMLInputElement).checked
+            )
+        ).toBe(true);
 
         const session = await page.evaluate(() =>
             chrome.storage.session.get([

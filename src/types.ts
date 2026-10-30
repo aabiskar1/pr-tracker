@@ -21,6 +21,8 @@ export type GitHubChecksResponse = {
 };
 
 export type PullRequest = {
+    // Absent in legacy snapshots. Custom results deliberately have no sources.
+    discoverySources?: ('authored' | 'review-requested' | 'reviewed')[];
     id: number;
     title: string;
     html_url: string;
@@ -64,6 +66,7 @@ export type AppData = {
 };
 
 export type FilterState = {
+    showReviewed: boolean;
     showDrafts: boolean;
     showReady: boolean;
     showHidden: boolean;

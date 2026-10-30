@@ -102,6 +102,63 @@ describe('durable pending PR notification replay', () => {
         vi.restoreAllMocks();
     });
 
+    it('baselines historical reviewed-only discoveries while notifying new relevant PRs', async () => {
+        const historical: PullRequest = {
+            ...pullRequest(2),
+            discoverySources: ['reviewed'],
+        };
+        const relevant: PullRequest = {
+            ...pullRequest(3),
+            discoverySources: ['review-requested', 'reviewed'],
+        };
+        const current = [pullRequest(1), historical, relevant];
+        storedData.pullRequests = current;
+        await advancePullRequestNotificationState(
+            PASSWORD,
+            current,
+            true,
+            session().context
+        );
+        expect(storedData.oldPullRequests).toEqual(current);
+        expect(storedData.pendingNotificationPullRequestIds).toEqual([3]);
+        // A later new request for a historically reviewed PR is relevant again.
+        historical.discoverySources = ['reviewed', 'review-requested'];
+        await advancePullRequestNotificationState(
+            PASSWORD,
+            current,
+            false,
+            session().context
+        );
+        expect(storedData.pendingNotificationPullRequestIds).toEqual([3, 2]);
+    });
+
+    it('prunes pending reviewed-only IDs before replay after a worker restart', async () => {
+        storedData.pullRequests = [
+            { ...pullRequest(2), discoverySources: ['reviewed'] },
+        ];
+        storedData.pendingNotificationPullRequestIds = [2];
+        await expect(
+            replayPendingPullRequestNotifications(PASSWORD, session().context)
+        ).resolves.toBe('no-pending');
+        expect(storedData.pendingNotificationPullRequestIds).toEqual([]);
+        expect(createNotification).not.toHaveBeenCalled();
+    });
+
+    it('never seeds historical reviews on first run even when first-run delivery is enabled', async () => {
+        storedData.oldPullRequests = [];
+        const current: PullRequest[] = [
+            { ...pullRequest(2), discoverySources: ['reviewed'] },
+        ];
+        await advancePullRequestNotificationState(
+            PASSWORD,
+            current,
+            true,
+            session().context
+        );
+        expect(storedData.oldPullRequests).toEqual(current);
+        expect(storedData.pendingNotificationPullRequestIds).toEqual([]);
+    });
+
     it('migrates missing pending state without queuing an initial snapshot', async () => {
         storedData = appData({
             pullRequests: [],

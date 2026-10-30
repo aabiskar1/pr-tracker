@@ -9,6 +9,8 @@ import {
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
+import type { FilterState } from '../types';
+export type { FilterState } from '../types';
 
 type FilterBarProps = {
     filters: FilterState;
@@ -22,15 +24,6 @@ type FilterBarProps = {
     handleResetCustomQuery: () => void;
     isCustomQueryActive: boolean;
     customQuery: string;
-};
-
-export type FilterState = {
-    showDrafts: boolean;
-    showReady: boolean;
-    showHidden: boolean;
-    ageFilter: PRAgeFilter;
-    reviewStatus: ReviewStatus[];
-    ciStatus: CIStatus[];
 };
 
 export type SortOption = 'newest' | 'oldest' | 'urgent' | 'most-stale';
@@ -74,7 +67,7 @@ export function FilterBar({
                     <span className="font-medium text-sm">Filters:</span>
                 </div>
                 {/* PR Status Filters */}
-                <div className="flex gap-3">
+                <div className="flex flex-wrap gap-3">
                     <label
                         className="flex items-center gap-2 cursor-pointer"
                         title="Show or hide draft pull requests"
@@ -152,6 +145,32 @@ export function FilterBar({
                         />
                         <span className="text-sm text-muted-foreground">
                             Hidden
+                        </span>
+                    </label>
+                    <label
+                        className="flex items-center gap-2 cursor-pointer"
+                        title="Include open pull requests you've previously reviewed"
+                    >
+                        <div
+                            data-selected={filters.showReviewed}
+                            className={`popup-filter-check flex h-4 w-4 items-center justify-center rounded border ${filters.showReviewed ? 'border-primary bg-primary text-primary-foreground' : 'border-input bg-background'}`}
+                        >
+                            {filters.showReviewed && <FaCheck size={10} />}
+                        </div>
+                        <input
+                            type="checkbox"
+                            className="sr-only"
+                            checked={filters.showReviewed}
+                            onChange={() =>
+                                handleFilterChange(
+                                    'showReviewed',
+                                    !filters.showReviewed
+                                )
+                            }
+                            aria-label="Show Reviewed"
+                        />
+                        <span className="text-sm text-muted-foreground">
+                            Reviewed
                         </span>
                     </label>
                 </div>

@@ -63,6 +63,7 @@ const DEFAULT_FILTERS: FilterState = {
     showDrafts: true,
     showReady: true,
     showHidden: false,
+    showReviewed: true,
     ageFilter: 'all',
     reviewStatus: ['approved', 'changes-requested', 'pending'],
     ciStatus: ['passing', 'failing', 'pending'],
@@ -72,6 +73,7 @@ const SAVED_FILTERS: FilterState = {
     showDrafts: false,
     showReady: true,
     showHidden: true,
+    showReviewed: true,
     ageFilter: 'week',
     reviewStatus: ['changes-requested'],
     ciStatus: ['failing', 'pending'],
@@ -189,6 +191,54 @@ describe('usePullRequests preference persistence', () => {
         expect(preferences.customQueryInput).toBe('');
         expect(preferences.isCustomQueryActive).toBe(false);
         expect(preferences.notificationsEnabled).toBe(true);
+    });
+
+    it('defaults legacy saved filters to Reviewed without resetting preferences', async () => {
+        const legacy = { ...SAVED_FILTERS };
+        Reflect.deleteProperty(legacy, 'showReviewed');
+        vi.mocked(decryptAppData).mockResolvedValue(
+            appData({ filters: legacy, sort: 'oldest' })
+        );
+        renderPreferences();
+        hookHarness.effects[3]();
+        await vi.waitFor(() => {
+            expect(hookHarness.setters[3]).toHaveBeenCalledWith({
+                ...SAVED_FILTERS,
+                showReviewed: true,
+            });
+            expect(hookHarness.setters[4]).toHaveBeenCalledWith('oldest');
+        });
+    });
+
+    it('filters only reviewed-only cached PRs and keeps legacy and custom results', async () => {
+        const prs: PullRequest[] = [
+            {
+                ...pullRequest(1),
+                discoverySources: ['reviewed'],
+                review_status: 'changes-requested',
+            },
+            { ...pullRequest(2), discoverySources: ['authored', 'reviewed'] },
+            {
+                ...pullRequest(3),
+                discoverySources: ['review-requested', 'reviewed'],
+            },
+            { ...pullRequest(4), review_status: 'approved' },
+            {
+                ...pullRequest(5),
+                discoverySources: ['review-requested'],
+                review_status: 'changes-requested',
+            },
+        ];
+        const enabled = renderPreferences({ 0: prs });
+        expect(enabled.filteredPRs).toEqual(prs);
+        const filters = { ...DEFAULT_FILTERS, showReviewed: false };
+        await enabled.handleFilterChange(filters);
+        expect(hookHarness.setters[3]).toHaveBeenCalledWith(filters);
+        const disabled = renderPreferences({ 0: prs, 3: filters });
+        expect(disabled.filteredPRs.map((pr) => pr.id)).toEqual([2, 3, 4, 5]);
+        expect(browser.runtime.sendMessage).not.toHaveBeenCalledWith(
+            expect.objectContaining({ type: 'CHECK_PRS' })
+        );
     });
 
     it('derives case-insensitive title and repository search results from search state', () => {

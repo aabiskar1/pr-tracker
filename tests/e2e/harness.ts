@@ -55,13 +55,23 @@ function responseFor(url: string, scenario: GitHubScenario) {
     }
 
     if (url.includes('/search/issues')) {
-        const isReviewSearch =
-            decodeURIComponent(url).includes('review-requested:');
-        const items = isReviewSearch
-            ? []
-            : scenario.pullRequests.map((pr) => ({
-                  pull_request: { url: prApiUrl(pr) },
-              }));
+        const query = new URL(url).searchParams.get('q') ?? '';
+        const source = query.includes('reviewed-by:')
+            ? 'reviewed'
+            : query.includes('review-requested:')
+              ? 'review-requested'
+              : query.includes('author:')
+                ? 'authored'
+                : undefined;
+        const items = scenario.pullRequests
+            .filter(
+                (pr) =>
+                    !source ||
+                    (pr.discoverySources
+                        ? pr.discoverySources.includes(source)
+                        : source === 'authored')
+            )
+            .map((pr) => ({ pull_request: { url: prApiUrl(pr) } }));
         return {
             status: scenario.searchStatus ?? 200,
             body: {

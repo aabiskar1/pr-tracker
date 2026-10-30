@@ -164,8 +164,33 @@ calls `GET /user` to validate the token and checks the `x-oauth-scopes` response
 header for `repo`. Background refreshes call `/user` again, then either:
 
 - run separate GitHub issue searches for open PRs authored by the user and open
-  PRs requesting that user's review; or
+  PRs requesting that user's review, and open PRs previously reviewed by that
+  user (`reviewed-by:USERNAME`); or
 - run the saved custom issue-search query.
+
+Default refreshes always fetch all three searches, even with Reviewed unchecked.
+The union records each PR's matching `discoverySources` (`authored`,
+`review-requested`, `reviewed`) by canonical API URL before deduplication and
+detail fan-out. These internal sources are independent of aggregate
+`review_status`. The popup excludes only reviewed-only PRs when `showReviewed`
+is false, allowing immediate cached filtering. Missing metadata in older
+snapshots remains visible conservatively; custom query results omit sources
+and bypass this filter. Canonical closed details are excluded from default
+results even if search indexing lags; custom queries retain closed results.
+
+GitHub documents [reviewed-by as review history](https://github.blog/news-insights/product-news/filter-pull-request-reviews-and-review-requests/)
+and [COMMENT as a submitted review action](https://docs.github.com/en/rest/pulls/reviews).
+Submitted comment-only reviews qualify, as do approvals and change requests,
+independently of later commits or reviews. A read-only GitHub API spot check
+confirmed `reviewed-by:mislav repo:cli/cli` returned
+[cli/cli#7424](https://github.com/cli/cli/pull/7424), whose only review by that
+user was `COMMENTED` on a commit preceding the current head.
+Conversation comments and unsubmitted reviews are not treated as reviews.
+Search indexing delay and the existing 1,000-result ceiling per query still apply.
+
+`showReviewed` defaults to true for new users, missing legacy filter fields,
+and Reset Filters. It uses the existing encrypted preference/mutation boundary;
+normalization adds only the missing field and preserves other preferences.
 
 Each issue-search query is fetched sequentially in 100-result pages before any
 per-PR requests begin. Pagination stops when the first page's `total_count` has
@@ -285,6 +310,15 @@ snapshot, and merges new IDs without duplication. This happens for every
 complete, trustworthy refresh, including when display is throttled, disabled
 by preference, or fails. Failed and cooldown-suppressed refreshes preserve both
 snapshots and the pending set.
+
+Reviewed-only discoveries advance the comparison snapshot without seeding
+pending notifications, including during first-run opt-in. Pending IDs that
+become reviewed-only are pruned both on successful comparison and at replay,
+so worker restart cannot replay historical reviews. A later transition from
+reviewed-only to authored or outstanding-review discovery is eligible as new
+relevant work. Unknown legacy sources and custom results preserve the original
+notification rules. Existing first-run, preference, throttle, failure, and
+session guards remain in effect.
 
 Pending delivery is serialized separately from refresh execution and reads the
 latest encrypted current snapshot. It groups all still-relevant pending IDs in
