@@ -257,3 +257,106 @@ required local browser and test credential are available. Documentation-only
 changes should at minimum pass `npm run check-format`; run other existing checks
 when reasonable and report exactly what ran. If a command cannot run because of
 an environment requirement, document that fact rather than silently omitting it.
+
+## Release preparation and publishing
+
+Prepare a release from the latest `main` on a dedicated branch. Review
+`git log vPREVIOUS..HEAD` and the complete diff; bump `package.json`, both
+lockfile version fields, and add `docs/release-notes-VERSION.md`. Preserve
+production icons and Watchtower branding. Open a preparation PR and leave
+merging, tagging, and publishing to the maintainer's explicit decision.
+
+Run compilation, lint, formatting, unit tests, headed and headless E2E tests,
+and deterministic screenshot/layout checks before packaging. The release
+workflow repeats these checks, with a virtual display for headed Chrome:
+
+```sh
+npm run compile
+npm run lint
+npm run check-format
+npm run test:unit
+python3 -B -m unittest discover -s tests -p release_packages_test.py
+npm run test:e2e
+npm run test:headless
+# Following the test build, capture/assert existing visual regression fixtures:
+CI=true VISUAL_REF=release npx vitest run --config vitest.e2e.config.ts tests/e2e/visual-compat.e2e.test.ts
+npm run zip
+npm run zip -- -b firefox --no-sources
+python3 scripts/validate-release-packages.py
+```
+
+Use PowerShell environment assignment (`$env:CI = 'true'`,
+`$env:VISUAL_REF = 'release'`) on Windows. If PowerShell's `npm.ps1` drops command
+flags, use `npm.cmd run zip -- -b firefox --no-sources`. Python 3 is needed only
+for the release-package checks and their standard-library tests; no extension
+runtime dependency is added. `npm run zip` and its Firefox variant build
+production packages, not the test build. Outputs are
+`.output/pr-tracker-VERSION-chrome.zip` and
+`.output/pr-tracker-VERSION-firefox.zip`. `--no-sources` prevents WXT from
+creating an additional Firefox source archive; only the two validated extension
+ZIPs are uploaded. The validator checks package/lockfile, build-manifest, and ZIP
+versions, Chrome MV3 / Firefox MV2 targets, original
+icon and branding bytes, branding references, ZIP integrity, exact build bytes,
+and an allowlist that excludes development/test files and test-only code.
+
+The screenshot regression fixtures assert layout and computed styles and can
+capture PNG/JSON evidence under `screenshots/visual-compat/`; they do not impose
+a pixel-diff baseline. Optional live-token promotional screenshot capture is
+separate and is not a release prerequisite. Firefox is build-validated; runtime
+E2E runs Chrome only.
+
+After the preparation PR is reviewed and merged, open **Actions → Release
+Extension → Run workflow**. Select a mode explicitly:
+
+| Mode              | Validation and workflow artifacts | Tag and GitHub Release                              | Browser stores                               |
+| ----------------- | --------------------------------- | --------------------------------------------------- | -------------------------------------------- |
+| Dry Run (default) | Yes                               | No                                                  | No                                           |
+| GitHub Release    | Yes                               | Yes, with both ZIPs and the version's release notes | No                                           |
+| Full Release      | Yes                               | Yes                                                 | Chrome publish and listed Firefox submission |
+
+Dry Run may run on a preparation branch and may be rerun. It creates only
+workflow artifacts named by run ID and attempt, including screenshot evidence.
+Real releases must be dispatched from `main` at its latest commit. Version and
+release-notes paths derive from checked-in metadata, never from free-form
+inputs; v1.0.22 uses `docs/release-notes-1.0.22.md` as its release description.
+
+All modes share a non-cancelling concurrency group. Real release attempts
+recheck latest main after validation and immediately before store submission.
+The publishing job creates a lightweight version tag atomically without force,
+creates a draft, uploads the two versioned ZIPs without clobbering assets,
+compares uploaded asset sizes and SHA-256 digests, and then publishes its draft.
+An existing tag or release (including a draft) is a hard stop. Each store job
+checks that its downloaded ZIPs match the published release and the tag still
+identifies the validated commit. Store jobs run independently, so one failure
+does not hide or cancel the other's result; the workflow summary reports each.
+Successful submission is not a guarantee of store approval or immediate listing.
+
+Real release reruns are deliberately disabled (`github.run_attempt` must be 1).
+A new dispatch of the same version is also blocked by the existing tag/release.
+This prevents accidental duplicate releases and store resubmissions. If a run
+fails after creating a tag or while submitting to a store, inspect the tag,
+draft/release, assets, workflow logs, and each store dashboard before taking any
+manual recovery action. Do not force-push a tag, clobber assets, delete published
+history, or blindly rerun publication. A GitHub-only release cannot later be
+promoted to Full Release automatically; submit its already-validated packages
+manually after reviewing store state, or prepare a new version.
+
+Global workflow permissions are `contents: read`; only the GitHub publishing
+job has `contents: write`. Checkouts do not persist credentials. Dependency
+installation and tests run without a write token or browser-store credentials.
+Existing Chrome credentials (`CHROME_EXTENSION_ID`, `GOOGLE_CLIENT_ID`,
+`GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`) and Firefox credentials
+(`FIREFOX_API_KEY`, `FIREFOX_API_SECRET`) remain GitHub Actions secrets, exposed
+only to their respective store step. The existing store integrations are pinned
+to the resolved commits of their current versions. Restrict write access to
+main/workflows and release secrets; protected environments or tag rules can add
+maintainer approval if configured separately.
+
+The workflow cannot make GitHub and the two stores one atomic transaction.
+A commit can also land on main just after a freshness check. Failures or network
+ambiguity can leave a tag, draft, published release, or one accepted store
+submission; manual reconciliation is required. No live publishing integration
+is exercised during release preparation. Validate YAML and expressions with
+`actionlint .github/workflows/release.yml`; its embedded shell checks also run
+when ShellCheck is installed. Release guard tests mock GitHub and reject stale
+commits, wrong branches/modes, retries, existing releases, and changed assets.
