@@ -149,7 +149,7 @@ export function FilterBar({
                     </label>
                     <label
                         className="flex items-center gap-2 cursor-pointer"
-                        title="Include open pull requests you've previously reviewed"
+                        title="Include pull requests you've previously reviewed that are still open (not merged or closed)"
                     >
                         <div
                             data-selected={filters.showReviewed}
