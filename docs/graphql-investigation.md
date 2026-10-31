@@ -4,11 +4,19 @@ Investigated against `origin/main` at `8a255e1` on 2026-10-31.
 
 ## Recommendation
 
-GraphQL is worth pursuing for reducing PR refresh request volume. Do not switch
-the production fetcher yet: the compact review and CI summaries change current
-behaviour, and successful fixture execution does not establish live query cost,
-permissions, search parity, or latency. Resolve those questions in a separate
-implementation PR with an explicit status-semantics decision.
+The acceptance criterion is a meaningful improvement in API efficiency and
+refresh performance **without changing existing user-facing behaviour**.
+The investigation does not yet establish that result. Retain the production
+REST fetcher. GraphQL has promising request-count savings, but the compact
+experiment fails behaviour equivalence and no live performance improvement has
+been measured. Its 303-to-6 fixture comparison is not evidence for a suitable
+replacement under this criterion.
+
+A hybrid using GraphQL for discovery/required metadata and the existing REST
+review/CI operations is the most plausible next candidate. Its estimated savings
+are smaller, and parity, error handling and performance must be demonstrated
+before recommending adoption. Adopting different review/CI summaries is outside
+this investigation's goal.
 
 This PR contains an isolated, browser-independent proof of concept in
 [`src/experiments/githubGraphql/client.ts`](../src/experiments/githubGraphql/client.ts).
@@ -77,9 +85,29 @@ These synthetic examples demonstrate a mapping difference, not evidence that
 GitHub produced these responses for a particular live repository. Cancelled,
 neutral, skipped and action-required checks, dismissed reviews, branch protection
 and stale approvals need broader semantic fixtures before choosing a replacement.
-For exact compatibility, fetch review history/check contexts and keep existing
-reducers, or retain those REST endpoints in a hybrid first migration. Nested
-pagination increases requests and complexity and needs its own measurements.
+For compatibility, prefer retaining the existing REST review/check/status
+operations in a hybrid experiment. A full GraphQL replacement would need to
+reproduce their current ordering, default-page selection, check-run precedence,
+optional-failure degradation and cooldown behaviour, as well as the reducers.
+Fetching a more complete history can itself change the displayed result and
+does not prove parity. Nested pagination increases requests and complexity and
+needs its own measurements.
+
+### Behaviour-preservation assessment
+
+| Area                                                     | Current experiment                                                                 | Acceptance status                           |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------- |
+| Successful common metadata and discovery-source union    | Matching synthetic fixtures produce equal domain arrays                            | Demonstrated only for the supplied fixtures |
+| Review and CI labels                                     | Counterexample produces different labels                                           | Fails equivalence                           |
+| Optional field failures                                  | Any GraphQL error rejects the entire refresh; REST can succeed with pending status | Fails equivalence                           |
+| Nullable/partial metadata and reviewer connections       | Experiment validates more strictly than REST and rejects truncated nested data     | Failure-path parity unproven                |
+| Search syntax, selection, ordering and freshness         | Query strings preserved; no live comparison                                        | Unproven                                    |
+| Hidden state, notifications, cache, badge and timestamps | Numeric identity mapping tested; experiment is not wired to manager                | Integration parity unproven                 |
+| Refresh performance and rate-budget consumption          | No live timings or costs                                                           | Unproven                                    |
+
+These gaps make the compact experiment unsuitable for a production switch.
+Rejecting partial data protects cached data, but does not by itself preserve
+REST's successful-refresh and optional-error behaviour.
 
 ## Proof-of-concept boundaries
 
@@ -178,11 +206,53 @@ limits. A page of 50 PRs with up to 100 nested reviewer requests selects roughly
 shape estimate, not server-cost evidence. See GitHub's
 [rate and query limits](https://docs.github.com/en/graphql/overview/rate-limits-and-query-limits-for-the-graphql-api).
 
+### Behaviour-preserving hybrid estimate
+
+Retaining REST review and CI requests while replacing search and canonical
+metadata with GraphQL changes the estimate to:
+
+```text
+G = sum(max(1, ceil(R_i / 50)))
+normal hybrid:   1 + G + 2N
+fallback hybrid: 1 + G + 3N
+```
+
+For 100 PRs overlapping all three default searches, this is **207 versus 304**
+calls normally (about 32% fewer), or **307 versus 404** with universal combined
+status fallback (about 24% fewer). These are estimates, not measurements of an
+implemented hybrid. They assume one GraphQL metadata page per 50 results,
+complete reviewer metadata and no extra hydration/fallback requests. The hybrid
+query would also need `headRefOid` and repository identity to address the existing
+CI endpoints; the compact query has not implemented that path.
+
+Keeping REST canonical details as well as REST supporting calls would instead
+use `1 + G + 3N` normally: 307 calls in this case, exceeding the 304-call baseline.
+Replacing discovery alone therefore has no demonstrated efficiency benefit.
+
+Request count also misses the critical path. The baseline performs its three
+searches concurrently, then bounds detail/status work to four PRs. The experiment
+serializes all GraphQL pages. In a simplified model where every request takes
+the same time L, all statuses need one request, and PRs finish in groups of four,
+the 100-PR baseline takes roughly `L + 25 * (L + L) = 51L` after identity lookup;
+the proposed hybrid takes `6L + 25L = 31L`. For one PR the same assumptions give
+`3L` for REST versus `4L` for the hybrid. These are scheduling estimates, not
+timing measurements; heavier GraphQL queries, network variability, processing
+cost and actual worker overlap can change or reverse the outcome.
+
+A performance comparison should measure equivalent successful and failed
+refreshes at 0, 1, 10, 50, 100 and paginated result counts, including overlap,
+fallback statuses and partial failures. Report end-to-end median/tail latency,
+requests by API resource, response bytes and observed GraphQL cost separately.
+Use deterministic fixtures to prove output/error/side-effect parity; do not
+present synthetic delays or local Vitest duration as evidence of GitHub speed.
+
 ## Migration gates and suggested follow-up
 
-1. Decide whether review/CI labels should preserve current REST semantics or
-   adopt GitHub's aggregate summaries. Expand paired fixtures around that
-   decision, including large nested connections and private/inaccessible PRs.
+1. Preserve current review/CI semantics. Build a separate hybrid comparison that
+   retains the existing supporting REST operations and tests matching outputs
+   and optional-error outcomes, including large connections and inaccessible
+   PRs. Full-GraphQL alternatives must meet the same parity requirement; adopting
+   aggregate summaries does not satisfy this goal.
 2. Validate the query against the current GitHub schema and optionally run a
    manually opted-in comparison on representative repositories. Record real
    costs/headers, response bytes, wall time, failures and semantic mismatches
