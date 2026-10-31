@@ -4,6 +4,11 @@ Investigated against `origin/main` at `8a255e1` on 2026-10-31.
 
 ## Recommendation
 
+**Retain REST in production.** The [final option comparison and recommendation](graphql-recommendation.md)
+weighs full GraphQL, hybrid and REST-only approaches. A constrained hybrid that
+keeps REST discovery/review/CI and batches canonical metadata is the preferred
+next experiment; it has not been implemented or benchmarked.
+
 The acceptance criterion is a meaningful improvement in API efficiency and
 refresh performance **without changing existing user-facing behaviour**.
 The investigation does not yet establish that result. Retain the production
@@ -13,11 +18,11 @@ shows lower fetcher latency and payload volume, but does not demonstrate a
 behaviour-preserving browser refresh improvement. Its 303-to-6 fixture comparison is not evidence for a suitable
 replacement under this criterion.
 
-A hybrid using GraphQL for discovery/required metadata and the existing REST
-review/CI operations is the most plausible next candidate. Its estimated savings
-are smaller, and parity, error handling and performance must be demonstrated
-before recommending adoption. Adopting different review/CI summaries is outside
-this investigation's goal.
+A hybrid retains the existing REST review/CI operations. The discovery-plus-
+metadata variant analysed below also replaces searches; the final recommendation
+prefers initially retaining REST discovery to preserve its completeness signal.
+Either variant requires parity, error handling and performance evidence before
+adoption. Adopting different review/CI summaries is outside this goal.
 
 The [behaviour-gap assessment](graphql-behaviour-gaps.md) identifies summary
 information loss, unresolved cross-API guarantees and fixable integration gaps.

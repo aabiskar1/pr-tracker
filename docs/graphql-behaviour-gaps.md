@@ -75,10 +75,11 @@ match; these items are unresolved requirements, not categorical API impossibilit
 ## Recommendation under the unchanged-behaviour requirement
 
 Do not adopt `reviewDecision`/`statusCheckRollup.state` as replacements for the
-existing labels. The supported next candidate is GraphQL discovery/metadata
-plus unchanged REST review/CI operations, with REST discovery retained too if
-its exact incompleteness/selection behaviour is mandatory. The latter option
-can erase the estimated savings, so it must be measured rather than assumed.
+existing labels. The [final recommendation](graphql-recommendation.md) retains
+production REST and proposes an isolated metadata-batching experiment while
+keeping REST discovery and review/CI calls. Batching can still reduce canonical
+detail requests without replacing REST's completeness signal; savings remain
+an estimate until that variant is implemented and measured.
 
 Use the [paired scenario tests](../tests/unit/graphql-scenarios.unit.test.ts),
 [protocol comparisons](../tests/unit/graphql-protocol.unit.test.ts),
