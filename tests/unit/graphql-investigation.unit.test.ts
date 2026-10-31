@@ -4,7 +4,11 @@ import {
     GraphqlInvestigationError,
     SEARCH_QUERY,
 } from '../../src/experiments/githubGraphql/client';
-import { graphqlNode, graphqlPage } from '../fixtures/graphql/responses';
+import {
+    defaultDiscoveryFixture,
+    graphqlNode,
+    graphqlPage,
+} from '../fixtures/graphql/responses';
 import { fetchPullRequests } from '../../src/background/api';
 import {
     createNotificationMock,
@@ -41,6 +45,89 @@ afterEach(() => {
 });
 
 describe('isolated GraphQL investigation', () => {
+    it('retrieves distinct authored, outstanding-request and reviewed-only PRs with independent pagination', async () => {
+        const fixtures = defaultDiscoveryFixture(USER.login);
+        const cursors: (string | null)[] = [];
+        const transport = vi.fn<typeof fetch>(async (_, init) => {
+            const { query, after } = JSON.parse(String(init?.body)).variables;
+            cursors.push(after);
+            const fixture = fixtures.find((fixture) => fixture.query === query);
+            if (!fixture) throw new Error(`Unexpected search: ${query}`);
+            const page = fixture.pages[after === 'reviewed-next' ? 1 : 0];
+            if (!page) throw new Error('Unexpected continuation');
+            return jsonResponse(page);
+        });
+        const result = await run(transport, { customQuery: undefined });
+        const byId = new Map(result.pullRequests.map((pr) => [pr.id, pr]));
+        expect(result.pullRequests).toHaveLength(53);
+        expect(byId.get(1)).toMatchObject({
+            discoverySources: ['authored'],
+            draft: true,
+            author: { login: USER.login },
+        });
+        expect(byId.get(2)).toMatchObject({
+            discoverySources: ['review-requested'],
+            review_status: 'pending',
+            requested_reviewers: [{ login: USER.login }],
+        });
+        expect(byId.get(3)).toMatchObject({
+            discoverySources: ['reviewed'],
+            review_status: 'changes-requested',
+            requested_reviewers: [],
+        });
+        expect(byId.get(4)?.discoverySources).toEqual([
+            'authored',
+            'review-requested',
+            'reviewed',
+        ]);
+        expect(byId.get(53)?.discoverySources).toEqual(['reviewed']);
+        expect(cursors).toEqual([null, null, null, 'reviewed-next']);
+        expect(result.rateLimits).toHaveLength(4);
+        expect(result.truncated).toBe(false);
+        expect(transport).toHaveBeenCalledTimes(4);
+    });
+
+    it.each(['author:', 'review-requested:', 'reviewed-by:'])(
+        'rejects a failed required %s discovery source',
+        async (qualifier) => {
+            const transport = vi.fn<typeof fetch>(async (_, init) => {
+                const { query } = JSON.parse(String(init?.body)).variables;
+                return jsonResponse(
+                    query.includes(qualifier)
+                        ? { errors: [{ type: 'FORBIDDEN' }] }
+                        : graphqlPage([graphqlNode()])
+                );
+            });
+            await expect(
+                run(transport, { customQuery: undefined })
+            ).rejects.toBeInstanceOf(GraphqlInvestigationError);
+        }
+    );
+
+    it('rejects a failed reviewed-search continuation after other sources succeeded', async () => {
+        const transport = vi.fn<typeof fetch>(async (_, init) => {
+            const { query, after } = JSON.parse(String(init?.body)).variables;
+            if (after)
+                return jsonResponse({ errors: [{ type: 'RATE_LIMITED' }] });
+            const fixture = defaultDiscoveryFixture(USER.login).find(
+                (fixture) => fixture.query === query
+            );
+            if (!fixture) throw new Error('Unexpected search');
+            return jsonResponse(fixture.pages[0]);
+        });
+        await expect(
+            run(transport, { customQuery: undefined })
+        ).rejects.toBeInstanceOf(GraphqlInvestigationError);
+        expect(transport).toHaveBeenCalledTimes(4);
+    });
+
+    it('checks all three sources when default discovery is empty', async () => {
+        const transport = transportFor(graphqlPage([]));
+        const result = await run(transport, { customQuery: '   ' });
+        expect(result.pullRequests).toEqual([]);
+        expect(transport).toHaveBeenCalledTimes(3);
+    });
+
     it('maps stable identity and common fields and sends search as variables', async () => {
         const transport = transportFor(graphqlPage());
         const result = await run(transport, {

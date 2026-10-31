@@ -212,6 +212,39 @@ REST's successful-refresh and optional-error behaviour.
 
 ## Proof-of-concept boundaries
 
+### Retrieving the three default PR sets
+
+The isolated `investigateGraphql` function accepts a token, login, mandatory
+fetch-compatible transport and optional cancellation signal. With no nonblank
+custom query, it retrieves all three current discovery sets:
+
+| Source annotation  | Search query                                            |
+| ------------------ | ------------------------------------------------------- |
+| `authored`         | `is:open is:pr author:{login} archived:false`           |
+| `review-requested` | `is:open is:pr review-requested:{login} archived:false` |
+| `reviewed`         | `is:open is:pr reviewed-by:{login} archived:false`      |
+
+Each search has its own cursor/count state. Results are deduplicated by numeric
+PR identity while preserving the union of source annotations. Previously
+reviewed open PRs are retained even when they have no outstanding requested
+reviewers. Authored drafts are also retained for existing UI filtering.
+
+[`defaultDiscoveryFixture`](../tests/fixtures/graphql/responses.ts) supplies
+distinct authored, requested and reviewed-only results, one PR overlapping all
+three sources, and a second page of reviewed PRs. Tests verify 53 unique PRs
+from four requests, independent cursors and correct source annotations. Separate
+tests reject failures in each source or the reviewed-search continuation rather
+than returning a partial list. Blank custom queries use default discovery;
+nonblank custom queries replace it, matching the existing query selection.
+
+Tests call the function with a mocked transport and fixed test token. The
+function is not connected to popup/background execution, has no storage or
+notification side effects, and introduces no dependency. This proves the
+discovery orchestration against fixtures; GitHub's live search results and
+summary-based status parity remain subject to the limitations below.
+
+### Limits and failure handling
+
 - Sequential search requests, 50 PRs per page, 1,000 results per search. Custom
   query text is sent as a variable without rewriting it. Mixed Issue/PR searches
   fail explicitly instead of silently dropping Issue nodes.
@@ -266,7 +299,8 @@ The fallback scenario produces the same mapped arrays and GraphQL call counts
 as the passing-check scenario. A separate synthetic 1,200-match custom search
 returns 1,000 mapped PRs, marks truncation, and stops after 20 calls. Error,
 pagination, nullable-field, status-mapping and cancellation scenarios also run
-without live credentials. The investigation suite has 48 tests.
+without live credentials. The investigation suite has 54 tests, including the
+distinct-source and required-discovery-failure cases.
 
 No live GitHub timing, payload size, memory, CPU, primary point cost or actual
 rate-limit reduction was measured. The fixture `cost: 1` only tests telemetry
@@ -378,7 +412,10 @@ present synthetic delays or local Vitest duration as evidence of GitHub speed.
 ## Validation
 
 - Before changes: unit suite passed, 24 files / 377 tests.
-- After changes: compilation, lint and unit suite passed, 25 files / 425 tests.
+- Initial implementation: compilation, lint and unit suite passed, 25 files /
+  425 tests. Additional discovery fixtures extend the investigation suite from
+  48 to 54 tests; compilation, lint, the focused suite and the full 431-test unit
+  suite pass.
 - Changed-file Prettier checks passed. `npm run check-format` reported 122
   existing file issues, including unrelated local artifacts; none were the four
   files introduced by this investigation. Unrelated files were left unchanged.

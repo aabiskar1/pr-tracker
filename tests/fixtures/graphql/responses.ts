@@ -48,3 +48,63 @@ export const graphqlPage = (
         },
     },
 });
+
+// Distinct default-discovery results plus one PR shared by all three sources.
+// Reviewed-only PRs have no outstanding reviewers and must still be retained.
+export const defaultDiscoveryFixture = (login: string) => {
+    const authored = {
+        ...graphqlNode(1),
+        author: { login, avatarUrl: `https://avatars.example/${login}.png` },
+        isDraft: true,
+    };
+    const requested = {
+        ...graphqlNode(2),
+        reviewDecision: 'REVIEW_REQUIRED',
+        reviewRequests: {
+            pageInfo: { hasNextPage: false },
+            nodes: [
+                {
+                    requestedReviewer: {
+                        __typename: 'User',
+                        login,
+                        avatarUrl: `https://avatars.example/${login}.png`,
+                    },
+                },
+            ],
+        },
+    };
+    const reviewed = {
+        ...graphqlNode(3),
+        reviewDecision: 'CHANGES_REQUESTED',
+        reviewRequests: { pageInfo: { hasNextPage: false }, nodes: [] },
+    };
+    const shared = { ...graphqlNode(4), author: authored.author };
+    return [
+        {
+            query: `is:open is:pr author:${login} archived:false`,
+            pages: [graphqlPage([authored, shared])],
+        },
+        {
+            query: `is:open is:pr review-requested:${login} archived:false`,
+            pages: [graphqlPage([requested, shared])],
+        },
+        {
+            query: `is:open is:pr reviewed-by:${login} archived:false`,
+            pages: [
+                graphqlPage(
+                    [
+                        reviewed,
+                        shared,
+                        ...Array.from({ length: 48 }, (_, i) =>
+                            graphqlNode(i + 5)
+                        ),
+                    ],
+                    51,
+                    'reviewed-next',
+                    true
+                ),
+                graphqlPage([graphqlNode(53)], 51),
+            ],
+        },
+    ];
+};
