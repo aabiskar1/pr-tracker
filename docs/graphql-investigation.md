@@ -210,6 +210,105 @@ These gaps make the compact experiment unsuitable for a production switch.
 Rejecting partial data protects cached data, but does not by itself preserve
 REST's successful-refresh and optional-error behaviour.
 
+### Reviewer information
+
+`PullRequest.reviewRequests(first: ..., after: ...)` exposes outstanding requests
+separately from submitted reviews. Its `requestedReviewer` is a nullable union:
+User, Bot, Mannequin, Team or EnterpriseTeam. Select `__typename` and the
+appropriate inline fragment; user-like `login`/`avatarUrl` map to the current
+`requested_reviewers` objects. Team requests must not become individual reviewer
+avatars or be used as evidence that a particular user has already reviewed.
+The PoC omits teams and rejects null reviewers; matching REST's handling of
+inaccessible/deleted actors remains a parity requirement.
+
+Each PR owns an independent review-request connection. Fetching one search page
+does not finish these nested connections: request their `pageInfo.endCursor`
+and continue any with `hasNextPage`, or use a deliberately validated fallback.
+The PoC currently rejects more than 100 requests rather than silently truncating.
+Submitted reviews come from `reviews` or `latestReviews`, not `reviewRequests`.
+See the [review request and review connections](https://docs.github.com/en/graphql/reference/pulls).
+
+### Review state: candidate sources
+
+| GraphQL field    | What it provides                                                | Suitability for preserving current labels                                                                                                          |
+| ---------------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `reviewDecision` | Aggregate APPROVED, CHANGES_REQUESTED, REVIEW_REQUIRED or null  | Already mapped in the PoC, but the counterexample shows different output from the current reducer.                                                 |
+| `latestReviews`  | Latest non-pending review per user                              | Closer to the reducer's intent, but excludes pending reviews and considers a different selection from REST's first page. Not a proven replacement. |
+| `reviews`        | Individual review state, author, submitted timestamp and cursor | Most control over compatibility; requires matching author identity, ordering and page selection before applying the existing precedence.           |
+
+`latestOpinionatedReviews` is another convenience connection with a
+`writersOnly` filter. It likewise cannot be assumed to reproduce the current
+unfiltered page/reducer semantics. GitHub documents
+[latest-review selection and review states](https://docs.github.com/en/graphql/reference/pulls#pullrequest).
+For `reviews`, retain a stable reviewer identity when available, not merely a
+display name; nullable/deleted authors need an explicit policy. Do not request
+only APPROVED/CHANGES_REQUESTED reviews: the current reducer lets a subsequent
+COMMENTED, DISMISSED or PENDING entry overwrite that same user's earlier state.
+Such a later entry can change an approved label back to pending; filtering that
+entry out can leave the approval incorrectly visible.
+
+The current REST request has no pagination parameters. GitHub specifies a
+chronological response with a default page size of 30, so current behaviour is
+latest-per-user **within that returned page**, not latest across all history.
+`reviews(first: 30)` is only a candidate until GraphQL ordering/selection matches
+are established; `last: 30`, `latestReviews`, or fetching every page can produce
+different results. Preserving this limitation is part of this investigation;
+correcting it would be separate behaviour-changing work. Source:
+[REST review ordering and pagination](https://docs.github.com/en/rest/pulls/reviews#list-reviews-for-a-pull-request).
+
+### CI/check status: aggregate versus raw data
+
+| GraphQL path                          | Available data                                        | Compatibility concern                                                                                                                                   |
+| ------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PullRequest.statusCheckRollup.state` | Combined SUCCESS, FAILURE, ERROR, PENDING or EXPECTED | Compact mapping is implemented; combines checks and legacy statuses, unlike current checks-first logic.                                                 |
+| `statusCheckRollup.contexts`          | Union of `CheckRun` and `StatusContext`               | Inspect `__typename`; raw check `status`/`conclusion` and context `state` permit separate reductions, but all relevant pages and ordering still matter. |
+| `Commit.checkSuites.nodes.checkRuns`  | Check suites and individual runs, with filter options | Alternative raw check source; two nested pagination levels and cross-suite selection complicate matching REST.                                          |
+| `Commit.status.state`                 | Combined legacy commit-status state                   | Candidate for REST's fallback only after confirming an empty check-run result; a missing rollup alone is not proof of emptiness.                        |
+
+The [commit schema](https://docs.github.com/en/graphql/reference/commits) documents
+the rollup/context union, legacy status and check-suite access. The
+[check schema](https://docs.github.com/en/graphql/reference/checks) exposes run
+status/conclusion and check-run filter options. For an expanded PoC, pin CI data
+to the exact `headRefOid` used for metadata. Validate fork/base repository and
+deleted-ref cases against REST's base-repository/head-SHA lookup; querying an
+unrelated branch tip could report a different commit's CI.
+
+To preserve the current reducer, separate raw CheckRuns from StatusContexts:
+
+1. A returned run with FAILURE or TIMED_OUT makes CI failing.
+2. Otherwise, a nonempty run set passes only if every run is COMPLETED/SUCCESS.
+   CANCELLED, NEUTRAL, SKIPPED, ACTION_REQUIRED and unfinished runs therefore
+   remain pending under current code; do not reinterpret them as passing/failing.
+3. Only a successfully retrieved empty run set permits the legacy-status
+   fallback: SUCCESS passes, FAILURE/ERROR fails, other states remain pending.
+4. A failed optional checks/status lookup yields pending and retains any cooldown.
+
+REST currently defaults to the first 30 check runs with `filter=latest`; it does
+not traverse all check runs/suites. Neither concatenating every GraphQL suite
+nor taking the first 30 mixed rollup contexts proves equivalent selection. The
+corresponding [REST defaults](https://docs.github.com/en/rest/checks/runs#list-check-runs-for-a-git-reference)
+must be matched in any full replacement. In particular, passing checks plus a
+failing legacy status must still display passing when the check list is nonempty.
+
+### Error isolation and remaining evidence
+
+Reviewer metadata is part of required canonical detail, while review-state and
+CI lookups are optional today. Putting all three into one GraphQL selection can
+return partial data/errors and may null a parent field. A future adapter must
+inspect error paths and surviving data to preserve required-versus-optional
+outcomes, or split optional requests. A blanket rejection of every `errors`
+array, as in the compact experiment, intentionally does not establish parity.
+
+Before replacing supporting REST calls, paired fixtures must cover review
+supersession/dismissal/comment-only/pending cases; histories beyond 30 entries;
+user/bot/team/null actors; mixed checks/statuses; empty/null rollups; all current
+CI conclusions; reruns/multiple suites and pagination; fork/head changes; and
+permission/rate-limit failures scoped to each optional field. Existing PoC tests
+cover summary mapping, null author/rollup, team omission, oversized connections
+and explicit summary counterexamples. Raw-history/context pagination and
+error-path-aware degradation are not implemented or validated. Retaining the
+existing REST supporting calls remains the lower-risk compatibility candidate.
+
 ## Proof-of-concept boundaries
 
 ### Retrieving the three default PR sets
