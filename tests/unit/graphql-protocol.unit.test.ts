@@ -83,9 +83,12 @@ it('contrasts REST optional-error degradation with GraphQL partial-response reje
         if (url === prUrl(1)) return jsonResponse(prDetail(1));
         if (url.endsWith('/reviews'))
             return jsonResponse({ message: 'Forbidden' }, 403);
-        if (url.endsWith('/check-runs'))
+        if (new URL(url).pathname.endsWith('/check-runs'))
             return jsonResponse({
-                check_runs: [{ status: 'completed', conclusion: 'success' }],
+                total_count: 1,
+                check_runs: [
+                    { id: 1, status: 'completed', conclusion: 'success' },
+                ],
             });
         throw new Error('Unexpected fixture request');
     });

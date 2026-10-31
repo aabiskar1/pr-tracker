@@ -276,3 +276,24 @@ Combined-status tests separately verify that the authoritative aggregate across
 145 contexts needs one request, and that confirmed zero statuses remain No CI.
 Existing browser CI tests continue to prove no badge for No CI, neutral Unknown,
 all five filters, encrypted preference persistence, themes and layout.
+
+## Hybrid metadata PoC validation
+
+`tests/unit/hybrid-metadata.unit.test.ts` exercises bounded variable-only alias
+queries, numeric ID/metadata conversion, cross-repository and reviewer/team
+mapping, nested truncation and REST fallback, partial/error responses, independent
+rate-limit accounting, cancellation/session invalidation, complete paired REST
+outputs and reproducible request/byte measurements. It uses the current production
+fetcher with an isolated tooling transport, never a live token or network.
+
+The manual `node scripts/measure-hybrid-metadata.mjs` runner reuses PR #99's
+instrumentation and records the 5/20/40/100/150-PR fixture matrix, batch-size study
+and failure study. Timings use explicitly synthetic local delays. Live metadata
+measurement requires BOTH `--live` and `PR_TRACKER_HYBRID_LIVE=1`, uses a credential
+in memory, and writes aggregate-only artifacts. Tests never enable live mode.
+See [methodology, results and unresolved parity](hybrid-metadata-recommendation.md).
+
+The merged #99/#100 unit baseline contained 29 historical GraphQL-comparison
+fixture failures. Those REST mocks were updated to current check pagination,
+run IDs/counts and legacy-status contexts, retaining their original assertions.
+Production API code and historical full-GraphQL semantics remain unchanged.

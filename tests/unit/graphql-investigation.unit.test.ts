@@ -414,14 +414,25 @@ describe('deterministic REST/GraphQL request comparison', () => {
                     return jsonResponse([
                         { user: { id: 10 }, state: 'APPROVED' },
                     ]);
-                if (url.endsWith('/check-runs'))
+                if (new URL(url).pathname.endsWith('/check-runs'))
                     return jsonResponse({
+                        total_count: fallback ? 0 : 1,
                         check_runs: fallback
                             ? []
-                            : [{ status: 'completed', conclusion: 'success' }],
+                            : [
+                                  {
+                                      id: 1,
+                                      status: 'completed',
+                                      conclusion: 'success',
+                                  },
+                              ],
                     });
                 if (url.endsWith('/status'))
-                    return jsonResponse({ state: 'success' });
+                    return jsonResponse({
+                        state: 'success',
+                        total_count: 1,
+                        statuses: [{ state: 'success' }],
+                    });
                 const match = /\/pulls\/(\d+)$/.exec(url);
                 if (match) return jsonResponse(prDetail(Number(match[1])));
                 throw new Error(`Unexpected fixture URL: ${url}`);
@@ -470,10 +481,11 @@ describe('deterministic REST/GraphQL request comparison', () => {
                 return searchResponse([searchItem(1)]);
             if (url.endsWith('/reviews'))
                 return jsonResponse([{ user: { id: 10 }, state: 'APPROVED' }]);
-            if (url.endsWith('/check-runs'))
+            if (new URL(url).pathname.endsWith('/check-runs'))
                 return jsonResponse({
+                    total_count: 1,
                     check_runs: [
-                        { status: 'completed', conclusion: 'success' },
+                        { id: 1, status: 'completed', conclusion: 'success' },
                     ],
                 });
             return jsonResponse(prDetail(1));
