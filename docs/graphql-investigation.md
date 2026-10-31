@@ -8,8 +8,9 @@ The acceptance criterion is a meaningful improvement in API efficiency and
 refresh performance **without changing existing user-facing behaviour**.
 The investigation does not yet establish that result. Retain the production
 REST fetcher. GraphQL has promising request-count savings, but the compact
-experiment fails behaviour equivalence and no live performance improvement has
-been measured. Its 303-to-6 fixture comparison is not evidence for a suitable
+experiment fails behaviour equivalence. A limited live custom-query sample now
+shows lower fetcher latency and payload volume, but does not demonstrate a
+behaviour-preserving browser refresh improvement. Its 303-to-6 fixture comparison is not evidence for a suitable
 replacement under this criterion.
 
 A hybrid using GraphQL for discovery/required metadata and the existing REST
@@ -148,8 +149,9 @@ manual refreshes; they are not observed account consumption.
 The main scaling cost is the per-PR `3N` (or `4N`) fan-out, including unchanged
 PRs. Concurrency limits reduce burst pressure but do not reduce call count.
 Wall time also includes token/storage work, JSON parsing, mapping, encryption and
-notification handling; these costs, response sizes and live endpoint latencies
-have not been profiled. A request-count reduction alone cannot quantify refresh
+notification handling; these browser-side costs have not been profiled. The
+[live fetcher measurements](graphql-live-measurements.md) separately record
+request counts, decoded body sizes, latency and API telemetry. A request-count reduction alone cannot quantify refresh
 speed. An incremental REST-cache alternative also deserves comparison before
 attributing all potential improvement to GraphQL; GitHub documents
 [authenticated conditional requests](https://docs.github.com/en/rest/using-the-rest-api/best-practices-for-using-the-rest-api#use-conditional-requests).
@@ -196,15 +198,15 @@ needs its own measurements.
 
 ### Behaviour-preservation assessment
 
-| Area                                                     | Current experiment                                                                 | Acceptance status                           |
-| -------------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------- |
-| Successful common metadata and discovery-source union    | Matching synthetic fixtures produce equal domain arrays                            | Demonstrated only for the supplied fixtures |
-| Review and CI labels                                     | Counterexample produces different labels                                           | Fails equivalence                           |
-| Optional field failures                                  | Any GraphQL error rejects the entire refresh; REST can succeed with pending status | Fails equivalence                           |
-| Nullable/partial metadata and reviewer connections       | Experiment validates more strictly than REST and rejects truncated nested data     | Failure-path parity unproven                |
-| Search syntax, selection, ordering and freshness         | Query strings preserved; no live comparison                                        | Unproven                                    |
-| Hidden state, notifications, cache, badge and timestamps | Numeric identity mapping tested; experiment is not wired to manager                | Integration parity unproven                 |
-| Refresh performance and rate-budget consumption          | No live timings or costs                                                           | Unproven                                    |
+| Area                                                     | Current experiment                                                                                              | Acceptance status                            |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| Successful common metadata and discovery-source union    | Matching synthetic fixtures produce equal domain arrays                                                         | Demonstrated only for the supplied fixtures  |
+| Review and CI labels                                     | Counterexample produces different labels                                                                        | Fails equivalence                            |
+| Optional field failures                                  | Any GraphQL error rejects the entire refresh; REST can succeed with pending status                              | Fails equivalence                            |
+| Nullable/partial metadata and reviewer connections       | Experiment validates more strictly than REST and rejects truncated nested data                                  | Failure-path parity unproven                 |
+| Search syntax, selection, ordering and freshness         | Matching identity sets in two live repository custom queries; broader default discovery untested                | Partially observed, not established          |
+| Hidden state, notifications, cache, badge and timestamps | Numeric identity mapping tested; experiment is not wired to manager                                             | Integration parity unproven                  |
+| Refresh performance and rate-budget consumption          | Live fetcher timings/bytes and primary GraphQL costs recorded; browser refresh and compatible hybrid unmeasured | Partial evidence for a non-equivalent client |
 
 These gaps make the compact experiment unsuitable for a production switch.
 Rejecting partial data protects cached data, but does not by itself preserve
@@ -367,9 +369,10 @@ summary-based status parity remain subject to the limitations below.
   insufficient; integration needs a GraphQL-aware error adapter.
 
 GitHub supports [search syntax and cursor pagination with a 1,000-result ceiling](https://docs.github.com/en/graphql/reference/search).
-Search-index behaviour and REST/GraphQL custom-query compatibility have not been
-verified against live data. Fixture tests validate the client contract, not the
-remote schema or query execution.
+Two live custom queries returned matching identity sets; this does not establish
+general search-index, ordering or default-query compatibility. Fixture tests
+validate the client contract; successful live query execution is recorded
+separately in the [measurement report](graphql-live-measurements.md).
 
 ## Measured results: deterministic fixtures
 
@@ -401,9 +404,10 @@ pagination, nullable-field, status-mapping and cancellation scenarios also run
 without live credentials. The investigation suite has 54 tests, including the
 distinct-source and required-discovery-failure cases.
 
-No live GitHub timing, payload size, memory, CPU, primary point cost or actual
-rate-limit reduction was measured. The fixture `cost: 1` only tests telemetry
-plumbing and must not be used as a cost estimate. Production bundle isolation is
+The fixture results do not measure live GitHub timing, payload size or API cost.
+See [separate live measurements](graphql-live-measurements.md) for those results
+and limitations. Memory, CPU and browser end-to-end latency remain unmeasured.
+The fixture `cost: 1` only tests telemetry plumbing and must not be used as a cost estimate. Production bundle isolation is
 checked with both browser builds and a search for the experimental query name
 in their output.
 
@@ -487,8 +491,8 @@ present synthetic delays or local Vitest duration as evidence of GitHub speed.
    and optional-error outcomes, including large connections and inaccessible
    PRs. Full-GraphQL alternatives must meet the same parity requirement; adopting
    aggregate summaries does not satisfy this goal.
-2. Validate the query against the current GitHub schema and optionally run a
-   manually opted-in comparison on representative repositories. Record real
+2. Extend the successful live custom-query execution to a schema-validated,
+   behaviour-preserving comparison on representative repositories. Record real
    costs/headers, response bytes, wall time, failures and semantic mismatches
    separately from fixture measurements. Keep automated CI credential-free.
 3. Keep classic-PAT `repo` validation in `useAuth` for the initial integration.
@@ -515,6 +519,10 @@ present synthetic delays or local Vitest duration as evidence of GitHub speed.
   425 tests. Additional discovery fixtures extend the investigation suite from
   48 to 54 tests; compilation, lint, the focused suite and the full 431-test unit
   suite pass.
+- Live-measurement tooling adds three credential-free instrumentation tests.
+  Compilation, lint, all 434 unit tests and both production builds pass. The
+  manual live results and telemetry caveats are recorded separately in
+  [the measurement report](graphql-live-measurements.md).
 - Changed-file Prettier checks passed. `npm run check-format` reported 122
   existing file issues, including unrelated local artifacts; none were the four
   files introduced by this investigation. Unrelated files were left unchanged.
