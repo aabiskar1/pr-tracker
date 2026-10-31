@@ -95,10 +95,15 @@ it('measures internal REST requests as well as GraphQL without live credentials'
                 ? jsonResponse(graphqlPage())
                 : url.endsWith('/reviews')
                   ? jsonResponse([{ user: { id: 10 }, state: 'APPROVED' }])
-                  : url.endsWith('/check-runs')
+                  : new URL(url).pathname.endsWith('/check-runs')
                     ? jsonResponse({
+                          total_count: 1,
                           check_runs: [
-                              { status: 'completed', conclusion: 'success' },
+                              {
+                                  id: 1,
+                                  status: 'completed',
+                                  conclusion: 'success',
+                              },
                           ],
                       })
                     : /\/pulls\/1$/.test(url)

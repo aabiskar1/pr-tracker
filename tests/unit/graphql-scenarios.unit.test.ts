@@ -41,10 +41,11 @@ describe('paired reviewer and review-state scenarios', () => {
                     prDetail(1, { requested_reviewers: requestedReviewers })
                 );
             if (url.endsWith('/reviews')) return jsonResponse(scenario.reviews);
-            if (url.endsWith('/check-runs'))
+            if (new URL(url).pathname.endsWith('/check-runs'))
                 return jsonResponse({
+                    total_count: 1,
                     check_runs: [
-                        { status: 'completed', conclusion: 'success' },
+                        { id: 1, status: 'completed', conclusion: 'success' },
                     ],
                 });
             throw new Error('Unexpected fixture request');
@@ -138,11 +139,13 @@ describe('later commits and source overlap', () => {
                             commit_id: 'head-old',
                         },
                     ]);
-                if (url.endsWith('/check-runs')) {
+                if (new URL(url).pathname.endsWith('/check-runs')) {
                     checkUrls.push(url);
                     return jsonResponse({
+                        total_count: 1,
                         check_runs: [
                             {
+                                id: 1,
                                 status: later ? 'in_progress' : 'completed',
                                 conclusion: later ? null : 'success',
                             },
@@ -206,8 +209,8 @@ describe('later commits and source overlap', () => {
                 ci_status: 'pending',
             });
             expect(checkUrls).toEqual([
-                'https://api.github.com/repos/acme/repo-1/commits/head-old/check-runs',
-                'https://api.github.com/repos/acme/repo-1/commits/head-new/check-runs',
+                'https://api.github.com/repos/acme/repo-1/commits/head-old/check-runs?per_page=100&page=1',
+                'https://api.github.com/repos/acme/repo-1/commits/head-new/check-runs?per_page=100&page=1',
             ]);
             expect(restFetch).toHaveBeenCalledTimes(8);
             expect(graphFetch).toHaveBeenCalledTimes(2);
@@ -251,10 +254,11 @@ describe('later commits and source overlap', () => {
                     })
                 );
             }
-            if (url.endsWith('/check-runs'))
+            if (new URL(url).pathname.endsWith('/check-runs'))
                 return jsonResponse({
+                    total_count: 1,
                     check_runs: [
-                        { status: 'completed', conclusion: 'success' },
+                        { id: 1, status: 'completed', conclusion: 'success' },
                     ],
                 });
             throw new Error('Unexpected fixture request');

@@ -463,3 +463,13 @@ semantics; it cannot recover history outside GitHub's advertised results.
 Walking every check suite would change request volume and scope, so this change
 does not add a separate suite-discovery traversal. The local run budget is a
 resource bound, not a claim that run and suite counts are interchangeable.
+
+## Isolated hybrid metadata experiment
+
+`src/experiments/hybridMetadata/` evaluates batched GraphQL canonical metadata
+with the existing REST identity, discovery, reviews and CI implementation. It is
+imported only by tests/tooling and does not participate in extension refreshes.
+The [hybrid recommendation](hybrid-metadata-recommendation.md) records fixture
+and opt-in public live measurements, field mismatches, fallback/session limits
+and a NO-GO decision for production integration at this point. Existing encrypted
+storage, numeric IDs, permissions, status semantics and UI are unchanged.
