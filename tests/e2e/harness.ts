@@ -117,7 +117,10 @@ function responseFor(url: string, scenario: GitHubScenario) {
                 : pr.ci_status === 'failing'
                   ? { status: 'completed', conclusion: 'failure' }
                   : { status: 'in_progress', conclusion: null };
-        return { status: 200, body: { check_runs: [check] } };
+        return {
+            status: 200,
+            body: { total_count: 1, check_runs: [{ id: 1, ...check }] },
+        };
     }
 
     if (url === prApiUrl(pr)) {

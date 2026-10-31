@@ -59,8 +59,10 @@ const runScenario = async (scenario: Scenario = {}) => {
         }
         if (url.includes('/check-runs')) {
             return endpointResponse(scenario.checks, {
+                total_count: 1,
                 check_runs: [
                     {
+                        id: 1,
                         status: 'completed',
                         conclusion: 'success',
                     },
@@ -70,6 +72,7 @@ const runScenario = async (scenario: Scenario = {}) => {
         if (url.endsWith('/status')) {
             return endpointResponse(scenario.combinedStatus, {
                 state: 'pending',
+                total_count: 1,
                 statuses: [{ state: 'pending' }],
             });
         }
@@ -269,7 +272,12 @@ describe('fetchPullRequests CI-status reduction', () => {
         },
     ])('reduces $label to $expected', async ({ checks, expected }) => {
         const { pullRequest } = await runScenario({
-            checks: { body: { check_runs: checks } },
+            checks: {
+                body: {
+                    total_count: checks.length,
+                    check_runs: checks.map((run, id) => ({ ...run, id })),
+                },
+            },
         });
 
         expect(pullRequest.ci_status).toBe(expected);
@@ -286,7 +294,9 @@ describe('fetchPullRequests CI-status reduction', () => {
         async ({ state, expected }) => {
             const { pullRequest, requestedUrls } = await runScenario({
                 checks: { body: { total_count: 0, check_runs: [] } },
-                combinedStatus: { body: { state, statuses: [{ state }] } },
+                combinedStatus: {
+                    body: { state, total_count: 1, statuses: [{ state }] },
+                },
             });
 
             expect(pullRequest.ci_status).toBe(expected);
@@ -353,7 +363,10 @@ describe('fetchPullRequests CI-status reduction', () => {
         async (status) => {
             const { pullRequest } = await runScenario({
                 checks: {
-                    body: { check_runs: [{ status, conclusion: null }] },
+                    body: {
+                        total_count: 1,
+                        check_runs: [{ id: 1, status, conclusion: null }],
+                    },
                 },
             });
             expect(pullRequest.ci_status).toBe('pending');
@@ -365,7 +378,12 @@ describe('fetchPullRequests CI-status reduction', () => {
         async (conclusion) => {
             const { pullRequest } = await runScenario({
                 checks: {
-                    body: { check_runs: [{ status: 'completed', conclusion }] },
+                    body: {
+                        total_count: 1,
+                        check_runs: [
+                            { id: 1, status: 'completed', conclusion },
+                        ],
+                    },
                 },
             });
             expect(pullRequest.ci_status).toBe('pending');
@@ -489,16 +507,20 @@ describe('fetchPullRequests optional rate-limit aggregation', () => {
             if (url === `${prUrl(2)}/reviews`) return jsonResponse([]);
             if (
                 url.includes('/repo-1/commits/') &&
-                url.endsWith('/check-runs')
+                new URL(url).pathname.endsWith('/check-runs')
             ) {
                 return jsonResponse({ total_count: 0, check_runs: [] });
             }
             if (url.includes('/repo-1/commits/') && url.endsWith('/status')) {
-                return jsonResponse({ state: 'success' });
+                return jsonResponse({
+                    state: 'success',
+                    total_count: 1,
+                    statuses: [{ state: 'success' }],
+                });
             }
             if (
                 url.includes('/repo-2/commits/') &&
-                url.endsWith('/check-runs')
+                new URL(url).pathname.endsWith('/check-runs')
             ) {
                 return jsonResponse(
                     { message: 'API rate limit exceeded' },

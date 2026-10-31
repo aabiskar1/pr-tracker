@@ -262,3 +262,17 @@ badge absence, Unknown tooltip and neutral styling in both themes, independent
 filters, encrypted legacy migration, persistence and Reset Filters. It captures
 `screenshots/ci-status-light.png` and `screenshots/ci-status-dark.png` for visual
 review. Existing Reviewed, theme and visual-compat suites remain regression guards.
+
+### CI pagination regression coverage
+
+`tests/unit/api-ci-pagination.unit.test.ts` covers 30, 31, 45, 100, 101, 145,
+200, 205, 999 and 1,000 runs, plus oversized advertised totals. It verifies
+request counts, later-page success/failure/timed-out/pending/cancelled results,
+short/duplicate/malformed/drifting pages, invalid JSON, network errors,
+contradictory Link metadata, primary/secondary rate limits, and paused fetch/JSON
+boundaries with abort or session-generation invalidation. No partial set is
+reduced, including when its first page already contains failure or pending.
+Combined-status tests separately verify that the authoritative aggregate across
+145 contexts needs one request, and that confirmed zero statuses remain No CI.
+Existing browser CI tests continue to prove no badge for No CI, neutral Unknown,
+all five filters, encrypted preference persistence, themes and layout.

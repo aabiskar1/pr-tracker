@@ -38,7 +38,8 @@ const prNumberFromUrl = (url: string): number => {
 
 const successfulChecks = () =>
     jsonResponse({
-        check_runs: [{ status: 'completed', conclusion: 'success' }],
+        total_count: 1,
+        check_runs: [{ id: 1, status: 'completed', conclusion: 'success' }],
     });
 
 describe('fetchPullRequests per-PR concurrency', () => {

@@ -38,8 +38,10 @@ const successfulSupportingResponse = (url: string): Response => {
     if (url.endsWith('/reviews')) return jsonResponse([]);
     if (url.includes('/check-runs')) {
         return jsonResponse({
+            total_count: 1,
             check_runs: [
                 {
+                    id: 1,
                     status: 'completed',
                     conclusion: 'success',
                 },
@@ -104,8 +106,10 @@ describe('fetchPullRequests search and transformation behavior', () => {
             }
             if (url.includes('/check-runs')) {
                 return jsonResponse({
+                    total_count: 1,
                     check_runs: [
                         {
+                            id: 1,
                             status: 'completed',
                             conclusion: 'success',
                         },
@@ -810,11 +814,12 @@ describe('fetchPullRequests search and transformation behavior', () => {
             }
             if (
                 url.includes('/repo-50/commits/') &&
-                url.endsWith('/check-runs')
+                new URL(url).pathname.endsWith('/check-runs')
             ) {
                 return jsonResponse({
+                    total_count: 1,
                     check_runs: [
-                        { status: 'completed', conclusion: 'success' },
+                        { id: 1, status: 'completed', conclusion: 'success' },
                     ],
                 });
             }

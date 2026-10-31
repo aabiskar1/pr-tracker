@@ -3,6 +3,7 @@ import type {
     GitHubIssueSearchItem,
     GitHubReview,
     CIStatus,
+    GitHubCheckRun,
     PullRequest,
 } from '../types';
 import {
@@ -54,6 +55,9 @@ const NOTIFICATION_ICON = 'icons/icon-128.png';
 const SEARCH_RESULTS_PER_PAGE = 100;
 const SEARCH_RESULT_LIMIT = 1000;
 const SEARCH_MAX_PAGES = SEARCH_RESULT_LIMIT / SEARCH_RESULTS_PER_PAGE;
+const CI_CHECKS_PER_PAGE = 100;
+const CI_CHECKS_MAX_PAGES = 10;
+const CI_CHECKS_RESULT_LIMIT = CI_CHECKS_PER_PAGE * CI_CHECKS_MAX_PAGES;
 // Four PRs keep the popup refresh responsive while bounding the optional
 // review/CI fan-out far below GitHub's changeable secondary-limit ceilings.
 export const PR_DETAIL_CONCURRENCY = 4;
@@ -161,69 +165,100 @@ async function getCIStatus(
     refreshSession?: RefreshSessionContext
 ): Promise<OptionalStatusResult<CIStatus>> {
     try {
-        assertRefreshSessionValid(refreshSession);
-        // Check runs
-        const checksUrl = `${repoUrl}/commits/${headSha}/check-runs`;
-        const response = await fetch(checksUrl, {
-            signal: refreshSession?.signal,
-            headers: {
-                Authorization: `token ${token}`,
-                Accept: 'application/vnd.github.v3+json',
-            },
-        });
-        assertRefreshSessionValid(refreshSession);
-
-        if (!response.ok) {
-            const errorInfo = await analyzeHttpError(response);
+        const checkRuns: GitHubCheckRun[] = [];
+        const seenIds = new Set<number>();
+        let totalCount: number | undefined;
+        // GitHub supports at most 100 per page. Bound fan-out, retaining the
+        // default latest-run filter. Never reduce a partial collection.
+        for (let page = 1; page <= CI_CHECKS_MAX_PAGES; page++) {
             assertRefreshSessionValid(refreshSession);
-            return {
-                status: 'unknown',
-                ...(errorInfo.rateLimit
-                    ? { rateLimit: errorInfo.rateLimit }
-                    : {}),
-            };
-        }
-
-        const data = await response.json();
-        assertRefreshSessionValid(refreshSession);
-
-        if (
-            !isRecord(data) ||
-            !Array.isArray(data.check_runs) ||
-            (data.total_count !== undefined &&
-                (!Number.isInteger(data.total_count) ||
-                    data.total_count !== data.check_runs.length)) ||
-            !data.check_runs.every(
-                (run: unknown) =>
-                    isRecord(run) &&
-                    [
-                        'queued',
-                        'in_progress',
-                        'waiting',
-                        'pending',
-                        'requested',
-                        'completed',
-                    ].includes(String(run.status)) &&
-                    (run.status === 'completed'
-                        ? [
-                              'success',
-                              'failure',
-                              'timed_out',
-                              'cancelled',
-                              'neutral',
-                              'skipped',
-                              'action_required',
-                              'stale',
-                              'startup_failure',
-                          ].includes(String(run.conclusion))
-                        : run.conclusion === null)
+            const checksUrl = `${repoUrl}/commits/${headSha}/check-runs?per_page=${CI_CHECKS_PER_PAGE}&page=${page}`;
+            const response = await fetch(checksUrl, {
+                signal: refreshSession?.signal,
+                headers: {
+                    Authorization: `token ${token}`,
+                    Accept: 'application/vnd.github.v3+json',
+                },
+            });
+            assertRefreshSessionValid(refreshSession);
+            if (!response.ok) {
+                const errorInfo = await analyzeHttpError(response);
+                assertRefreshSessionValid(refreshSession);
+                return {
+                    status: 'unknown',
+                    ...(errorInfo.rateLimit
+                        ? { rateLimit: errorInfo.rateLimit }
+                        : {}),
+                };
+            }
+            const data = await response.json();
+            assertRefreshSessionValid(refreshSession);
+            if (
+                !isRecord(data) ||
+                !Array.isArray(data.check_runs) ||
+                !Number.isSafeInteger(data.total_count) ||
+                Number(data.total_count) < 0 ||
+                // A conservative per-PR work budget; do not evaluate beyond it.
+                Number(data.total_count) > CI_CHECKS_RESULT_LIMIT ||
+                (totalCount !== undefined && data.total_count !== totalCount) ||
+                data.check_runs.length !==
+                    Math.min(
+                        CI_CHECKS_PER_PAGE,
+                        Number(data.total_count) - checkRuns.length
+                    ) ||
+                !data.check_runs.every(
+                    (run: unknown) =>
+                        isRecord(run) &&
+                        Number.isSafeInteger(run.id) &&
+                        Number(run.id) >= 0 &&
+                        [
+                            'queued',
+                            'in_progress',
+                            'waiting',
+                            'pending',
+                            'requested',
+                            'completed',
+                        ].includes(String(run.status)) &&
+                        (run.status === 'completed'
+                            ? [
+                                  'success',
+                                  'failure',
+                                  'timed_out',
+                                  'cancelled',
+                                  'neutral',
+                                  'skipped',
+                                  'action_required',
+                                  'stale',
+                                  'startup_failure',
+                              ].includes(String(run.conclusion))
+                            : run.conclusion === null)
+                )
             )
-        )
+                return { status: 'unknown' };
+            totalCount = Number(data.total_count);
+            for (const run of data.check_runs) {
+                if (seenIds.has(run.id)) return { status: 'unknown' };
+                seenIds.add(run.id);
+                checkRuns.push(run);
+            }
+            if (checkRuns.length === totalCount) {
+                // Contradictory pagination metadata is not proof of completeness.
+                if (
+                    /rel\s*=\s*["']?next\b/i.test(
+                        response.headers.get('link') ?? ''
+                    )
+                )
+                    return { status: 'unknown' };
+                break;
+            }
+        }
+        if (totalCount === undefined || checkRuns.length !== totalCount)
             return { status: 'unknown' };
 
-        if (data.check_runs.length === 0) {
-            if (data.total_count !== 0) return { status: 'unknown' };
-            // Fallback to combined status
+        if (checkRuns.length === 0) {
+            // The combined state covers ALL contexts, even when statuses is
+            // paginated. We consume the authoritative summary, not a page reduction.
+            // https://docs.github.com/en/rest/commits/statuses#get-the-combined-status-for-a-specific-reference
             const statusUrl = `${repoUrl}/commits/${headSha}/status`;
             assertRefreshSessionValid(refreshSession);
             const statusResp = await fetch(statusUrl, {
@@ -243,10 +278,13 @@ async function getCIStatus(
                     !['success', 'failure', 'error', 'pending'].includes(
                         String(statusData.state)
                     ) ||
-                    (statusData.total_count !== undefined &&
-                        (!Number.isInteger(statusData.total_count) ||
-                            statusData.total_count !==
-                                statusData.statuses.length)) ||
+                    !Number.isSafeInteger(statusData.total_count) ||
+                    Number(statusData.total_count) <
+                        statusData.statuses.length ||
+                    statusData.statuses.length > 30 ||
+                    (Number(statusData.total_count) > 0 &&
+                        statusData.statuses.length !==
+                            Math.min(30, Number(statusData.total_count))) ||
                     !statusData.statuses.every(
                         (context: unknown) =>
                             isRecord(context) &&
@@ -260,6 +298,9 @@ async function getCIStatus(
                     return {
                         status:
                             statusData.total_count === 0 &&
+                            !/rel\s*=\s*["']?next\b/i.test(
+                                statusResp.headers.get('link') ?? ''
+                            ) &&
                             statusData.state === 'pending'
                                 ? 'no-ci'
                                 : 'unknown',
@@ -287,13 +328,13 @@ async function getCIStatus(
             return { status: 'unknown' };
         }
 
-        const hasFailure = data.check_runs.some(
+        const hasFailure = checkRuns.some(
             (run: { status: string; conclusion: string | null }) =>
                 run.conclusion === 'failure' || run.conclusion === 'timed_out'
         );
         if (hasFailure) return { status: 'failing' };
 
-        const allPassed = data.check_runs.every(
+        const allPassed = checkRuns.every(
             (run: { status: string; conclusion: string | null }) =>
                 run.status === 'completed' && run.conclusion === 'success'
         );
