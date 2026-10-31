@@ -260,32 +260,111 @@ an environment requirement, document that fact rather than silently omitting it.
 
 ## Releases
 
-The **Release Extension** workflow has a **Release mode** dropdown:
+Release automation has three independent workflows. Store artifact validation
+and downloads live in `scripts/validate-release.mjs`, using Node built-ins,
+GitHub CLI and `unzip` already available on the runner. It needs no npm install
+or Python. The workflow checks out its exact dispatched `main` revision with
+`persist-credentials: false` in every job; it never executes code from the release tag.
 
-| Mode                | Behaviour                                                                                                                     |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `dry-run` (default) | Run validation/builds and upload the Chrome/Firefox ZIPs as workflow artifacts only. No tags, GitHub Releases, or store jobs. |
-| `github-release`    | Validate, create the version tag and GitHub Release, and attach both ZIPs. Store jobs are skipped entirely.                   |
-| `full-release`      | Perform the GitHub Release steps, then wait for approval before starting browser-store publication.                           |
+| Workflow                                     | Trigger                  | Responsibility                                                                                                                                                                                      |
+| -------------------------------------------- | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **buildandtest** (`build.yml`)               | PRs and pushes to `main` | Compile, lint, production builds, unit tests, and deterministic Chrome E2E. Its existing `verify` status check is preserved. No publication.                                                        |
+| **GitHub Release** (`release.yml`)           | Manual, from `main`      | Validate, build and inspect both production ZIPs. Dry run defaults to enabled and uploads workflow artifacts only. Disable dry run to create the tag and GitHub Release. Never publishes to stores. |
+| **Publish to Stores** (`publish-stores.yml`) | Manual, from `main`      | Submit original ZIP assets from an existing published GitHub Release to Chrome, Firefox, or both, after environment approval. Never rebuilds or modifies tags/releases.                             |
 
-For a real release, run the workflow from the latest `main`. After successful
-checks and builds, it creates `vVERSION` from `package.json`, publishes a
-GitHub Release using `docs/release-notes-VERSION.md`, and attaches both ZIPs.
-Only `full-release` schedules the Chrome and Firefox submission jobs. Both use
-the `browser-stores` GitHub environment. Use **Review deployments** in the
-workflow run to approve the desired store jobs. Credentials remain in the
-existing GitHub Actions secrets.
+### Create a GitHub Release
 
-The environment is configured with `aabiskar1` as its required reviewer and
-**Prevent self-review disabled** (`prevent_self_review: false`). This lets
-`aabiskar1` dispatch the release and subsequently approve their own store jobs;
-approval is still manual. Deployments are restricted to protected branches.
-These are repository settings, not YAML settings: maintain them under
-**Settings → Environments → browser-stores**. If Prevent self-review is enabled
-later, another eligible required reviewer must approve releases dispatched by
-`aabiskar1`. A `github-release` run never requests store approval and cannot be
-promoted to `full-release` by rerunning it: the version already has a tag/release.
+1. Merge a release-preparation PR containing matching `package.json` and
+   `package-lock.json` versions and `docs/release-notes-VERSION.md`.
+2. Dispatch **GitHub Release** from `main`, initially with **dry-run** enabled.
+   The workflow runs compilation, lint, formatting, unit and headless E2E tests,
+   then fresh production builds for Chrome MV3 and Firefox MV2. It validates
+   package/lock/generated-manifest versions, ZIP integrity, icons, Watchtower
+   branding and the absence of development files/test hooks.
+3. Inspect the `extension-builds` workflow artifact. Dispatch again with dry run
+   disabled when ready. After validation, the publishing job rechecks that its
+   exact commit is still latest `main`, refuses any existing tag/release, creates
+   `vVERSION`, and publishes the versioned notes with `extension-chrome.zip` and
+   `extension-firefox.zip` attached.
 
-Existing tags/releases and real-release retries are rejected. If publishing
-partially fails, inspect the tag, release, and store dashboards before manual
-recovery. No Python or additional release scripts are required.
+Only the GitHub Release publishing job has `contents: write`. Release creation
+is serialized and rejects reruns. A failure after creating a tag deliberately
+stops automatic recovery: inspect the tag/release and uploaded assets before
+maintainer recovery; do not delete or overwrite an existing published version.
+Dry runs remain possible for versions that already have a release.
+
+### Publish an existing release to stores
+
+For example, to publish the existing **v1.0.22** release without recreating it:
+
+1. Check the selected store dashboards to confirm that this version has not
+   already been accepted and no submission is still processing. Dispatch
+   **Publish to Stores** from `main`, enter `v1.0.22`, choose `chrome`, `firefox`,
+   or `both`, and enable **confirm-store-status**. It defaults to false and
+   validation stops unless confirmed.
+2. Inspect the validation job. It verifies the published stable release, resolves
+   lightweight or annotated tags to a repository commit in `main` history, and
+   checks the tagged package version. The tagged commit need not be latest main.
+3. Use **Review deployments** to approve the selected `browser-stores` jobs.
+   Each job then revalidates release/tag identity, downloads its original asset
+   directly from the GitHub Release by asset ID, and compares it with the asset
+   inspected before approval. No rebuild or workflow-artifact substitution occurs.
+4. Inspect each store job separately. Chrome uses the existing Chrome Web Store
+   upload integration; Firefox uses the existing listed signing/submission
+   integration. Store processing, review and availability can continue afterward.
+
+Asset names, state, size, ZIP integrity, version, browser manifest format, icon
+paths and Firefox extension ID are checked. SHA-256 release-asset digests are
+verified when GitHub supplies them; otherwise a locally computed digest binds
+approval to exactly the inspected bytes. Chrome ZIPs currently contain no public
+manifest `key`, so their Chrome store ID cannot be derived from the ZIP alone.
+The workflow checks a public key's ID if present and always verifies that the
+configured submission target is the existing public store ID
+`kfeglmkcicfmegclihokchplngcokgil`. This is a target check, not a signed assertion
+of a keyless archive's identity.
+
+All store workflow jobs have only `contents: read`. The same validator runs for
+initial inspection and after approval, checking release identity and the original
+downloaded bytes. Each publishing job references only its own store credentials.
+Credentials remain in GitHub Actions secrets, are not printed, and are used only
+after the environment approval gate. Third-party publishing actions retain their
+existing version references and necessarily receive their respective store
+credentials; review those integrations when updating them.
+
+### Approval settings and partial failure recovery
+
+The `browser-stores` environment was verified with `aabiskar1` as required
+reviewer, **Prevent self-review disabled** (`prevent_self_review: false`), and
+deployments restricted to protected branches. This allows `aabiskar1` to dispatch
+and manually approve their own jobs. Maintain this under **Settings →
+Environments → browser-stores**; YAML cannot enforce the required-reviewer setting.
+If Prevent self-review is enabled, a different eligible required reviewer must
+approve runs dispatched by `aabiskar1`. Keep the environment approval requirement
+and protected `main` policy in place.
+
+Chrome and Firefox jobs are independent, with separate concurrency locks per
+tag/store. A failure in one does not cancel the other. Workflow reruns are blocked
+in every job to prevent replaying an uncertain external submission. The workflow
+does not scan historical job titles or step names or claim an automatic exactly-once
+guarantee: GitHub job history is not an authoritative store receipt. Every new
+dispatch requires the dashboard confirmation as well as environment approval.
+
+For a partial failure:
+
+1. Inspect the failed submission step and the store dashboard. Wait for any
+   previous attempt to finish, including remote processing. Never resubmit a
+   version already accepted by that store.
+2. Dispatch a **new run** selecting only the failed store and confirm its dashboard
+   status again. Do this only after verifying that the previous attempt was not
+   accepted. An action failure or cancellation can occur after a remote store has
+   accepted an upload; when uncertain, investigate or wait rather than retrying.
+3. Review and approve the new environment deployment. Do not rerun old jobs;
+   workflow reruns are rejected. Do not resubmit the successful store.
+
+With read-only GitHub permissions there is no durable store-submission ledger.
+Concurrency prevents overlapping jobs for the same tag/store, but it cannot
+prevent a later new dispatch or an upload outside GitHub Actions. Operators must
+check store state and must not approve a version already accepted by that store.
+Concurrent pending runs may also be replaced by GitHub's concurrency scheduler;
+dispatch deliberately and inspect the resulting job states. Never change a
+published release's assets to work around a validation failure.

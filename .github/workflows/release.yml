@@ -1,17 +1,12 @@
-name: Release Extension
+name: GitHub Release
 
 on:
     workflow_dispatch:
         inputs:
-            release-mode:
-                description: Release mode
-                type: choice
-                required: true
-                default: dry-run
-                options:
-                    - dry-run
-                    - github-release
-                    - full-release
+            dry-run:
+                description: Validate and upload workflow artifacts without creating a release
+                type: boolean
+                default: true
 
 permissions:
     contents: read
@@ -22,11 +17,14 @@ concurrency:
 
 jobs:
     build:
+        if: ${{ github.ref == 'refs/heads/main' }}
         runs-on: ubuntu-24.04
         outputs:
             version: ${{ steps.version.outputs.version }}
         steps:
             - uses: actions/checkout@v7
+              with:
+                  persist-credentials: false
 
             - name: Setup Node.js
               uses: actions/setup-node@v7
@@ -65,15 +63,49 @@ jobs:
 
             - name: Zip Chrome Extension
               run: |
-                  cd .output/chrome-mv3
+                  cd .output/chrome-mv3 || exit 1
                   zip -r ../../extension-chrome.zip .
-                  cd ../..
+                  cd ../.. || exit 1
 
             - name: Zip Firefox Extension
               run: |
-                  cd .output/firefox-mv2
+                  cd .output/firefox-mv2 || exit 1
                   zip -r ../../extension-firefox.zip .
-                  cd ../..
+                  cd ../.. || exit 1
+
+            - name: Inspect production ZIPs
+              env:
+                  VERSION: ${{ steps.version.outputs.version }}
+              run: |
+                  for browser in chrome firefox; do
+                    archive="extension-$browser.zip"
+                    unzip -t "$archive"
+                    unzip -Z1 "$archive" > entries.txt
+                    test "$(sort entries.txt | uniq -d | wc -l)" -eq 0
+                    # Reject development files and unsafe paths; never extract archive paths.
+                    if grep -Ei '(^/|(^|/)\.\.(/|$)|\\|\.(ts|tsx|map)$|(^|/)(node_modules|tests?|\.git|\.env)(/|$))' entries.txt; then
+                      echo '::error::Unexpected ZIP contents'; exit 1
+                    fi
+                    unzip -p "$archive" manifest.json > validated-manifest.json
+                    test "$(jq -r '.version' validated-manifest.json)" = "$VERSION"
+                    test "$(jq -r '.name' validated-manifest.json)" = 'PR Tracker'
+                    if test "$browser" = chrome; then
+                      test "$(jq -r '.manifest_version' validated-manifest.json)" = 3
+                    else
+                      test "$(jq -r '.manifest_version' validated-manifest.json)" = 2
+                      test "$(jq -r '.browser_specific_settings.gecko.id' validated-manifest.json)" = '{dabd690e-283a-4c0a-98de-3fc963365d13}'
+                    fi
+                    for asset in branding/watchtower.png icons/icon-16.png icons/icon-32.png icons/icon-48.png icons/icon-128.png; do
+                      grep -Fx "$asset" entries.txt
+                    done
+                    jq -r '[(.icons // {}), (.action.default_icon // .browser_action.default_icon // {})] | .[] | if type == "string" then . else .[] end' validated-manifest.json > icon-paths.txt
+                    while IFS= read -r asset; do
+                      grep -Fx "${asset#/}" entries.txt
+                    done < icon-paths.txt
+                    if unzip -p "$archive" '*.js' | grep -E 'TEST_RESET_BACKGROUND_STATE|design-system-showcase'; then
+                      echo '::error::Test code in production ZIP'; exit 1
+                    fi
+                  done
 
             - name: Upload Artifacts
               uses: actions/upload-artifact@v7
@@ -82,10 +114,11 @@ jobs:
                   path: |
                       extension-chrome.zip
                       extension-firefox.zip
+                  if-no-files-found: error
 
     release:
         needs: build
-        if: ${{ (inputs.release-mode == 'github-release' || inputs.release-mode == 'full-release') && github.ref == 'refs/heads/main' && github.run_attempt == 1 }}
+        if: ${{ !inputs.dry-run && github.ref == 'refs/heads/main' && github.run_attempt == 1 }}
         runs-on: ubuntu-24.04
         permissions:
             contents: write
@@ -117,48 +150,3 @@ jobs:
                   gh release create "$tag" extension-chrome.zip extension-firefox.zip \
                     --verify-tag --target "$GITHUB_SHA" --title "PR Tracker $VERSION" \
                     --notes-file "docs/release-notes-$VERSION.md"
-
-    publish-chrome:
-        needs: release
-        if: ${{ inputs.release-mode == 'full-release' && github.run_attempt == 1 }}
-        environment: browser-stores
-        runs-on: ubuntu-24.04
-        steps:
-            - uses: actions/download-artifact@v8
-              with:
-                  name: extension-builds
-
-            - name: Upload to Chrome Web Store
-              uses: mnao305/chrome-extension-upload@v6.0.0
-              with:
-                  file-path: extension-chrome.zip
-                  extension-id: ${{ secrets.CHROME_EXTENSION_ID }}
-                  client-id: ${{ secrets.GOOGLE_CLIENT_ID }}
-                  client-secret: ${{ secrets.GOOGLE_CLIENT_SECRET }}
-                  refresh-token: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
-                  publish: true
-
-    publish-firefox:
-        needs: release
-        if: ${{ inputs.release-mode == 'full-release' && github.run_attempt == 1 }}
-        environment: browser-stores
-        runs-on: ubuntu-24.04
-        steps:
-            - uses: actions/checkout@v7
-
-            - uses: actions/download-artifact@v8
-              with:
-                  name: extension-builds
-
-            - name: Create Artifacts Directory
-              run: mkdir -p web-ext-artifacts
-
-            - name: Sign and Upload to Firefox Add-ons
-              uses: kewisch/action-web-ext@v1
-              with:
-                  cmd: sign
-                  source: extension-firefox.zip
-                  channel: listed
-                  apiKey: ${{ secrets.FIREFOX_API_KEY }}
-                  apiSecret: ${{ secrets.FIREFOX_API_SECRET }}
-                  timeout: 900000
