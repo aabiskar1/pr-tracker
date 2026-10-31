@@ -244,8 +244,14 @@ incomplete, or failed CI responses yield Unknown. Optional rate-limit errors
 still propagate cooldowns; required refresh failures preserve the last successful
 snapshot. Cancellation, discovery, and notifications are unchanged.
 
-All five CI states have independent filters. Defaults and Reset Filters include
-all five. Legacy encrypted filters with all three original states selected
+All five CI states have independent filters. Passing, Failing and Pending remain
+in the CI row; No CI and Unknown are checkboxes in the optional Advanced popover.
+Defaults and Reset Filters include all five. An empty CI selection intentionally
+means no CI restriction and includes all five states; this remains true after
+reopening the popup. The Advanced indicator reflects unchecked advanced options,
+including an empty selection; it does not change that empty-selection convention.
+
+Legacy encrypted filters with all three original states selected
 (or an empty selection, which previously meant all) expand to all five; restricted
 selections retain exactly their selected states. A `ciStatusVersion: 1` marker
 makes migration idempotent, including when users intentionally deselect the new
@@ -313,3 +319,10 @@ Discovery author evidence stays in memory, and results expose separate raw,
 consumed-field and canonical comparisons plus sanitized fallback categories.
 See [the follow-up report](hybrid-metadata-compatibility.md) for fixture/live
 accounting, limitations and the NO-GO production-readiness decision.
+
+The CI E2E scenarios cover Advanced open/close, keyboard focus and Space toggles,
+Escape/outside/Tab dismissal, independent main/advanced filters, encrypted state
+across popup reopening, empty-selection behavior, reset, light/dark screenshots,
+and viewport-bound positioning and dismissal on resize/scroll. The dashboard
+retains its existing fixed-width layout; narrow viewport tests constrain the
+popover itself without changing that established application layout.

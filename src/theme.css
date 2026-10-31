@@ -323,27 +323,65 @@ a:hover {
     color: var(--secondary-foreground);
 }
 
-/* Neutral CI filter pills use the same compact geometry as the coloured pills. */
-.screen-prlist
-    .filter-bar-container
-    :is([data-ci-status='no-ci'], [data-ci-status='unknown']):not(
-        [data-selected='false']
-    ) {
-    background: var(--popup-repo);
-    color: var(--popup-repo-foreground);
+/* Advanced CI filters stay compact; the native top layer avoids card/scroll clipping. */
+.screen-prlist .ci-advanced-trigger {
+    height: 20px;
+    padding: 0 0.35rem;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+    line-height: 16px;
+    font-weight: 400;
+    color: var(--popup-subtle);
 }
 
-.screen-prlist
-    .filter-bar-container
-    label:hover
-    > :is([data-ci-status='no-ci'], [data-ci-status='unknown']) {
-    box-shadow: inset 0 0 0 1px var(--popup-subtle);
+.screen-prlist .ci-advanced-trigger:hover,
+.screen-prlist .ci-advanced-trigger[aria-expanded='true'] {
+    background: var(--popup-secondary);
+    color: var(--popup-secondary-foreground);
 }
 
-.screen-prlist
-    .filter-bar-container
-    input:focus-visible
-    + :is([data-ci-status='no-ci'], [data-ci-status='unknown']) {
+.ci-advanced-indicator {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--popup-primary);
+}
+
+.ci-advanced-popover {
+    position: fixed;
+    inset: auto;
+    margin: 0;
+    box-sizing: border-box;
+    overflow: auto;
+    overscroll-behavior: contain;
+    padding: 0.35rem;
+    border: 1px solid var(--popup-border);
+    border-radius: 4px;
+    background: var(--popup-surface);
+    color: var(--popup-foreground);
+    box-shadow: 0 4px 12px #0002;
+    font-size: 0.8125rem;
+}
+
+.ci-advanced-popover label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 30px;
+    padding: 0.25rem 0.4rem;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.ci-advanced-popover label:hover {
+    background: var(--popup-secondary);
+}
+
+.ci-advanced-popover label:focus-within {
     outline: 2px solid var(--ring);
-    outline-offset: 2px;
+    outline-offset: -2px;
+}
+
+.ci-advanced-popover input {
+    accent-color: var(--popup-primary);
 }

@@ -19,6 +19,7 @@ import {
 } from './harness.js';
 import { appData, POPULATED_PRS } from './fixtures.js';
 import type { CIStatus } from '../../src/types';
+import { openExtensionPopup } from './setup.js';
 
 const states: CIStatus[] = [
     'passing',
@@ -37,7 +38,16 @@ const cards = (page: Page) =>
     page.$$eval('.pr-card-title', (elements) =>
         elements.map((el) => el.textContent?.trim())
     );
+const advancedButton = 'button[aria-label="Advanced CI filters"]';
+const advancedMenu = '[popover][aria-label="Advanced CI filters"]';
+const openAdvanced = async (page: Page) => {
+    if (!(await page.$(`${advancedMenu}:popover-open`)))
+        await page.click(advancedButton);
+    await page.waitForSelector(`${advancedMenu}:popover-open`);
+    await page.waitForSelector(`${advancedButton}[aria-expanded="true"]`);
+};
 const toggle = async (page: Page, status: CIStatus) => {
+    if (status === 'no-ci' || status === 'unknown') await openAdvanced(page);
     const selector = `label:has([data-ci-status="${status}"])`;
     const wasSelected = await page.$eval(
         `${selector} input`,
@@ -127,11 +137,18 @@ describe('five CI states', () => {
                     (await readAppData(page)).preferences?.filters?.ciStatus
                 ).toEqual(['unknown'])
             );
-            await page.reload();
+            await page.close();
+            page = await openExtensionPopup();
             await waitForDashboard(page);
             await vi.waitFor(async () =>
                 expect(await cards(page)).toEqual(['CI fixture unknown'])
             );
+            expect(await page.$(`${advancedMenu}:popover-open`)).toBeNull();
+            expect(
+                await page.$eval(advancedButton, (el) =>
+                    el.getAttribute('data-filtered')
+                )
+            ).toBe('true');
             await page.click('.filter-bar-container button:not([aria-label])');
             await page.waitForFunction(
                 () => document.querySelectorAll('.pr-card-title').length === 5
@@ -157,115 +174,203 @@ describe('five CI states', () => {
     );
 
     it.each(['light', 'dark'] as const)(
-        'keeps neutral filter pills compact and keyboard accessible in %s',
+        'supports the Advanced menu, keyboard dismissal and empty CI selection in %s',
         async (theme) => {
             page = await openSeededPopup(github, { data: appData(prs), theme });
-            const inspect = () =>
-                page.$$eval(
-                    '.filter-bar-container [data-ci-status]',
-                    (elements) =>
-                        elements.map((el) => {
-                            const css = getComputedStyle(el);
-                            return {
-                                status: el.getAttribute('data-ci-status'),
-                                background: css.backgroundColor,
-                                geometry: {
-                                    height: el.getBoundingClientRect().height,
-                                    padding: css.padding,
-                                    radius: css.borderRadius,
-                                },
-                            };
-                        })
-                );
-            const selected = await inspect();
-            const barHeight = await page.$eval(
+            expect(await page.$(`${advancedMenu}:popover-open`)).toBeNull();
+            expect(
+                await page.$eval(advancedButton, (el) =>
+                    el.getAttribute('data-filtered')
+                )
+            ).toBe('false');
+            expect(
+                await page.$$eval(
+                    '.filter-bar-container [data-slot="badge"][data-ci-status]',
+                    (els) =>
+                        els.map((el) => ({
+                            status: el.getAttribute('data-ci-status'),
+                            background: getComputedStyle(el).backgroundColor,
+                        }))
+                )
+            ).toEqual([
+                { status: 'passing', background: 'rgb(40, 167, 69)' },
+                { status: 'failing', background: 'rgb(203, 36, 49)' },
+                { status: 'pending', background: 'rgb(219, 171, 9)' },
+            ]);
+            const before = await page.$eval(
                 '.filter-bar-container',
                 (el) => el.getBoundingClientRect().height
             );
-            expect(selected.slice(0, 3).map((item) => item.background)).toEqual(
-                ['rgb(40, 167, 69)', 'rgb(203, 36, 49)', 'rgb(219, 171, 9)']
+            await page.focus(advancedButton);
+            await page.keyboard.press('Enter');
+            await page.waitForSelector(`${advancedMenu}:popover-open`);
+            await page.waitForFunction(
+                () =>
+                    document.activeElement?.getAttribute('data-ci-status') ===
+                    'no-ci'
             );
-            for (const status of ['no-ci', 'unknown']) {
-                const badge = `.filter-bar-container [data-ci-status="${status}"]`;
-                const input = `label:has([data-ci-status="${status}"]) input`;
-                const pill = selected.find((item) => item.status === status)!;
-                expect(pill.background).toBe(
-                    theme === 'light' ? 'rgb(229, 231, 235)' : 'rgb(55, 65, 81)'
-                );
-                expect(pill.geometry).toEqual(selected[0]!.geometry);
-                await page.focus(input);
-                await page.keyboard.press('Tab');
-                await page.keyboard.down('Shift');
-                await page.keyboard.press('Tab');
-                await page.keyboard.up('Shift');
-                expect(
-                    await page.$eval(
-                        input,
-                        (el) => el === document.activeElement
-                    )
-                ).toBe(true);
-                expect(
-                    await page.$eval(badge, (el) => {
-                        const css = getComputedStyle(el);
-                        return {
-                            width: css.outlineWidth,
-                            style: css.outlineStyle,
-                        };
-                    })
-                ).toEqual({ width: '2px', style: 'solid' });
-                await page.keyboard.press('Space');
-                await page.waitForSelector(`${badge}[data-selected="false"]`);
-                await vi.waitFor(async () =>
-                    expect(
-                        (
-                            await readAppData(page)
-                        ).preferences?.filters?.ciStatus.includes(
-                            status as CIStatus
-                        )
-                    ).toBe(false)
-                );
-            }
-            await toggle(page, 'passing');
-            const unselected = await inspect();
-            for (const status of ['no-ci', 'unknown']) {
-                const pill = unselected.find((item) => item.status === status)!;
-                expect(pill.background).toBe('rgba(0, 0, 0, 0)');
-                expect(pill.background).not.toBe(
-                    selected.find((item) => item.status === status)!.background
-                );
-                expect(pill.geometry).toEqual(unselected[0]!.geometry);
-            }
-            await toggle(page, 'passing');
-            await page.hover('label:has([data-ci-status="no-ci"])');
+            expect(
+                await page.$$eval(`${advancedMenu} input`, (els) =>
+                    els.map((el) => (el as HTMLInputElement).checked)
+                )
+            ).toEqual([true, true]);
             expect(
                 await page.$eval(
-                    '.filter-bar-container [data-ci-status="no-ci"]',
-                    (el) => getComputedStyle(el).boxShadow
+                    '.filter-bar-container',
+                    (el) => el.getBoundingClientRect().height
                 )
-            ).not.toBe('none');
-            await page.mouse.move(0, 0);
-            await page.evaluate(() =>
-                (document.activeElement as HTMLElement)?.blur()
-            );
-            expect(await cards(page)).toEqual([
-                'CI fixture passing',
-                'CI fixture failing',
-                'CI fixture pending',
-            ]);
-            expect(
-                await page.$('.pr-card-accent [data-ci-status="no-ci"]')
-            ).toBeNull();
-            const layout = await page.$eval('.filter-bar-container', (el) => ({
-                height: el.getBoundingClientRect().height,
+            ).toBe(before);
+            const surface = await page.$eval(advancedMenu, (el) => ({
+                background: getComputedStyle(el).backgroundColor,
                 overflow: el.scrollWidth > el.clientWidth,
             }));
-            // Outline badges add only their existing 1px borders, with no extra row.
-            expect(layout.height).toBeLessThanOrEqual(barHeight + 2);
-            expect(layout.overflow).toBe(false);
+            expect(surface.background).toBe(
+                theme === 'light' ? 'rgb(255, 255, 255)' : 'rgb(34, 39, 46)'
+            );
+            expect(surface.overflow).toBe(false);
+            await page.evaluate(() => document.fonts.ready);
             await page.screenshot({
-                path: `screenshots/ci-filters-unselected-${theme}.png`,
-                fullPage: true,
+                path: `screenshots/ci-advanced-${theme}.png`,
             });
+            await page.keyboard.press('Space');
+            await page.keyboard.press('Tab');
+            expect(
+                await page.$eval(
+                    `${advancedMenu} input[data-ci-status="unknown"]`,
+                    (el) => el === document.activeElement
+                )
+            ).toBe(true);
+            await page.keyboard.press('Space');
+            await vi.waitFor(async () =>
+                expect(
+                    (await readAppData(page)).preferences?.filters?.ciStatus
+                ).toEqual(['passing', 'failing', 'pending'])
+            );
+            await vi.waitFor(async () =>
+                expect(await cards(page)).toEqual([
+                    'CI fixture passing',
+                    'CI fixture failing',
+                    'CI fixture pending',
+                ])
+            );
+            expect(
+                await page.$eval(advancedButton, (el) =>
+                    el.getAttribute('data-filtered')
+                )
+            ).toBe('true');
+            expect(
+                await page.$(`${advancedButton} .ci-advanced-indicator`)
+            ).not.toBeNull();
+            await page.keyboard.press('Escape');
+            await page.waitForSelector(
+                `${advancedButton}[aria-expanded="false"]`
+            );
+            expect(
+                await page.$eval(
+                    advancedButton,
+                    (el) => el === document.activeElement
+                )
+            ).toBe(true);
+            // A second activation closes it; outside pointer and Tab also dismiss it.
+            await openAdvanced(page);
+            await page.click(advancedButton);
+            await page.waitForSelector(
+                `${advancedButton}[aria-expanded="false"]`
+            );
+            await openAdvanced(page);
+            await page.click('[aria-label="Search Pull Requests"]');
+            await page.waitForSelector(
+                `${advancedButton}[aria-expanded="false"]`
+            );
+            await openAdvanced(page);
+            await page.keyboard.press('Tab');
+            await page.keyboard.press('Tab');
+            await page.waitForSelector(
+                `${advancedButton}[aria-expanded="false"]`
+            );
+            expect(
+                await page.evaluate(() =>
+                    document.activeElement?.textContent?.trim()
+                )
+            ).toBe('Reset Filters');
+            for (const status of ['passing', 'failing', 'pending'] as const)
+                await toggle(page, status);
+            // Existing convention: empty means no CI restriction, not an empty result.
+            await vi.waitFor(async () =>
+                expect(
+                    (await readAppData(page)).preferences?.filters?.ciStatus
+                ).toEqual([])
+            );
+            await vi.waitFor(async () =>
+                expect(await cards(page)).toHaveLength(5)
+            );
+            expect(
+                await page.$eval(advancedButton, (el) =>
+                    el.getAttribute('title')
+                )
+            ).toBe('All CI states included (no selection)');
+            await page.close();
+            page = await openExtensionPopup();
+            await waitForDashboard(page);
+            expect(
+                (await readAppData(page)).preferences?.filters?.ciStatus
+            ).toEqual([]);
+            await vi.waitFor(async () =>
+                expect(await cards(page)).toHaveLength(5)
+            );
+            await page.click('button::-p-text(Reset Filters)');
+            await vi.waitFor(async () =>
+                expect(
+                    (await readAppData(page)).preferences?.filters?.ciStatus
+                ).toEqual(states)
+            );
+            expect(
+                await page.$eval(advancedButton, (el) =>
+                    el.getAttribute('data-filtered')
+                )
+            ).toBe('false');
+            await openAdvanced(page);
+            expect(
+                await page.$$eval(`${advancedMenu} input`, (els) =>
+                    els.map((el) => (el as HTMLInputElement).checked)
+                )
+            ).toEqual([true, true]);
+        }
+    );
+
+    it.each([360, 600, 750])(
+        'keeps the Advanced menu inside a %ipx viewport without blocking scrolling',
+        async (width) => {
+            page = await openSeededPopup(github, { data: appData(prs) });
+            await page.setViewport({ width, height: 230 });
+            await openAdvanced(page);
+            const bounds = await page.$eval(advancedMenu, (el) => {
+                const r = el.getBoundingClientRect();
+                return {
+                    left: r.left,
+                    right: r.right,
+                    top: r.top,
+                    bottom: r.bottom,
+                    bodyOverflow: getComputedStyle(document.body).overflow,
+                };
+            });
+            expect(bounds.left).toBeGreaterThanOrEqual(0);
+            expect(bounds.right).toBeLessThanOrEqual(width);
+            expect(bounds.top).toBeGreaterThanOrEqual(0);
+            expect(bounds.bottom).toBeLessThanOrEqual(230);
+            expect(bounds.bodyOverflow).not.toBe('hidden');
+            // Resizing and scrolling dismiss an overlay anchored to the old position.
+            await page.setViewport({ width, height: 240 });
+            await page.waitForSelector(
+                `${advancedButton}[aria-expanded="false"]`
+            );
+            await openAdvanced(page);
+            await page.mouse.move(width - 8, 220);
+            await page.mouse.wheel({ deltaY: 200 });
+            await page.waitForFunction(() => window.scrollY > 0);
+            await page.waitForSelector(
+                `${advancedButton}[aria-expanded="false"]`
+            );
         }
     );
 
