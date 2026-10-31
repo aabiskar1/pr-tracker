@@ -52,7 +52,8 @@ const supportingResponse = (url: string): Response => {
     if (url.endsWith('/reviews')) return jsonResponse([]);
     if (url.includes('/check-runs')) {
         return jsonResponse({
-            check_runs: [{ status: 'completed', conclusion: 'success' }],
+            total_count: 1,
+            check_runs: [{ id: 1, status: 'completed', conclusion: 'success' }],
         });
     }
     const match = url.match(/pulls\/(\d+)/);

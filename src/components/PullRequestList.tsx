@@ -1,5 +1,6 @@
 import type { FC } from 'react';
 import {
+    FaQuestionCircle,
     FaClock,
     FaCheck,
     FaTimes,
@@ -110,38 +111,56 @@ export const PullRequestList: FC<PullRequestListProps> = ({
                                 </div>
                                 <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-end max-w-full min-w-0">
                                     {/* CI Status Indicator */}
-                                    {pr.ci_status && (
-                                        <Badge
-                                            data-ci-status={pr.ci_status}
-                                            aria-label={`CI: ${pr.ci_status}`}
-                                            variant={
-                                                pr.ci_status === 'passing'
-                                                    ? 'ciPassing'
-                                                    : pr.ci_status === 'failing'
-                                                      ? 'ciFailing'
-                                                      : 'ciPending'
-                                            }
-                                        >
-                                            <FaCodeBranch
-                                                size={12}
-                                                className="opacity-80"
-                                            />
-                                            <span>|</span>
-                                            {pr.ci_status === 'passing' ? (
-                                                <FaCheck size={12} />
-                                            ) : pr.ci_status === 'failing' ? (
-                                                <FaTimes size={12} />
-                                            ) : (
-                                                <FaHourglassHalf size={12} />
-                                            )}
-                                            <span className="ml-1">
-                                                {pr.ci_status
-                                                    .charAt(0)
-                                                    .toUpperCase() +
-                                                    pr.ci_status.slice(1)}
-                                            </span>
-                                        </Badge>
-                                    )}
+                                    {pr.ci_status &&
+                                        pr.ci_status !== 'no-ci' && (
+                                            <Badge
+                                                data-ci-status={pr.ci_status}
+                                                aria-label={`CI: ${pr.ci_status}`}
+                                                title={
+                                                    pr.ci_status === 'unknown'
+                                                        ? 'CI status could not be determined reliably'
+                                                        : undefined
+                                                }
+                                                variant={
+                                                    pr.ci_status === 'passing'
+                                                        ? 'ciPassing'
+                                                        : pr.ci_status ===
+                                                            'failing'
+                                                          ? 'ciFailing'
+                                                          : pr.ci_status ===
+                                                              'pending'
+                                                            ? 'ciPending'
+                                                            : 'secondary'
+                                                }
+                                            >
+                                                <FaCodeBranch
+                                                    size={12}
+                                                    className="opacity-80"
+                                                />
+                                                <span>|</span>
+                                                {pr.ci_status === 'passing' ? (
+                                                    <FaCheck size={12} />
+                                                ) : pr.ci_status ===
+                                                  'failing' ? (
+                                                    <FaTimes size={12} />
+                                                ) : pr.ci_status ===
+                                                  'unknown' ? (
+                                                    <FaQuestionCircle
+                                                        size={12}
+                                                    />
+                                                ) : (
+                                                    <FaHourglassHalf
+                                                        size={12}
+                                                    />
+                                                )}
+                                                <span className="ml-1">
+                                                    {pr.ci_status
+                                                        .charAt(0)
+                                                        .toUpperCase() +
+                                                        pr.ci_status.slice(1)}
+                                                </span>
+                                            </Badge>
+                                        )}
                                     {/* Review Status */}
                                     {pr.review_status && (
                                         <Badge

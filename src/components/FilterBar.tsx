@@ -9,7 +9,7 @@ import {
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import type { FilterState } from '../types';
+import type { CIStatus, FilterState } from '../types';
 export type { FilterState } from '../types';
 
 type FilterBarProps = {
@@ -30,7 +30,7 @@ export type SortOption = 'newest' | 'oldest' | 'urgent' | 'most-stale';
 
 export type PRAgeFilter = 'all' | 'today' | 'week' | 'older';
 export type ReviewStatus = 'approved' | 'changes-requested' | 'pending';
-export type CIStatus = 'passing' | 'failing' | 'pending';
+export type { CIStatus } from '../types';
 
 export function FilterBar({
     filters,
@@ -199,7 +199,7 @@ export function FilterBar({
                     </select>
                 </div>
                 {/* Reviews + CI grouped on the same row */}
-                <div className="flex items-center gap-4 flex-wrap sm:flex-nowrap min-w-0">
+                <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap min-w-0">
                     {/* Review Status Filter */}
                     <div className="flex items-center gap-2 whitespace-nowrap min-w-0">
                         <div className="flex items-center gap-1">
@@ -211,7 +211,7 @@ export function FilterBar({
                                 Reviews:
                             </span>
                         </div>
-                        <div className="inline-flex flex-nowrap items-center gap-2 shrink min-w-0">
+                        <div className="inline-flex flex-wrap items-center gap-2 shrink min-w-0">
                             {(
                                 [
                                     'approved',
@@ -288,14 +288,24 @@ export function FilterBar({
                                 CI:
                             </span>
                         </div>
-                        <div className="inline-flex flex-nowrap items-center gap-2 shrink min-w-0">
+                        <div className="inline-flex flex-wrap items-center gap-2 shrink min-w-0">
                             {(
-                                ['passing', 'failing', 'pending'] as CIStatus[]
+                                [
+                                    'passing',
+                                    'failing',
+                                    'pending',
+                                    'no-ci',
+                                    'unknown',
+                                ] as CIStatus[]
                             ).map((status) => (
                                 <label
                                     key={status}
                                     className="flex items-center gap-1 cursor-pointer"
-                                    title={`Show ${status} checks`}
+                                    title={
+                                        status === 'no-ci'
+                                            ? 'Show PRs with no CI'
+                                            : `Show ${status} checks`
+                                    }
                                 >
                                     <input
                                         type="checkbox"
@@ -332,32 +342,36 @@ export function FilterBar({
                                                     ? 'ciPassing'
                                                     : status === 'failing'
                                                       ? 'ciFailing'
-                                                      : 'ciPending'
+                                                      : status === 'pending'
+                                                        ? 'ciPending'
+                                                        : 'secondary'
                                                 : 'outline'
                                         }
                                         className="rounded-md"
                                     >
-                                        {status.charAt(0).toUpperCase() +
-                                            status.slice(1)}
+                                        {status === 'no-ci'
+                                            ? 'No CI'
+                                            : status.charAt(0).toUpperCase() +
+                                              status.slice(1)}
                                     </Badge>
                                 </label>
                             ))}
                         </div>
                     </div>
                 </div>
+            </div>
+            {/* Right side: Sort dropdown and custom query */}
+            <div className="flex items-center gap-2 w-full sm:w-auto min-w-0">
                 {/* Reset Filters Button */}
                 <Button
                     type="button"
                     variant="secondary"
                     size="sm"
-                    className="ml-2"
+                    className="shrink-0"
                     onClick={onReset}
                 >
                     Reset Filters
                 </Button>
-            </div>
-            {/* Right side: Sort dropdown and custom query */}
-            <div className="flex items-center gap-2 w-full sm:w-auto min-w-0">
                 <div className="relative">
                     <select
                         className="appearance-none rounded border border-input bg-background py-1 pl-3 pr-8 text-left text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"

@@ -59,8 +59,10 @@ const runScenario = async (scenario: Scenario = {}) => {
         }
         if (url.includes('/check-runs')) {
             return endpointResponse(scenario.checks, {
+                total_count: 1,
                 check_runs: [
                     {
+                        id: 1,
                         status: 'completed',
                         conclusion: 'success',
                     },
@@ -70,6 +72,8 @@ const runScenario = async (scenario: Scenario = {}) => {
         if (url.endsWith('/status')) {
             return endpointResponse(scenario.combinedStatus, {
                 state: 'pending',
+                total_count: 1,
+                statuses: [{ state: 'pending' }],
             });
         }
         if (url === targetPrUrl) {
@@ -221,7 +225,7 @@ describe('fetchPullRequests CI-status reduction', () => {
 
     it('requests canonical detail once and combined status only after empty checks', async () => {
         const { requestedUrls } = await runScenario({
-            checks: { body: { check_runs: [] } },
+            checks: { body: { total_count: 0, check_runs: [] } },
         });
         const targetPrUrl = prUrl(40);
 
@@ -268,7 +272,12 @@ describe('fetchPullRequests CI-status reduction', () => {
         },
     ])('reduces $label to $expected', async ({ checks, expected }) => {
         const { pullRequest } = await runScenario({
-            checks: { body: { check_runs: checks } },
+            checks: {
+                body: {
+                    total_count: checks.length,
+                    check_runs: checks.map((run, id) => ({ ...run, id })),
+                },
+            },
         });
 
         expect(pullRequest.ci_status).toBe(expected);
@@ -279,13 +288,15 @@ describe('fetchPullRequests CI-status reduction', () => {
         { state: 'failure', expected: 'failing' },
         { state: 'error', expected: 'failing' },
         { state: 'pending', expected: 'pending' },
-        { state: 'unknown', expected: 'pending' },
+        { state: 'unknown', expected: 'unknown' },
     ])(
         'uses combined status $state when there are no check runs',
         async ({ state, expected }) => {
             const { pullRequest, requestedUrls } = await runScenario({
-                checks: { body: { check_runs: [] } },
-                combinedStatus: { body: { state } },
+                checks: { body: { total_count: 0, check_runs: [] } },
+                combinedStatus: {
+                    body: { state, total_count: 1, statuses: [{ state }] },
+                },
             });
 
             expect(pullRequest.ci_status).toBe(expected);
@@ -295,29 +306,113 @@ describe('fetchPullRequests CI-status reduction', () => {
         }
     );
 
-    it('returns pending when canonical detail lacks optional CI coordinates', async () => {
+    it('confirms no CI only from two successful empty responses', async () => {
+        const { pullRequest } = await runScenario({
+            checks: { body: { total_count: 0, check_runs: [] } },
+            combinedStatus: {
+                body: { state: 'pending', total_count: 0, statuses: [] },
+            },
+        });
+        expect(pullRequest.ci_status).toBe('no-ci');
+    });
+
+    it.each([
+        {},
+        { check_runs: null },
+        { check_runs: [] },
+        { total_count: 1, check_runs: [] },
+        { check_runs: [null] },
+        { check_runs: [{}] },
+        { check_runs: [{ status: 'completed', conclusion: null }] },
+    ])('returns unknown for unusable checks %j', async (body) => {
+        const { pullRequest, requestedUrls } = await runScenario({
+            checks: { body },
+        });
+        expect(pullRequest.ci_status).toBe('unknown');
+        expect(requestedUrls.some((url) => url.endsWith('/status'))).toBe(
+            false
+        );
+    });
+
+    it.each([
+        {},
+        { state: 'pending' },
+        { state: 'pending', statuses: [] },
+        { state: 'success', total_count: 0, statuses: [] },
+        { state: 'pending', total_count: 1, statuses: [] },
+        { state: 'pending', statuses: [null] },
+        { state: 'pending', statuses: [{}] },
+    ])('returns unknown for unusable combined status %j', async (body) => {
+        const { pullRequest } = await runScenario({
+            checks: { body: { total_count: 0, check_runs: [] } },
+            combinedStatus: { body },
+        });
+        expect(pullRequest.ci_status).toBe('unknown');
+    });
+
+    it('returns unknown for inaccessible legacy statuses', async () => {
+        const { pullRequest } = await runScenario({
+            checks: { body: { total_count: 0, check_runs: [] } },
+            combinedStatus: { body: {}, status: 403 },
+        });
+        expect(pullRequest.ci_status).toBe('unknown');
+    });
+
+    it.each(['queued', 'waiting', 'requested', 'pending', 'in_progress'])(
+        'keeps %s checks pending',
+        async (status) => {
+            const { pullRequest } = await runScenario({
+                checks: {
+                    body: {
+                        total_count: 1,
+                        check_runs: [{ id: 1, status, conclusion: null }],
+                    },
+                },
+            });
+            expect(pullRequest.ci_status).toBe('pending');
+        }
+    );
+
+    it.each(['cancelled', 'neutral', 'skipped', 'action_required'])(
+        'preserves completed %s handling',
+        async (conclusion) => {
+            const { pullRequest } = await runScenario({
+                checks: {
+                    body: {
+                        total_count: 1,
+                        check_runs: [
+                            { id: 1, status: 'completed', conclusion },
+                        ],
+                    },
+                },
+            });
+            expect(pullRequest.ci_status).toBe('pending');
+        }
+    );
+
+    it('returns unknown when canonical detail lacks optional CI coordinates', async () => {
         const { pullRequest, requestedUrls } = await runScenario({
             canonicalDetail: {
                 body: prDetail(40, { head: undefined }),
             },
         });
 
-        expect(pullRequest.ci_status).toBe('pending');
+        expect(pullRequest.ci_status).toBe('unknown');
         expect(requestedUrls.some((url) => url.includes('/check-runs'))).toBe(
             false
         );
     });
 
-    it('returns pending when the check-run request fails', async () => {
+    it('returns unknown when the check-run request fails', async () => {
         const { pullRequest, rateLimit } = await runScenario({
             checks: { body: { message: 'server error' }, status: 502 },
         });
 
-        expect(pullRequest.ci_status).toBe('pending');
+        expect(pullRequest.ci_status).toBe('unknown');
         expect(rateLimit).toBeUndefined();
     });
 
-    it('keeps CI pending and propagates a check-run rate limit', async () => {
+    it('keeps CI unknown and propagates a check-run rate limit', async () => {
         vi.useFakeTimers();
         vi.setSystemTime('2030-06-07T08:09:10.000Z');
 
@@ -335,7 +430,7 @@ describe('fetchPullRequests CI-status reduction', () => {
             },
         });
 
-        expect(pullRequest.ci_status).toBe('pending');
+        expect(pullRequest.ci_status).toBe('unknown');
         expect(rateLimit).toEqual({
             classification: 'primary',
             nextAllowedAt: new Date('2030-06-07T08:11:10.000Z').getTime(),
@@ -344,12 +439,12 @@ describe('fetchPullRequests CI-status reduction', () => {
         });
     });
 
-    it('keeps CI pending and propagates a combined-status rate limit', async () => {
+    it('keeps CI unknown and propagates a combined-status rate limit', async () => {
         vi.useFakeTimers();
         vi.setSystemTime('2030-06-07T08:09:10.000Z');
 
         const { pullRequest, rateLimit } = await runScenario({
-            checks: { body: { check_runs: [] } },
+            checks: { body: { total_count: 0, check_runs: [] } },
             combinedStatus: {
                 body: { message: 'secondary rate limit' },
                 status: 429,
@@ -357,19 +452,19 @@ describe('fetchPullRequests CI-status reduction', () => {
             },
         });
 
-        expect(pullRequest.ci_status).toBe('pending');
+        expect(pullRequest.ci_status).toBe('unknown');
         expect(rateLimit?.nextAllowedAt).toBe(
             new Date('2030-06-07T08:09:55.000Z').getTime()
         );
         expect(rateLimit?.classification).toBe('secondary');
     });
 
-    it('returns pending when a CI fetch rejects', async () => {
+    it('returns unknown when a CI fetch rejects', async () => {
         const { pullRequest } = await runScenario({
             checks: new TypeError('check network failure'),
         });
 
-        expect(pullRequest.ci_status).toBe('pending');
+        expect(pullRequest.ci_status).toBe('unknown');
         expect(console.error).toHaveBeenCalledWith(
             'Error fetching CI status:',
             expect.any(TypeError)
@@ -412,16 +507,20 @@ describe('fetchPullRequests optional rate-limit aggregation', () => {
             if (url === `${prUrl(2)}/reviews`) return jsonResponse([]);
             if (
                 url.includes('/repo-1/commits/') &&
-                url.endsWith('/check-runs')
+                new URL(url).pathname.endsWith('/check-runs')
             ) {
-                return jsonResponse({ check_runs: [] });
+                return jsonResponse({ total_count: 0, check_runs: [] });
             }
             if (url.includes('/repo-1/commits/') && url.endsWith('/status')) {
-                return jsonResponse({ state: 'success' });
+                return jsonResponse({
+                    state: 'success',
+                    total_count: 1,
+                    statuses: [{ state: 'success' }],
+                });
             }
             if (
                 url.includes('/repo-2/commits/') &&
-                url.endsWith('/check-runs')
+                new URL(url).pathname.endsWith('/check-runs')
             ) {
                 return jsonResponse(
                     { message: 'API rate limit exceeded' },

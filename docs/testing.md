@@ -75,7 +75,7 @@ Use unit tests for rules that can be evaluated without a real browser:
 - GitHub response transformation and deduplication;
 - HTTP/status/error classification;
 - complete-refresh rejection for failed or unusable required PR details while
-  optional review and CI data degrade to `pending`;
+  optional review data degrade to `pending` and CI data to `unknown`;
 - bounded per-PR scheduling, including barrier-controlled concurrency,
   input/result ordering, rate-limit stop-scheduling, optional degradation, and
   clean recovery after failures without timing sleeps;
@@ -86,7 +86,7 @@ Use unit tests for rules that can be evaluated without a real browser:
   zero results, duplicate hits, and the 1,000-result API ceiling;
 - GitHub rate-limit classification, deadline precedence, persisted cooldown
   restoration, active-refresh suppression, expiry, and successful recovery;
-- optional review/CI rate limits retaining `pending`, selecting the latest
+- optional review/CI rate limits retaining `pending`/`unknown`, selecting the latest
   deadline, persisting a successful complete snapshot, and suppressing the
   subsequent refresh without retrying the current one;
 - endpoint-specific request counts, including canonical-detail reuse and
@@ -231,3 +231,48 @@ intent is covered by direct state and user-visible assertions above.
    E2E checks from `AGENTS.md`.
 6. Record pre-existing failures separately from failures introduced by the
    change, and document any environment-limited check in the PR.
+
+## CI states and filters
+
+CI uses five internal states: `passing` (green), `failing` (red), `pending`
+(yellow), `no-ci` (no badge or placeholder), and `unknown` (a neutral Unknown
+badge with a tooltip explaining that CI could not be determined reliably).
+Check runs take precedence; combined commit statuses are queried only when
+GitHub confirms zero check runs. No CI requires successful, usable responses
+confirming zero checks and zero status contexts. Inaccessible, malformed,
+incomplete, or failed CI responses yield Unknown. Optional rate-limit errors
+still propagate cooldowns; required refresh failures preserve the last successful
+snapshot. Cancellation, discovery, and notifications are unchanged.
+
+All five CI states have independent filters. Defaults and Reset Filters include
+all five. Legacy encrypted filters with all three original states selected
+(or an empty selection, which previously meant all) expand to all five; restricted
+selections retain exactly their selected states. A `ciStatusVersion: 1` marker
+makes migration idempotent, including when users intentionally deselect the new
+states. Normalization occurs on popup load and serialized background writes,
+preserving other preferences and snapshots without changing encryption. Cached
+Pending values remain Pending until a successful refresh; missing legacy CI
+values filter as Unknown.
+
+Deterministic API unit tests cover empty checks/statuses, legacy status reduction,
+check precedence, queued/running/waiting and failed/timed-out checks, malformed
+responses, optional failures and cooldown propagation. CI filter unit tests cover
+all five states and idempotent migration. `tests/e2e/ci-status.e2e.test.ts` verifies
+badge absence, Unknown tooltip and neutral styling in both themes, independent
+filters, encrypted legacy migration, persistence and Reset Filters. It captures
+`screenshots/ci-status-light.png` and `screenshots/ci-status-dark.png` for visual
+review. Existing Reviewed, theme and visual-compat suites remain regression guards.
+
+### CI pagination regression coverage
+
+`tests/unit/api-ci-pagination.unit.test.ts` covers 30, 31, 45, 100, 101, 145,
+200, 205, 999 and 1,000 runs, plus oversized advertised totals. It verifies
+request counts, later-page success/failure/timed-out/pending/cancelled results,
+short/duplicate/malformed/drifting pages, invalid JSON, network errors,
+contradictory Link metadata, primary/secondary rate limits, and paused fetch/JSON
+boundaries with abort or session-generation invalidation. No partial set is
+reduced, including when its first page already contains failure or pending.
+Combined-status tests separately verify that the authoritative aggregate across
+145 contexts needs one request, and that confirmed zero statuses remain No CI.
+Existing browser CI tests continue to prove no badge for No CI, neutral Unknown,
+all five filters, encrypted preference persistence, themes and layout.

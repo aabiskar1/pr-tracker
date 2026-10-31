@@ -108,11 +108,44 @@ describe('background-owned encrypted app-data mutations', () => {
             sort: 'newest',
         });
         expect(storedData.preferences).toEqual({
-            filters: { ...legacy, showReviewed: true },
+            filters: { ...legacy, showReviewed: true, ciStatusVersion: 1 },
             notificationsEnabled: false,
             sort: 'newest',
         });
         expect(storedData.pullRequests).toEqual([pullRequest(1)]);
+    });
+
+    it('validates all five CI states and preserves new selections during unrelated writes', async () => {
+        const filters: FilterState = {
+            ...FILTERS,
+            ciStatusVersion: 1,
+            ciStatus: ['passing', 'failing', 'pending', 'no-ci', 'unknown'],
+        };
+        expect(parseAppDataMutation({ kind: 'set-filters', filters })).toEqual({
+            kind: 'set-filters',
+            filters,
+        });
+        expect(
+            parseAppDataMutation({
+                kind: 'set-filters',
+                filters: { ...filters, ciStatus: ['invalid'] },
+            })
+        ).toBeNull();
+        await applyAppDataMutation(PASSWORD, {
+            kind: 'set-filters',
+            filters: {
+                ...filters,
+                ciStatus: ['passing', 'failing', 'pending'],
+            },
+        });
+        await applyAppDataMutation(PASSWORD, {
+            kind: 'set-sort',
+            sort: 'oldest',
+        });
+        expect(storedData.preferences?.filters).toEqual({
+            ...filters,
+            ciStatus: ['passing', 'failing', 'pending'],
+        });
     });
 
     it('preserves a popup preference while an overlapping refresh updates PR data', async () => {

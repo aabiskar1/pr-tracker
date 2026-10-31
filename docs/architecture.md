@@ -214,7 +214,8 @@ response and the identity fields needed to construct a PR card are required:
 if any such request fails or is unusable, optional requests for that PR do not
 begin, the fetch returns an explicit failure, and the background manager
 preserves the last known good snapshot. Review, check-run, and combined status
-data remain optional and degrade to `pending`. When an optional failure is a
+data remain optional: review errors degrade to `pending`, while CI errors degrade
+to `unknown`. When an optional failure is a
 recognized rate limit, the work unit also retains its structured cooldown
 metadata; ordinary optional failures retain no cooldown.
 
@@ -404,3 +405,61 @@ duplicates when touching that area.
 - Preserve Chrome and Firefox support together.
 - Improve imperfect boundaries incrementally and only within the scope of an
   approved change.
+
+## CI states and filters
+
+CI uses five internal states: `passing` (green), `failing` (red), `pending`
+(yellow), `no-ci` (no badge or placeholder), and `unknown` (a neutral Unknown
+badge with a tooltip explaining that CI could not be determined reliably).
+Check runs take precedence; combined commit statuses are queried only when
+GitHub confirms zero check runs. No CI requires successful, usable responses
+confirming zero checks and zero status contexts. Inaccessible, malformed,
+incomplete, or failed CI responses yield Unknown. Optional rate-limit errors
+still propagate cooldowns; required refresh failures preserve the last successful
+snapshot. Cancellation, discovery, and notifications are unchanged.
+
+All five CI states have independent filters. Defaults and Reset Filters include
+all five. Legacy encrypted filters with all three original states selected
+(or an empty selection, which previously meant all) expand to all five; restricted
+selections retain exactly their selected states. A `ciStatusVersion: 1` marker
+makes migration idempotent, including when users intentionally deselect the new
+states. Normalization occurs on popup load and serialized background writes,
+preserving other preferences and snapshots without changing encryption. Cached
+Pending values remain Pending until a successful refresh; missing legacy CI
+values filter as Unknown.
+
+### CI pagination and completeness
+
+The [check-run REST contract](https://docs.github.com/en/rest/checks/runs#list-check-runs-for-a-git-reference)
+supports `page` and `per_page` (default 30, maximum 100). CI requests explicitly
+use `per_page=100`, retaining the existing default `latest` filter. They collect
+all advertised runs before reducing them, with a budget of 10 pages / 1,000
+runs per PR. A larger advertised count returns Unknown after the first request.
+A stable nonnegative `total_count`, exact expected page sizes, valid run data,
+and unique run IDs establish completeness. Missing counts, count changes,
+duplicate IDs, short pages, contradictory terminal Link metadata, HTTP/network/
+JSON failures, or an exhausted budget produce Unknown, even if a collected run
+already failed. Session validity is checked before every page and after fetch,
+JSON parsing and error classification; optional HTTP rate limits still carry
+cooldown metadata. Pagination uses locally constructed URLs, not Link targets.
+
+For 1�100 check runs (including 30, 31 and 45), CI makes one request; 101�200
+need two, up to ten for 1,000. Exact multiples need no empty terminal request.
+Zero runs still require one combined-status request. No review, discovery,
+notification, storage, permission, or UI changes are involved.
+
+The [combined-status contract](https://docs.github.com/en/rest/commits/statuses#get-the-combined-status-for-a-specific-reference)
+provides a combined `state` based on the latest status for **all contexts**;
+only the accompanying `statuses` list is paginated. We validate the summary,
+count and default first page but do not enumerate that list or reduce its items.
+Thus 145 legacy contexts still need only one combined-status request: a failing
+or pending aggregate is authoritative even when all 30 visible contexts pass.
+Pending with `total_count=0`, an empty status list, and no contradictory next
+link confirms No CI; absent or unusable summary data returns Unknown.
+
+GitHub also documents a server-side scope limit to the 1,000 most recent check
+suites for this endpoint. Our pagination retains that endpoint's `latest`
+semantics; it cannot recover history outside GitHub's advertised results.
+Walking every check suite would change request volume and scope, so this change
+does not add a separate suite-discovery traversal. The local run budget is a
+resource bound, not a claim that run and suite counts are interchangeable.

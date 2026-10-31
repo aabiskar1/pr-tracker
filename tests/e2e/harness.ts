@@ -82,8 +82,10 @@ function responseFor(url: string, scenario: GitHubScenario) {
         };
     }
 
-    const pr = scenario.pullRequests.find((item) =>
-        url.startsWith(prApiUrl(item))
+    const pr = scenario.pullRequests.find(
+        (item) =>
+            url.startsWith(prApiUrl(item)) ||
+            url.includes(`/commits/fixed-sha-${item.id}/`)
     );
     if (!pr) return { status: 404, body: { message: 'Fixture not found' } };
 
@@ -97,14 +99,28 @@ function responseFor(url: string, scenario: GitHubScenario) {
         return { status: 200, body: [{ user: { id: 1 }, state }] };
     }
 
+    if (url.endsWith('/status')) {
+        return {
+            status: 200,
+            body: { state: 'pending', total_count: 0, statuses: [] },
+        };
+    }
+
     if (url.includes('/check-runs')) {
+        if (pr.ci_status === 'unknown')
+            return { status: 403, body: { message: 'CI unavailable' } };
+        if (pr.ci_status === 'no-ci')
+            return { status: 200, body: { total_count: 0, check_runs: [] } };
         const check =
             pr.ci_status === 'passing'
                 ? { status: 'completed', conclusion: 'success' }
                 : pr.ci_status === 'failing'
                   ? { status: 'completed', conclusion: 'failure' }
                   : { status: 'in_progress', conclusion: null };
-        return { status: 200, body: { check_runs: [check] } };
+        return {
+            status: 200,
+            body: { total_count: 1, check_runs: [{ id: 1, ...check }] },
+        };
     }
 
     if (url === prApiUrl(pr)) {

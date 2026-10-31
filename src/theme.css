@@ -74,6 +74,7 @@ a:hover {
 }
 
 .screen-prlist .filter-bar-container {
+    min-height: 105px;
     background: var(--popup-surface);
     color: var(--popup-filter-foreground);
     border-color: var(--popup-border);
@@ -312,4 +313,12 @@ a:hover {
     height: 28px;
     padding: 2px 0.5rem;
     gap: 0.25rem;
+}
+
+.screen-prlist
+    [data-slot='badge'][data-ci-status='unknown']:not([data-selected='false']),
+.screen-prlist
+    [data-slot='badge'][data-ci-status='no-ci']:not([data-selected='false']) {
+    background: var(--secondary);
+    color: var(--secondary-foreground);
 }

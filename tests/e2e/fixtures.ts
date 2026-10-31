@@ -87,7 +87,8 @@ export const DEFAULT_FILTERS = {
     showReviewed: true,
     ageFilter: 'all' as const,
     reviewStatus: ['approved', 'changes-requested', 'pending'] as const,
-    ciStatus: ['passing', 'failing', 'pending'] as const,
+    ciStatusVersion: 1 as const,
+    ciStatus: ['passing', 'failing', 'pending', 'no-ci', 'unknown'] as const,
 };
 
 export const appData = (
