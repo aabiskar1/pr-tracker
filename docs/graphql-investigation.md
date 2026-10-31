@@ -311,6 +311,48 @@ and explicit summary counterexamples. Raw-history/context pagination and
 error-path-aware degradation are not implemented or validated. Retaining the
 existing REST supporting calls remains the lower-risk compatibility candidate.
 
+### Representative paired scenarios
+
+[`graphql-scenarios.unit.test.ts`](../tests/unit/graphql-scenarios.unit.test.ts)
+executes both clients with fixed responses from
+[`review-scenarios.ts`](../tests/fixtures/graphql/review-scenarios.ts). Its 14
+tests cover ten review combinations, three successive-refresh/later-commit
+cases, and a partially overlapping default-discovery case:
+
+| Scenario                                          | REST outcome                            | Supplied GraphQL summary outcome |
+| ------------------------------------------------- | --------------------------------------- | -------------------------------- |
+| Two outstanding reviewers, no submitted reviews   | Pending, both reviewer avatars retained | Same                             |
+| Two approvals                                     | Approved                                | Approved                         |
+| Approval and another reviewer's changes requested | Changes requested                       | Changes requested                |
+| Multiple comment-only reviews                     | Pending                                 | Pending                          |
+| Same reviewer: changes requested then approval    | Approved                                | Approved                         |
+| Same reviewer: approval then changes requested    | Changes requested                       | Changes requested                |
+| Same reviewer: approval then comment              | Pending                                 | Approved: explicit mismatch      |
+| Dismissed approval                                | Pending                                 | Pending                          |
+| Same reviewer: approval then pending review       | Pending                                 | Approved: explicit mismatch      |
+| One approval, aggregate still requires review     | Approved                                | Pending: explicit mismatch       |
+
+The later-commit tests perform two refreshes of the same PR identity: an old
+passing head followed by a new in-progress head. They assert the actual REST
+check-request URLs switch from `head-old` to `head-new`, CI becomes pending,
+and review handling covers retained approval, dismissed approval and a summary
+requiring re-review while the REST review remains approved. The latter is an
+additional expected review-label mismatch. These fixtures do not infer GitHub's
+branch-protection/dismissal behaviour and do not prove GraphQL head-SHA pinning;
+the PoC consumes the supplied current-head rollup without explicit pinning.
+
+The overlap case returns one PR from authored + reviewed discovery and another
+from review-requested + reviewed discovery. It asserts equal mapped results,
+source unions, preservation of two requested reviewers, changes-requested
+precedence, and one REST canonical-detail fetch per PR. Observed fixture counts
+are nine REST calls versus three GraphQL calls, excluding identity lookup.
+
+These are deterministic client/mapping tests, not server-policy or performance
+measurements. GraphQL decisions are explicit fixture inputs, rather than being
+calculated from the synthetic REST review history. Matching cases demonstrate
+the stated inputs; expected mismatches keep the behaviour-preservation concern
+visible instead of weakening assertions to claim parity.
+
 ## Proof-of-concept boundaries
 
 ### Retrieving the three default PR sets
@@ -523,6 +565,10 @@ present synthetic delays or local Vitest duration as evidence of GitHub speed.
   Compilation, lint, all 434 unit tests and both production builds pass. The
   manual live results and telemetry caveats are recorded separately in
   [the measurement report](graphql-live-measurements.md).
+- Representative reviewer/commit/overlap coverage adds 14 paired scenario tests.
+  All 448 unit tests pass, along with compilation, lint and formatting for the
+  changed files. Production code and measurement artifacts are unchanged by
+  this test-only addition.
 - Changed-file Prettier checks passed. `npm run check-format` reported 122
   existing file issues, including unrelated local artifacts; none were the four
   files introduced by this investigation. Unrelated files were left unchanged.
