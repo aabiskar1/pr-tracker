@@ -625,6 +625,13 @@ it('diagnoses canonical avatar differences using fixtures, without storing PR da
         sameLoginsSameOrder: 1,
     });
     expect(result.avatarParameterKeys).toEqual(['s']);
+    expect(result.compatibleFields).toEqual({
+        requested_reviewers: 1,
+        fallbackRequired: 1,
+    });
+    expect(result.fallbackReasons).toEqual({
+        'metadata-shape:reviewRequests.pageInfo.hasNextPage': 1,
+    });
     expect(JSON.stringify(result)).not.toMatch(
         /only-a-test-token|fixture-author|reviewer-0|Synthetic pull/
     );

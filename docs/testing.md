@@ -297,3 +297,19 @@ The merged #99/#100 unit baseline contained 29 historical GraphQL-comparison
 fixture failures. Those REST mocks were updated to current check pagination,
 run IDs/counts and legacy-status contexts, retaining their original assertions.
 Production API code and historical full-GraphQL semantics remain unchanged.
+
+### Hybrid compatibility follow-up
+
+`hybrid-compatibility.unit.test.ts` adds strict global PR/author identity,
+REST issue-versus-PR numeric ID distinction, exact avatar preservation, stale,
+missing and conflicting discovery observations, null/bot authors, reviewer actor
+and raw-versus-consumed comparisons, canonical head/repository/state differences,
+and public-open runner privacy checks. The original diagnostic regression also
+asserts author correction while retaining reviewer and fallback differences.
+The full suite has 655 tests; automated tests never read a live credential.
+
+The existing opt-in runner accepts `--live --open` and `--live --diagnose --open`.
+Discovery author evidence stays in memory, and results expose separate raw,
+consumed-field and canonical comparisons plus sanitized fallback categories.
+See [the follow-up report](hybrid-metadata-compatibility.md) for fixture/live
+accounting, limitations and the NO-GO production-readiness decision.

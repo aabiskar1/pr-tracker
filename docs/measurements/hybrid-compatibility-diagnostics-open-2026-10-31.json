@@ -1,0 +1,55 @@
+{
+    "kind": "live-public-canonical-field-diagnostic",
+    "measuredAt": "2026-10-31T20:37:06.089Z",
+    "repository": "cli/cli (public)",
+    "count": 40,
+    "fields": {
+        "user": 13,
+        "fallbackRequired": 21
+    },
+    "compatibleFields": {
+        "fallbackRequired": 22
+    },
+    "fallbackReasons": {
+        "metadata-shape:reviewRequests.nodes.*.requestedReviewer": 20,
+        "author-identity": 1,
+        "incomplete-metadata": 1
+    },
+    "population": "open",
+    "reviewer": {
+        "changedArrays": 0,
+        "sameLoginsSameOrder": 0,
+        "sameLoginSetDifferentOrder": 0,
+        "differentMembership": 0,
+        "avatarOnly": 0
+    },
+    "avatarParameterKeys": ["u", "v"],
+    "reviewerArraysWithExtraFields": 1,
+    "unconsumedReviewerFields": [
+        "events_url",
+        "followers_url",
+        "following_url",
+        "gists_url",
+        "gravatar_id",
+        "html_url",
+        "id",
+        "node_id",
+        "organizations_url",
+        "received_events_url",
+        "repos_url",
+        "site_admin",
+        "starred_url",
+        "subscriptions_url",
+        "type",
+        "url",
+        "user_view_type"
+    ],
+    "httpRequests": 46,
+    "overheadBudgetProbes": 1,
+    "graphqlReportedPoints": 4,
+    "environment": {
+        "runtime": "v22.14.0",
+        "platform": "win32",
+        "architecture": "x64"
+    }
+}

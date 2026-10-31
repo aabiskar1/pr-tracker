@@ -27,6 +27,7 @@ export function pairedFixture(index: number) {
     const updated = '2026-02-15T11:00:00Z';
     const node = {
         __typename: 'PullRequest',
+        id: `opaque-node-${index}`,
         fullDatabaseId: String(100000 + index),
         number,
         title: `Synthetic pull request ${index}`,
@@ -49,7 +50,12 @@ export function pairedFixture(index: number) {
         author:
             index % 13 === 0
                 ? null
-                : { login: author.login, avatarUrl: author.avatar_url },
+                : {
+                      __typename: 'User',
+                      id: `author-node-${author.login}`,
+                      login: author.login,
+                      avatarUrl: author.avatar_url,
+                  },
         reviewRequests: {
             totalCount: users.length + (users.length ? 1 : 0),
             pageInfo: { hasNextPage: users.length > 99 },
@@ -190,8 +196,16 @@ export function fixtureTransport(
                 items: selected
                     .slice((page - 1) * 100, page * 100)
                     .map((f) => ({
-                        id: f.detail.id,
+                        id: 900000 + f.index,
                         node_id: f.detail.node_id,
+                        updated_at: f.detail.updated_at,
+                        user: f.detail.user
+                            ? {
+                                  ...f.detail.user,
+                                  node_id: f.node.author!.id,
+                                  type: 'User',
+                              }
+                            : null,
                         pull_request: { url: f.url },
                     })),
             });
