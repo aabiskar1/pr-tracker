@@ -53,6 +53,107 @@ Source inspection, including a codebase-memory call trace, establishes:
 The graph reported changed file metadata; material conclusions above were checked
 against the current source rather than relying on index freshness.
 
+### Request sequence and endpoint costs
+
+```mermaid
+flowchart TD
+    A[Alarm or popup refresh] --> B{Session, cooldown and throttle allow work?}
+    B -->|No| X[No GitHub requests]
+    B -->|Yes| C[GET /user]
+    C --> D[Three default searches in parallel, or one custom search]
+    D --> E[Finish sequential pages within each search]
+    E --> F[Union sources and deduplicate PR URLs]
+    F --> G[Up to four PR work units]
+    G --> H[GET canonical PR detail]
+    H --> I[GET reviews and GET check-runs in parallel]
+    I --> J[GET combined status only when check-runs is empty]
+    J --> K[Collect results and remove stale closed default hits]
+    K --> L[Update badge, encrypted snapshot, timestamps and notification state]
+```
+
+This diagram shows the successful request path. A required user/search/detail
+failure exits before successful snapshot effects; optional review/CI failures
+can reach the final step with pending status and a propagated cooldown.
+
+| Phase              | Endpoint                                             | Calls in a successful refresh | Dependency / response use                                                                                   |
+| ------------------ | ---------------------------------------------------- | ----------------------------: | ----------------------------------------------------------------------------------------------------------- |
+| Identity           | `GET /user`                                          |                             1 | Login supplies default search qualifiers. Runs even for custom queries. Required.                           |
+| Discovery          | `GET /search/issues?q=...&per_page=100&page=...`     |                           `S` | Three default queries or one custom query; sequential pagination per query, up to ten pages each. Required. |
+| Canonical metadata | `GET /repos/{owner}/{repo}/pulls/{number}`           |                           `N` | Author, reviewers, current state, repository and head SHA. Required before supporting requests.             |
+| Reviews            | `GET /repos/{owner}/{repo}/pulls/{number}/reviews`   |                           `N` | Existing latest-per-user reduction over the returned default page. Optional.                                |
+| Checks             | `GET /repos/{owner}/{repo}/commits/{sha}/check-runs` |             `C`, normally `N` | Skipped if usable repository/head-SHA context is absent. Optional.                                          |
+| Legacy CI fallback | `GET /repos/{owner}/{repo}/commits/{sha}/status`     |            `F`, from 0 to `C` | Runs only after a successful empty check-runs response, not after a check-runs error. Optional.             |
+
+Here `N` counts distinct canonical PRs hydrated, **before** stale closed/merged
+default hits are removed. Using only the final visible count can understate
+cost. Deduplication across default searches avoids repeated detail/supporting
+requests, but each search still pays for all its own result pages. An empty
+search costs one request. With capped per-query counts `R_i`:
+
+```text
+S = sum(max(1, ceil(R_i / 100)))
+core requests = 1 + 2N + C + F
+total requests = S + 1 + 2N + C + F
+usual valid-CI-context case (C = N): total = 1 + S + 3N + F
+```
+
+The following are **full-refresh estimates**, derived from the source flow;
+the later fixture table measures only the fetcher boundary, excluding `/user`.
+Default examples assume each of the three searches returns the same `N` PRs,
+and all PRs have valid CI context. Custom examples use one query.
+
+| Hydrated PRs | Default search calls | Core calls, checks / universal fallback | Default total, checks / fallback | Custom total, checks / fallback |
+| -----------: | -------------------: | --------------------------------------: | -------------------------------: | ------------------------------: |
+|            0 |                    3 |                                   1 / 1 |                            4 / 4 |                           2 / 2 |
+|            1 |                    3 |                                   4 / 5 |                            7 / 8 |                           5 / 6 |
+|           10 |                    3 |                                 31 / 41 |                          34 / 44 |                         32 / 42 |
+|           50 |                    3 |                               151 / 201 |                        154 / 204 |                       152 / 202 |
+|          100 |                    3 |                               301 / 401 |                        304 / 404 |                       302 / 402 |
+|        1,000 |                   30 |                           3,001 / 4,001 |                    3,031 / 4,031 |                   3,011 / 4,011 |
+
+Search and core requests consume separate REST primary rate-limit resources;
+adding them describes HTTP volume, not a single shared primary budget. See
+[GitHub's rate-limit resource definitions](https://docs.github.com/en/rest/rate-limit/rate-limit).
+The configured five-minute alarm/automatic-refresh interval implies about twelve
+eligible refreshes per hour. At 100 PRs this models **3,612 core + 36 search**
+requests per hour normally, or **4,812 core + 36 search** with universal fallback.
+These estimates assume continuous eligibility, no failures/cooldowns and no
+manual refreshes; they are not observed account consumption.
+
+### Scheduling, avoided work and performance limits
+
+- A locked/missing session, active persisted cooldown, automatic refresh interval
+  or manual throttle can stop work before `/user`. Concurrent refresh requests
+  in the same session share one in-flight operation. Normal automatic refreshes
+  use a five-minute interval; manual refreshes have a four-second throttle.
+- Discovery has at most three requests in flight by default, or one for a custom
+  query. All searches settle before detail work starts; failure of one default
+  search does not cancel its siblings. The page cap is per search, so three
+  default queries can hydrate up to 3,000 disjoint PRs.
+- Each of four workers retains its slot through detail, review/check and optional
+  fallback completion. Detail must finish before supporting calls start; reviews
+  and checks overlap, and fallback status waits for checks. The detail phase
+  therefore has at most eight GitHub requests in flight, not an unbounded `2N`.
+- There are no immediate request retries in this path. A required rate-limit
+  result stops new queued PR work after its worker result is collected; already
+  active work settles. Optional failures can still finish a successful refresh
+  and persist the latest cooldown for subsequent refresh suppression.
+- The fetcher does not explicitly send conditional-request validators or reuse
+  cached PR metadata to omit per-PR requests. Encrypted cached data preserves the
+  UI across failures but is not an incremental API cache. Browser/network caching
+  effects were not measured.
+- Token onboarding independently calls `/user` from `useAuth` to validate the
+  classic token's `repo` scope. That request is outside these refresh counts.
+
+The main scaling cost is the per-PR `3N` (or `4N`) fan-out, including unchanged
+PRs. Concurrency limits reduce burst pressure but do not reduce call count.
+Wall time also includes token/storage work, JSON parsing, mapping, encryption and
+notification handling; these costs, response sizes and live endpoint latencies
+have not been profiled. A request-count reduction alone cannot quantify refresh
+speed. An incremental REST-cache alternative also deserves comparison before
+attributing all potential improvement to GraphQL; GitHub documents
+[authenticated conditional requests](https://docs.github.com/en/rest/using-the-rest-api/best-practices-for-using-the-rest-api#use-conditional-requests).
+
 ## Field and behaviour mapping
 
 | Existing domain field or behaviour           | GraphQL candidate                                         | Assessment                                                                                                                                                        |
