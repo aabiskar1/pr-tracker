@@ -322,3 +322,28 @@ a:hover {
     background: var(--secondary);
     color: var(--secondary-foreground);
 }
+
+/* Neutral CI filter pills use the same compact geometry as the coloured pills. */
+.screen-prlist
+    .filter-bar-container
+    :is([data-ci-status='no-ci'], [data-ci-status='unknown']):not(
+        [data-selected='false']
+    ) {
+    background: var(--popup-repo);
+    color: var(--popup-repo-foreground);
+}
+
+.screen-prlist
+    .filter-bar-container
+    label:hover
+    > :is([data-ci-status='no-ci'], [data-ci-status='unknown']) {
+    box-shadow: inset 0 0 0 1px var(--popup-subtle);
+}
+
+.screen-prlist
+    .filter-bar-container
+    input:focus-visible
+    + :is([data-ci-status='no-ci'], [data-ci-status='unknown']) {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+}

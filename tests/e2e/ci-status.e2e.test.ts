@@ -156,6 +156,119 @@ describe('five CI states', () => {
         }
     );
 
+    it.each(['light', 'dark'] as const)(
+        'keeps neutral filter pills compact and keyboard accessible in %s',
+        async (theme) => {
+            page = await openSeededPopup(github, { data: appData(prs), theme });
+            const inspect = () =>
+                page.$$eval(
+                    '.filter-bar-container [data-ci-status]',
+                    (elements) =>
+                        elements.map((el) => {
+                            const css = getComputedStyle(el);
+                            return {
+                                status: el.getAttribute('data-ci-status'),
+                                background: css.backgroundColor,
+                                geometry: {
+                                    height: el.getBoundingClientRect().height,
+                                    padding: css.padding,
+                                    radius: css.borderRadius,
+                                },
+                            };
+                        })
+                );
+            const selected = await inspect();
+            const barHeight = await page.$eval(
+                '.filter-bar-container',
+                (el) => el.getBoundingClientRect().height
+            );
+            expect(selected.slice(0, 3).map((item) => item.background)).toEqual(
+                ['rgb(40, 167, 69)', 'rgb(203, 36, 49)', 'rgb(219, 171, 9)']
+            );
+            for (const status of ['no-ci', 'unknown']) {
+                const badge = `.filter-bar-container [data-ci-status="${status}"]`;
+                const input = `label:has([data-ci-status="${status}"]) input`;
+                const pill = selected.find((item) => item.status === status)!;
+                expect(pill.background).toBe(
+                    theme === 'light' ? 'rgb(229, 231, 235)' : 'rgb(55, 65, 81)'
+                );
+                expect(pill.geometry).toEqual(selected[0]!.geometry);
+                await page.focus(input);
+                await page.keyboard.press('Tab');
+                await page.keyboard.down('Shift');
+                await page.keyboard.press('Tab');
+                await page.keyboard.up('Shift');
+                expect(
+                    await page.$eval(
+                        input,
+                        (el) => el === document.activeElement
+                    )
+                ).toBe(true);
+                expect(
+                    await page.$eval(badge, (el) => {
+                        const css = getComputedStyle(el);
+                        return {
+                            width: css.outlineWidth,
+                            style: css.outlineStyle,
+                        };
+                    })
+                ).toEqual({ width: '2px', style: 'solid' });
+                await page.keyboard.press('Space');
+                await page.waitForSelector(`${badge}[data-selected="false"]`);
+                await vi.waitFor(async () =>
+                    expect(
+                        (
+                            await readAppData(page)
+                        ).preferences?.filters?.ciStatus.includes(
+                            status as CIStatus
+                        )
+                    ).toBe(false)
+                );
+            }
+            await toggle(page, 'passing');
+            const unselected = await inspect();
+            for (const status of ['no-ci', 'unknown']) {
+                const pill = unselected.find((item) => item.status === status)!;
+                expect(pill.background).toBe('rgba(0, 0, 0, 0)');
+                expect(pill.background).not.toBe(
+                    selected.find((item) => item.status === status)!.background
+                );
+                expect(pill.geometry).toEqual(unselected[0]!.geometry);
+            }
+            await toggle(page, 'passing');
+            await page.hover('label:has([data-ci-status="no-ci"])');
+            expect(
+                await page.$eval(
+                    '.filter-bar-container [data-ci-status="no-ci"]',
+                    (el) => getComputedStyle(el).boxShadow
+                )
+            ).not.toBe('none');
+            await page.mouse.move(0, 0);
+            await page.evaluate(() =>
+                (document.activeElement as HTMLElement)?.blur()
+            );
+            expect(await cards(page)).toEqual([
+                'CI fixture passing',
+                'CI fixture failing',
+                'CI fixture pending',
+            ]);
+            expect(
+                await page.$('.pr-card-accent [data-ci-status="no-ci"]')
+            ).toBeNull();
+            const layout = await page.$eval('.filter-bar-container', (el) => ({
+                height: el.getBoundingClientRect().height,
+                overflow: el.scrollWidth > el.clientWidth,
+            }));
+            // Outline badges add only their existing 1px borders, with no extra row.
+            expect(layout.height).toBeLessThanOrEqual(barHeight + 2);
+            expect(layout.overflow).toBe(false);
+            await page.screenshot({
+                path: `screenshots/ci-filters-unselected-${theme}.png`,
+                fullPage: true,
+            });
+        }
+    );
+
     it.each([true, false])(
         'migrates encrypted legacy preferences (all=%s) without losing other preferences',
         async (all) => {
