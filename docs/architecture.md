@@ -214,7 +214,8 @@ response and the identity fields needed to construct a PR card are required:
 if any such request fails or is unusable, optional requests for that PR do not
 begin, the fetch returns an explicit failure, and the background manager
 preserves the last known good snapshot. Review, check-run, and combined status
-data remain optional and degrade to `pending`. When an optional failure is a
+data remain optional: review errors degrade to `pending`, while CI errors degrade
+to `unknown`. When an optional failure is a
 recognized rate limit, the work unit also retains its structured cooldown
 metadata; ordinary optional failures retain no cooldown.
 
@@ -404,3 +405,25 @@ duplicates when touching that area.
 - Preserve Chrome and Firefox support together.
 - Improve imperfect boundaries incrementally and only within the scope of an
   approved change.
+
+## CI states and filters
+
+CI uses five internal states: `passing` (green), `failing` (red), `pending`
+(yellow), `no-ci` (no badge or placeholder), and `unknown` (a neutral Unknown
+badge with a tooltip explaining that CI could not be determined reliably).
+Check runs take precedence; combined commit statuses are queried only when
+GitHub confirms zero check runs. No CI requires successful, usable responses
+confirming zero checks and zero status contexts. Inaccessible, malformed,
+incomplete, or failed CI responses yield Unknown. Optional rate-limit errors
+still propagate cooldowns; required refresh failures preserve the last successful
+snapshot. Cancellation, discovery, and notifications are unchanged.
+
+All five CI states have independent filters. Defaults and Reset Filters include
+all five. Legacy encrypted filters with all three original states selected
+(or an empty selection, which previously meant all) expand to all five; restricted
+selections retain exactly their selected states. A `ciStatusVersion: 1` marker
+makes migration idempotent, including when users intentionally deselect the new
+states. Normalization occurs on popup load and serialized background writes,
+preserving other preferences and snapshots without changing encryption. Cached
+Pending values remain Pending until a successful refresh; missing legacy CI
+values filter as Unknown.

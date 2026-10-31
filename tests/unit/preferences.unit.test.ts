@@ -66,7 +66,8 @@ const DEFAULT_FILTERS: FilterState = {
     showReviewed: true,
     ageFilter: 'all',
     reviewStatus: ['approved', 'changes-requested', 'pending'],
-    ciStatus: ['passing', 'failing', 'pending'],
+    ciStatusVersion: 1,
+    ciStatus: ['passing', 'failing', 'pending', 'no-ci', 'unknown'],
 };
 
 const SAVED_FILTERS: FilterState = {
@@ -77,6 +78,7 @@ const SAVED_FILTERS: FilterState = {
     ageFilter: 'week',
     reviewStatus: ['changes-requested'],
     ciStatus: ['failing', 'pending'],
+    ciStatusVersion: 1,
 };
 
 const pullRequest = (id: number): PullRequest => ({
@@ -295,6 +297,74 @@ describe('usePullRequests preference persistence', () => {
             expect(hookHarness.setters[8]).toHaveBeenCalledWith(false);
             expect(hookHarness.setters[2]).toHaveBeenCalledWith(false);
         });
+    });
+
+    it.each(['passing', 'failing', 'pending', 'no-ci', 'unknown'] as const)(
+        'filters CI independently for %s, treating absent legacy CI as unknown',
+        (status) => {
+            const prs = [
+                'passing',
+                'failing',
+                'pending',
+                'no-ci',
+                'unknown',
+                undefined,
+            ].map((ci, index) => ({
+                ...pullRequest(index + 1),
+                ci_status: ci as PullRequest['ci_status'],
+            }));
+            const result = renderPreferences({
+                0: prs,
+                3: { ...DEFAULT_FILTERS, ciStatus: [status] },
+            });
+            expect(result.filteredPRs.map((pr) => pr.id)).toEqual(
+                status === 'unknown'
+                    ? [5, 6]
+                    : [prs.find((pr) => pr.ci_status === status)!.id]
+            );
+        }
+    );
+
+    it('keeps No CI compatible with search, sorting, hiding, and Reviewed', () => {
+        const prs: PullRequest[] = [
+            {
+                ...pullRequest(1),
+                title: 'Needle older',
+                ci_status: 'no-ci',
+                created_at: '2026-01-01T00:00:00Z',
+            },
+            {
+                ...pullRequest(2),
+                title: 'Needle newer',
+                ci_status: 'no-ci',
+                discoverySources: ['reviewed'],
+            },
+            {
+                ...pullRequest(3),
+                title: 'Needle hidden',
+                ci_status: 'no-ci',
+                hidden: true,
+            },
+            { ...pullRequest(4), title: 'Unrelated', ci_status: 'no-ci' },
+        ];
+        const filtered = (
+            filters: FilterState,
+            sort: 'newest' | 'oldest' = 'newest'
+        ) =>
+            renderPreferences({
+                0: prs,
+                1: 'NEEDLE',
+                3: filters,
+                4: sort,
+            }).filteredPRs.map((pr) => pr.id);
+        expect(filtered(DEFAULT_FILTERS)).toEqual([2, 1]);
+        expect(filtered(DEFAULT_FILTERS, 'oldest')).toEqual([1, 2]);
+        expect(filtered({ ...DEFAULT_FILTERS, showReviewed: false })).toEqual([
+            1,
+        ]);
+        expect(filtered({ ...DEFAULT_FILTERS, showHidden: true })).toEqual([
+            2, 3, 1,
+        ]);
     });
 
     it('persists a filter update without losing other application data', async () => {

@@ -275,7 +275,7 @@ describe('fetchPullRequests per-PR concurrency', () => {
         expect(requestedDetails.at(-1)).toBe(99);
     });
 
-    it('continues the pool when optional requests fail and degrades them to pending', async () => {
+    it('continues the pool when optional requests fail and degrades reviews to pending and CI to unknown', async () => {
         const itemCount = PR_DETAIL_CONCURRENCY + 2;
 
         installFetch((url) => {
@@ -312,7 +312,7 @@ describe('fetchPullRequests per-PR concurrency', () => {
                 result.pullRequests.every(
                     (pullRequest) =>
                         pullRequest.review_status === 'pending' &&
-                        pullRequest.ci_status === 'pending'
+                        pullRequest.ci_status === 'unknown'
                 )
             ).toBe(true);
         }

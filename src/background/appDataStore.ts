@@ -1,3 +1,4 @@
+import { migrateCIFilters } from '../utils/ciFilters';
 import { z } from 'zod';
 import {
     decryptAppData,
@@ -23,7 +24,10 @@ const FilterStateSchema = z
         reviewStatus: z.array(
             z.enum(['approved', 'changes-requested', 'pending'])
         ),
-        ciStatus: z.array(z.enum(['passing', 'failing', 'pending'])),
+        ciStatus: z.array(
+            z.enum(['passing', 'failing', 'pending', 'no-ci', 'unknown'])
+        ),
+        ciStatusVersion: z.literal(1).optional(),
     })
     .strict();
 
@@ -69,11 +73,11 @@ function normalizeAppData(data: AppData | null): AppData {
             ...data?.preferences,
             ...(data?.preferences?.filters
                 ? {
-                      filters: {
+                      filters: migrateCIFilters({
                           ...data.preferences.filters,
                           showReviewed:
                               data.preferences.filters.showReviewed ?? true,
-                      },
+                      }),
                   }
                 : {}),
         },
@@ -136,7 +140,7 @@ export function applyAppDataMutation(
 
         switch (mutation.kind) {
             case 'set-filters':
-                data.preferences.filters = mutation.filters;
+                data.preferences.filters = migrateCIFilters(mutation.filters);
                 break;
             case 'set-sort':
                 data.preferences.sort = mutation.sort;

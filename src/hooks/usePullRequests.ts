@@ -1,3 +1,4 @@
+import { migrateCIFilters } from '../utils/ciFilters';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import browser from 'webextension-polyfill';
 import type {
@@ -18,7 +19,8 @@ const DEFAULT_FILTERS: FilterState = {
     showReviewed: true,
     ageFilter: 'all',
     reviewStatus: ['approved', 'changes-requested', 'pending'],
-    ciStatus: ['passing', 'failing', 'pending'],
+    ciStatus: ['passing', 'failing', 'pending', 'no-ci', 'unknown'],
+    ciStatusVersion: 1,
 };
 
 const REFRESH_COMMUNICATION_ERROR = 'Unable to refresh PRs. Please try again.';
@@ -106,13 +108,16 @@ export function usePullRequests(password: string, authState: AuthState) {
                             setIsCustomQueryActive(true);
                         }
                         if (appData.preferences.filters) {
-                            setFilterState({
-                                ...DEFAULT_FILTERS,
-                                ...appData.preferences.filters,
-                                showReviewed:
-                                    appData.preferences.filters.showReviewed ??
-                                    true,
-                            });
+                            setFilterState(
+                                migrateCIFilters({
+                                    ...DEFAULT_FILTERS,
+                                    ciStatusVersion: undefined,
+                                    ...appData.preferences.filters,
+                                    showReviewed:
+                                        appData.preferences.filters
+                                            .showReviewed ?? true,
+                                })
+                            );
                         }
                         if (appData.preferences.sort) {
                             setSortOption(appData.preferences.sort);
@@ -296,8 +301,7 @@ export function usePullRequests(password: string, authState: AuthState) {
                     return false;
                 if (
                     filters.ciStatus.length > 0 &&
-                    pr.ci_status &&
-                    !filters.ciStatus.includes(pr.ci_status)
+                    !filters.ciStatus.includes(pr.ci_status ?? 'unknown')
                 )
                     return false;
                 return true;

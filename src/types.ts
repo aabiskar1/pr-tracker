@@ -1,3 +1,5 @@
+export type CIStatus = 'passing' | 'failing' | 'pending' | 'no-ci' | 'unknown';
+
 export type GitHubIssueSearchItem = {
     pull_request?: {
         url: string;
@@ -34,7 +36,7 @@ export type PullRequest = {
     created_at: string;
     requested_reviewers: { login: string; avatar_url: string }[];
     review_status?: 'approved' | 'changes-requested' | 'pending';
-    ci_status?: 'passing' | 'failing' | 'pending';
+    ci_status?: CIStatus;
     author?: { login: string; avatar_url: string };
     base?: {
         repo: {
@@ -72,7 +74,8 @@ export type FilterState = {
     showHidden: boolean;
     ageFilter: 'all' | 'today' | 'week' | 'older';
     reviewStatus: ('approved' | 'changes-requested' | 'pending')[];
-    ciStatus: ('passing' | 'failing' | 'pending')[];
+    ciStatus: CIStatus[];
+    ciStatusVersion?: 1;
 };
 
 export type SortOption = 'newest' | 'oldest' | 'urgent' | 'most-stale';

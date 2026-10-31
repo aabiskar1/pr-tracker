@@ -2,7 +2,7 @@ import browser from 'webextension-polyfill';
 import type {
     GitHubIssueSearchItem,
     GitHubReview,
-    GitHubChecksResponse,
+    CIStatus,
     PullRequest,
 } from '../types';
 import {
@@ -30,7 +30,6 @@ export type PullRequestFetchResult =
 export type ApiErrorInfo = GitHubApiErrorInfo;
 
 type ReviewStatus = 'approved' | 'changes-requested' | 'pending';
-type CIStatus = 'passing' | 'failing' | 'pending';
 type OptionalStatusResult<TStatus extends string> = {
     status: TStatus;
     rateLimit?: GitHubRateLimitCooldown;
@@ -178,17 +177,52 @@ async function getCIStatus(
             const errorInfo = await analyzeHttpError(response);
             assertRefreshSessionValid(refreshSession);
             return {
-                status: 'pending',
+                status: 'unknown',
                 ...(errorInfo.rateLimit
                     ? { rateLimit: errorInfo.rateLimit }
                     : {}),
             };
         }
 
-        const data: GitHubChecksResponse = await response.json();
+        const data = await response.json();
         assertRefreshSessionValid(refreshSession);
 
+        if (
+            !isRecord(data) ||
+            !Array.isArray(data.check_runs) ||
+            (data.total_count !== undefined &&
+                (!Number.isInteger(data.total_count) ||
+                    data.total_count !== data.check_runs.length)) ||
+            !data.check_runs.every(
+                (run: unknown) =>
+                    isRecord(run) &&
+                    [
+                        'queued',
+                        'in_progress',
+                        'waiting',
+                        'pending',
+                        'requested',
+                        'completed',
+                    ].includes(String(run.status)) &&
+                    (run.status === 'completed'
+                        ? [
+                              'success',
+                              'failure',
+                              'timed_out',
+                              'cancelled',
+                              'neutral',
+                              'skipped',
+                              'action_required',
+                              'stale',
+                              'startup_failure',
+                          ].includes(String(run.conclusion))
+                        : run.conclusion === null)
+            )
+        )
+            return { status: 'unknown' };
+
         if (data.check_runs.length === 0) {
+            if (data.total_count !== 0) return { status: 'unknown' };
             // Fallback to combined status
             const statusUrl = `${repoUrl}/commits/${headSha}/status`;
             assertRefreshSessionValid(refreshSession);
@@ -204,33 +238,64 @@ async function getCIStatus(
                 const statusData = await statusResp.json();
                 assertRefreshSessionValid(refreshSession);
                 if (
+                    !isRecord(statusData) ||
+                    !Array.isArray(statusData.statuses) ||
+                    !['success', 'failure', 'error', 'pending'].includes(
+                        String(statusData.state)
+                    ) ||
+                    (statusData.total_count !== undefined &&
+                        (!Number.isInteger(statusData.total_count) ||
+                            statusData.total_count !==
+                                statusData.statuses.length)) ||
+                    !statusData.statuses.every(
+                        (context: unknown) =>
+                            isRecord(context) &&
+                            ['success', 'failure', 'error', 'pending'].includes(
+                                String(context.state)
+                            )
+                    )
+                )
+                    return { status: 'unknown' };
+                if (statusData.statuses.length === 0) {
+                    return {
+                        status:
+                            statusData.total_count === 0 &&
+                            statusData.state === 'pending'
+                                ? 'no-ci'
+                                : 'unknown',
+                    };
+                }
+                if (
                     statusData.state === 'failure' ||
                     statusData.state === 'error'
                 )
                     return { status: 'failing' };
                 if (statusData.state === 'success')
                     return { status: 'passing' };
+                if (statusData.state === 'pending')
+                    return { status: 'pending' };
             } else {
                 const errorInfo = await analyzeHttpError(statusResp);
                 assertRefreshSessionValid(refreshSession);
                 return {
-                    status: 'pending',
+                    status: 'unknown',
                     ...(errorInfo.rateLimit
                         ? { rateLimit: errorInfo.rateLimit }
                         : {}),
                 };
             }
-            return { status: 'pending' };
+            return { status: 'unknown' };
         }
 
         const hasFailure = data.check_runs.some(
-            (run) =>
+            (run: { status: string; conclusion: string | null }) =>
                 run.conclusion === 'failure' || run.conclusion === 'timed_out'
         );
         if (hasFailure) return { status: 'failing' };
 
         const allPassed = data.check_runs.every(
-            (run) => run.status === 'completed' && run.conclusion === 'success'
+            (run: { status: string; conclusion: string | null }) =>
+                run.status === 'completed' && run.conclusion === 'success'
         );
         if (allPassed) return { status: 'passing' };
 
@@ -238,7 +303,7 @@ async function getCIStatus(
     } catch (error) {
         assertRefreshSessionValid(refreshSession);
         console.error('Error fetching CI status:', error);
-        return { status: 'pending' };
+        return { status: 'unknown' };
     }
 }
 
@@ -726,7 +791,7 @@ export async function fetchPullRequests(
                           refreshSession
                       )
                     : Promise.resolve<OptionalStatusResult<CIStatus>>({
-                          status: 'pending',
+                          status: 'unknown',
                       }),
             ]);
             assertRefreshSessionValid(refreshSession);

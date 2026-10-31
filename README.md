@@ -127,6 +127,18 @@ For a code contribution, work on a dedicated branch, keep changes focused,
 and include relevant tests and validation in your pull request. Follow the
 [engineering guidance](AGENTS.md) and development guide.
 
+## CI states and filters
+
+PR Tracker distinguishes `passing` (green), `failing` (red), `pending` (yellow),
+`no-ci` (no badge or placeholder), and `unknown` (a neutral Unknown badge).
+No CI means GitHub confirmed no checks or commit-status contexts. Unknown means
+CI could not be determined reliably; its tooltip explains this distinction.
+
+All five states can be filtered independently. Defaults and Reset Filters include
+all five. Saved encrypted preferences migrate automatically: existing unrestricted
+filters include the new states, restricted selections remain selected, and other
+preferences are preserved. Cached Pending results stay Pending until refreshed.
+
 ## License
 
 [MIT](LICENSE).
