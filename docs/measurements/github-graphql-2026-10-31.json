@@ -1,0 +1,419 @@
+{
+    "measuredAt": "2026-10-31T01:05:46.784Z",
+    "scope": "Public aabiskar1/pr-tracker repository; custom-query fetch plus identity, excluding browser storage/UI/notifications and two budget probes per trial",
+    "trials": [
+        {
+            "workload": "repository-open",
+            "repeat": 1,
+            "client": "rest",
+            "pullRequests": 1,
+            "elapsedMs": 1179.9622000000002,
+            "httpRequests": 5,
+            "decodedBodyBytes": 28097,
+            "graphqlCost": null,
+            "observedBudgetDelta": {
+                "core": 4,
+                "search": 1,
+                "graphql": 0
+            },
+            "endpoints": {
+                "user": {
+                    "httpRequests": 1,
+                    "decodedBodyBytes": 1369,
+                    "statuses": {
+                        "200": 1
+                    },
+                    "resource": "core"
+                },
+                "search": {
+                    "httpRequests": 1,
+                    "decodedBodyBytes": 4718,
+                    "statuses": {
+                        "200": 1
+                    },
+                    "resource": "search"
+                },
+                "detail": {
+                    "httpRequests": 1,
+                    "decodedBodyBytes": 18455,
+                    "statuses": {
+                        "200": 1
+                    },
+                    "resource": "core"
+                },
+                "reviews": {
+                    "httpRequests": 1,
+                    "decodedBodyBytes": 2,
+                    "statuses": {
+                        "200": 1
+                    },
+                    "resource": "core"
+                },
+                "check-runs": {
+                    "httpRequests": 1,
+                    "decodedBodyBytes": 3553,
+                    "statuses": {
+                        "200": 1
+                    },
+                    "resource": "core"
+                }
+            }
+        },
+        {
+            "workload": "repository-open",
+            "repeat": 1,
+            "client": "graphql",
+            "pullRequests": 1,
+            "elapsedMs": 719.2534,
+            "httpRequests": 2,
+            "decodedBodyBytes": 2124,
+            "graphqlCost": 1,
+            "observedBudgetDelta": {
+                "core": 1,
+                "search": 0,
+                "graphql": 0
+            },
+            "endpoints": {
+                "user": {
+                    "httpRequests": 1,
+                    "decodedBodyBytes": 1369,
+                    "statuses": {
+                        "200": 1
+                    },
+                    "resource": "core"
+                },
+                "graphql": {
+                    "httpRequests": 1,
+                    "decodedBodyBytes": 755,
+                    "statuses": {
+                        "200": 1
+                    },
+                    "resource": "graphql"
+                }
+            }
+        },
+        {
+            "workload": "repository-open",
+            "repeat": 1,
+            "differences": {
+                "author": 1,
+                "extraInGraphql": 0
+            }
+        },
+        {
+            "workload": "repository-open",
+            "repeat": 2,
+            "client": "graphql",
+            "pullRequests": 1,
+            "elapsedMs": 706.1730999999995,
+            "httpRequests": 2,
+            "decodedBodyBytes": 2124,
+            "graphqlCost": 1,
+            "observedBudgetDelta": {
+                "core": 1,
+                "search": 0,
+                "graphql": 0
+            },
+            "endpoints": {
+                "user": {
+                    "httpRequests": 1,
+                    "decodedBodyBytes": 1369,
+                    "statuses": {
+                        "200": 1
+                    },
+                    "resource": "core"
+                },
+                "graphql": {
+                    "httpRequests": 1,
+                    "decodedBodyBytes": 755,
+                    "statuses": {
+                        "200": 1
+                    },
+                    "resource": "graphql"
+                }
+            }
+        },
+        {
+            "workload": "repository-open",
+            "repeat": 2,
+            "client": "rest",
+            "pullRequests": 1,
+            "elapsedMs": 1126.9416,
+            "httpRequests": 5,
+            "decodedBodyBytes": 28097,
+            "graphqlCost": null,
+            "observedBudgetDelta": {
+                "core": 4,
+                "search": 1,
+                "graphql": 0
+            },
+            "endpoints": {
+                "user": {
+                    "httpRequests": 1,
+                    "decodedBodyBytes": 1369,
+                    "statuses": {
+                        "200": 1
+                    },
+                    "resource": "core"
+                },
+                "search": {
+                    "httpRequests": 1,
+                    "decodedBodyBytes": 4718,
+                    "statuses": {
+                        "200": 1
+                    },
+                    "resource": "search"
+                },
+                "detail": {
+                    "httpRequests": 1,
+                    "decodedBodyBytes": 18455,
+                    "statuses": {
+                        "200": 1
+                    },
+                    "resource": "core"
+                },
+                "reviews": {
+                    "httpRequests": 1,
+                    "decodedBodyBytes": 2,
+                    "statuses": {
+                        "200": 1
+                    },
+                    "resource": "core"
+                },
+                "check-runs": {
+                    "httpRequests": 1,
+                    "decodedBodyBytes": 3553,
+                    "statuses": {
+                        "200": 1
+                    },
+                    "resource": "core"
+                }
+            }
+        },
+        {
+            "workload": "repository-open",
+            "repeat": 2,
+            "differences": {
+                "author": 1,
+                "extraInGraphql": 0
+            }
+        },
+        {
+            "workload": "repository-open",
+            "repeat": 3,
+            "client": "rest",
+            "pullRequests": 1,
+            "elapsedMs": 1130.3365000000003,
+            "httpRequests": 5,
+            "decodedBodyBytes": 28097,
+            "graphqlCost": null,
+            "observedBudgetDelta": {
+                "core": 4,
+                "search": 1,
+                "graphql": 0
+            },
+            "endpoints": {
+                "user": {
+                    "httpRequests": 1,
+                    "decodedBodyBytes": 1369,
+                    "statuses": {
+                        "200": 1
+                    },
+                    "resource": "core"
+                },
+                "search": {
+                    "httpRequests": 1,
+                    "decodedBodyBytes": 4718,
+                    "statuses": {
+                        "200": 1
+                    },
+                    "resource": "search"
+                },
+                "detail": {
+                    "httpRequests": 1,
+                    "decodedBodyBytes": 18455,
+                    "statuses": {
+                        "200": 1
+                    },
+                    "resource": "core"
+                },
+                "reviews": {
+                    "httpRequests": 1,
+                    "decodedBodyBytes": 2,
+                    "statuses": {
+                        "200": 1
+                    },
+                    "resource": "core"
+                },
+                "check-runs": {
+                    "httpRequests": 1,
+                    "decodedBodyBytes": 3553,
+                    "statuses": {
+                        "200": 1
+                    },
+                    "resource": "core"
+                }
+            }
+        },
+        {
+            "workload": "repository-open",
+            "repeat": 3,
+            "client": "graphql",
+            "pullRequests": 1,
+            "elapsedMs": 779.8923000000004,
+            "httpRequests": 2,
+            "decodedBodyBytes": 2124,
+            "graphqlCost": 1,
+            "observedBudgetDelta": {
+                "core": 1,
+                "search": 0,
+                "graphql": 0
+            },
+            "endpoints": {
+                "user": {
+                    "httpRequests": 1,
+                    "decodedBodyBytes": 1369,
+                    "statuses": {
+                        "200": 1
+                    },
+                    "resource": "core"
+                },
+                "graphql": {
+                    "httpRequests": 1,
+                    "decodedBodyBytes": 755,
+                    "statuses": {
+                        "200": 1
+                    },
+                    "resource": "graphql"
+                }
+            }
+        },
+        {
+            "workload": "repository-open",
+            "repeat": 3,
+            "differences": {
+                "author": 1,
+                "extraInGraphql": 0
+            }
+        },
+        {
+            "workload": "repository-history",
+            "repeat": 1,
+            "client": "rest",
+            "pullRequests": 97,
+            "elapsedMs": 18698.4273,
+            "httpRequests": 311,
+            "decodedBodyBytes": 2801570,
+            "graphqlCost": null,
+            "observedBudgetDelta": {
+                "core": 310,
+                "search": 1,
+                "graphql": 0
+            },
+            "endpoints": {
+                "user": {
+                    "httpRequests": 1,
+                    "decodedBodyBytes": 1369,
+                    "statuses": {
+                        "200": 1
+                    },
+                    "resource": "core"
+                },
+                "search": {
+                    "httpRequests": 1,
+                    "decodedBodyBytes": 515732,
+                    "statuses": {
+                        "200": 1
+                    },
+                    "resource": "search"
+                },
+                "detail": {
+                    "httpRequests": 97,
+                    "decodedBodyBytes": 1931737,
+                    "statuses": {
+                        "200": 97
+                    },
+                    "resource": "core"
+                },
+                "reviews": {
+                    "httpRequests": 97,
+                    "decodedBodyBytes": 3452,
+                    "statuses": {
+                        "200": 97
+                    },
+                    "resource": "core"
+                },
+                "check-runs": {
+                    "httpRequests": 97,
+                    "decodedBodyBytes": 263330,
+                    "statuses": {
+                        "200": 97
+                    },
+                    "resource": "core"
+                },
+                "status": {
+                    "httpRequests": 18,
+                    "decodedBodyBytes": 85950,
+                    "statuses": {
+                        "200": 18
+                    },
+                    "resource": "core"
+                }
+            }
+        },
+        {
+            "workload": "repository-history",
+            "repeat": 1,
+            "client": "graphql",
+            "pullRequests": 97,
+            "elapsedMs": 2491.2577999999994,
+            "httpRequests": 3,
+            "decodedBodyBytes": 53769,
+            "graphqlCost": 2,
+            "observedBudgetDelta": {
+                "core": 2,
+                "search": 0,
+                "graphql": 1
+            },
+            "endpoints": {
+                "user": {
+                    "httpRequests": 1,
+                    "decodedBodyBytes": 1369,
+                    "statuses": {
+                        "200": 1
+                    },
+                    "resource": "core"
+                },
+                "graphql": {
+                    "httpRequests": 2,
+                    "decodedBodyBytes": 52400,
+                    "statuses": {
+                        "200": 2
+                    },
+                    "resource": "graphql"
+                }
+            }
+        },
+        {
+            "workload": "repository-history",
+            "repeat": 1,
+            "differences": {
+                "author": 97,
+                "ci_status": 2,
+                "extraInGraphql": 0
+            }
+        }
+    ],
+    "environment": {
+        "runtime": "v22.14.0",
+        "platform": "win32",
+        "architecture": "x64"
+    },
+    "caveats": [
+        "Decoded response-body bytes, not compressed transfer bytes.",
+        "Node fetcher plus identity, not browser popup/background end-to-end latency.",
+        "Primary GraphQL points are returned rateLimit.cost; budget deltas can be stale or shared.",
+        "Custom public-repository queries; default three-source workload is not measured.",
+        "Summary client is not behaviour-equivalent; compare semantic differences."
+    ]
+}
