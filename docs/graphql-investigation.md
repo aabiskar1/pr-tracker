@@ -355,6 +355,13 @@ visible instead of weakening assertions to claim parity.
 
 ## Proof-of-concept boundaries
 
+The dedicated [pagination, errors and API-limit comparison](graphql-pagination-errors-limits.md)
+contrasts REST page numbers with GraphQL cursors/nested connections, required
+versus optional outcomes, HTTP 200 errors, cooldown integration and primary/
+secondary budgets. It includes paired fixtures for the optional-error and
+rate-limit-classification gaps. These are additional compatibility requirements,
+not production changes.
+
 ### Retrieving the three default PR sets
 
 The isolated `investigateGraphql` function accepts a token, login, mandatory
@@ -569,6 +576,8 @@ present synthetic delays or local Vitest duration as evidence of GitHub speed.
   All 448 unit tests pass, along with compilation, lint and formatting for the
   changed files. Production code and measurement artifacts are unchanged by
   this test-only addition.
+- Pagination/error/limit analysis adds two deterministic protocol comparisons;
+  all 450 unit tests, compilation, lint and changed-file formatting pass.
 - Changed-file Prettier checks passed. `npm run check-format` reported 122
   existing file issues, including unrelated local artifacts; none were the four
   files introduced by this investigation. Unrelated files were left unchanged.
