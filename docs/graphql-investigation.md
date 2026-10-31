@@ -19,6 +19,11 @@ are smaller, and parity, error handling and performance must be demonstrated
 before recommending adoption. Adopting different review/CI summaries is outside
 this investigation's goal.
 
+The [behaviour-gap assessment](graphql-behaviour-gaps.md) identifies summary
+information loss, unresolved cross-API guarantees and fixable integration gaps.
+It lists evidence and REST preservation options without claiming that all raw
+GraphQL alternatives are intrinsically incapable of matching the domain rules.
+
 This PR contains an isolated, browser-independent proof of concept in
 [`src/experiments/githubGraphql/client.ts`](../src/experiments/githubGraphql/client.ts).
 No production entrypoint imports it. It uses native `fetch` through a required
