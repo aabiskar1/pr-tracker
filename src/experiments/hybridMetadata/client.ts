@@ -1,5 +1,10 @@
 import { z } from 'zod';
 import {
+    preserveRestAuthor,
+    AuthorCompatibilityError,
+    type AuthorEvidence,
+} from './compatibility';
+import {
     assertRefreshSessionValid,
     type RefreshSessionContext,
 } from '../../background/refreshSession';
@@ -43,8 +48,8 @@ const repository = z.object({
 const reviewer = z.union([
     actor.extend({ __typename: z.enum(['User', 'Bot', 'Mannequin']) }),
     z.object({
-        __typename: z.enum(['Team', 'EnterpriseTeam']),
-        slug: z.string().optional(),
+        __typename: z.literal('Team'),
+        slug: z.string().min(1),
     }),
 ]);
 const nodeSchema = z.object({
@@ -142,6 +147,14 @@ export function mapMetadata(value: unknown, target: Target): CanonicalDetail {
     const reviewers = node.reviewRequests.nodes.map(
         (request) => request.requestedReviewer
     );
+    // REST representation parity for these actor types has not been established.
+    // In particular, bot logins may have different REST/GraphQL representations.
+    if (
+        reviewers.some(
+            (r) => r.__typename === 'Bot' || r.__typename === 'Mannequin'
+        )
+    )
+        throw new Error('Unsupported reviewer representation');
     const individual = reviewers.filter((r) => 'login' in r);
     if (new Set(individual.map((r) => r.login)).size !== individual.length)
         throw new Error('Duplicate reviewer');
@@ -187,8 +200,8 @@ export function metadataQuery(targets: readonly Target[]) {
         variables[`r${index}`] = target.repo;
         variables[`n${index}`] = target.number;
         return `p${index}:repository(owner:$o${index},name:$r${index}) { pullRequest(number:$n${index}) {
-          __typename fullDatabaseId number title url createdAt updatedAt state isDraft headRefOid
-          author { login avatarUrl }
+          __typename id fullDatabaseId number title url createdAt updatedAt state isDraft headRefOid
+          author { __typename login avatarUrl ... on User { id } ... on Bot { id } ... on Mannequin { id } }
           repository { name nameWithOwner url }
           baseRepository { name nameWithOwner url }
           headRepository { name nameWithOwner url }
@@ -217,11 +230,15 @@ export type MetadataOptions = {
     transport: typeof fetch;
     session?: RefreshSessionContext;
     batchSize?: number;
+    // Omit only for raw GraphQL diagnostics. The evaluation adapter always supplies
+    // this map; absent or ambiguous evidence then requires REST detail fallback.
+    discoveryAuthors?: ReadonlyMap<string, AuthorEvidence | null>;
 };
 export type MetadataResult = {
     details: Map<string, CanonicalDetail>;
     fallbackUrls: Set<string>;
     rateUsage: RateUsage[];
+    fallbackReasons: Map<string, string>;
 };
 const envelopeSchema = z.object({
     data: z.record(z.string(), z.unknown()).nullish(),
@@ -253,6 +270,7 @@ export async function fetchMetadata(
         details: new Map(),
         fallbackUrls: new Set(),
         rateUsage: [],
+        fallbackReasons: new Map(),
     };
     for (let offset = 0; offset < targets.length; offset += batchSize) {
         assertRefreshSessionValid(options.session);
@@ -348,7 +366,14 @@ export async function fetchMetadata(
                     const alias = z
                         .object({ pullRequest: z.unknown() })
                         .parse(data[`p${index}`]);
-                    const detail = mapMetadata(alias.pullRequest, target);
+                    const mapped = mapMetadata(alias.pullRequest, target);
+                    const detail = options.discoveryAuthors
+                        ? preserveRestAuthor(
+                              mapped,
+                              alias.pullRequest,
+                              options.discoveryAuthors.get(target.url)
+                          )
+                        : mapped;
                     if (
                         [...result.details.values()].some(
                             (other) => other.id === detail.id
@@ -356,14 +381,25 @@ export async function fetchMetadata(
                     )
                         throw new Error('Conflicting numeric PR identity');
                     result.details.set(target.url, detail);
-                } catch {
+                } catch (error) {
                     result.fallbackUrls.add(target.url);
+                    result.fallbackReasons.set(
+                        target.url,
+                        error instanceof AuthorCompatibilityError
+                            ? error.reason
+                            : error instanceof z.ZodError
+                              ? `metadata-shape:${[...new Set(error.issues.map((issue) => issue.path.map((part) => (typeof part === 'number' ? '*' : part)).join('.')))].slice(0, 6).sort().join(',')}`
+                              : 'incomplete-metadata'
+                    );
                 }
             }
         } catch (error) {
             assertRefreshSessionValid(options.session);
             if (error instanceof HybridMetadataError) throw error;
-            for (const target of batch) result.fallbackUrls.add(target.url);
+            for (const target of batch) {
+                result.fallbackUrls.add(target.url);
+                result.fallbackReasons.set(target.url, 'batch-failure');
+            }
         }
     }
     assertRefreshSessionValid(options.session);

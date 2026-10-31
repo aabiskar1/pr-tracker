@@ -2,7 +2,8 @@ import { assertRefreshSessionValid } from '../../background/refreshSession';
 import { fetchPullRequests } from '../../background/api';
 import { instrumentTransport } from '../githubGraphql/measurement';
 import { createHybridTransport } from './transport';
-import type { MetadataOptions } from './client';
+import { consumedPullRequests, canonicalDifferences } from './compatibility';
+import type { MetadataOptions, CanonicalDetail } from './client';
 import { fixtureTransport, type Fault } from './fixtures';
 import type { PullRequest } from '../../types';
 
@@ -37,6 +38,7 @@ export async function runTrial(
     } = {}
 ) {
     const costs: (number | null)[] = [];
+    const canonicalDetails = new Map<string, CanonicalDetail>();
     const attempts = { core: 0, search: 0, graphql: 0 };
     const checkTargets = new Set<string>();
     const reviewTargets = new Set<string>();
@@ -98,8 +100,22 @@ export async function runTrial(
         if (!identity.ok) throw new Error('Benchmark identity failed');
         const user = await identity.json();
         assertRefreshSessionValid(options.session);
-        globalThis.fetch =
+        const detailTransport =
             client === 'rest' ? measured.transport : adapter.transport;
+        globalThis.fetch = async (input, init) => {
+            const response = await detailTransport(input, init);
+            if (
+                /^\/repos\/[^/]+\/[^/]+\/pulls\/\d+$/.test(
+                    new URL(String(input)).pathname
+                ) &&
+                response.ok
+            ) {
+                const detail = await response.clone().json();
+                assertRefreshSessionValid(options.session);
+                canonicalDetails.set(String(input), detail);
+            }
+            return response;
+        };
         let result = await fetchPullRequests(
             'fixture-token-overridden-in-live',
             user,
@@ -140,6 +156,7 @@ export async function runTrial(
                               0
                           ),
                 fallbackRequests: adapter.fallbackRequests,
+                metadataFallbackReasons: adapter.metadataFallbackReasons,
                 additionalCIPaginationRequests:
                     checkRequests - checkTargets.size,
                 additionalReviewPaginationRequests:
@@ -155,6 +172,7 @@ export async function runTrial(
                 retryRequests: 0,
             },
             result,
+            canonicalDetails,
         };
     } finally {
         globalThis.fetch = original;
@@ -194,6 +212,22 @@ export async function benchmarkFixtures(
                 repeat,
                 rest: rest.metrics,
                 hybrid: hybrid.metrics,
+                canonicalDifferences:
+                    rest.result.status === 'success' &&
+                    hybrid.result.status === 'success'
+                        ? canonicalDifferences(
+                              rest.canonicalDetails,
+                              hybrid.canonicalDetails
+                          )
+                        : null,
+                consumedDifferences:
+                    rest.result.status === 'success' &&
+                    hybrid.result.status === 'success'
+                        ? fieldDifferences(
+                              consumedPullRequests(rest.result.pullRequests),
+                              consumedPullRequests(hybrid.result.pullRequests)
+                          )
+                        : null,
                 differences:
                     rest.result.status === 'success' &&
                     hybrid.result.status === 'success'

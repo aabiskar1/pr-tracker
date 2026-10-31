@@ -1,4 +1,5 @@
 import { assertRefreshSessionValid } from '../../background/refreshSession';
+import { discoveryAuthor, type AuthorEvidence } from './compatibility';
 import {
     HybridMetadataError,
     fetchMetadata,
@@ -11,9 +12,11 @@ import {
 // One adapter instance belongs to one trial/session. Never install in an extension.
 export function createHybridTransport(options: MetadataOptions) {
     const targets = new Set<string>();
+    const authors = new Map<string, AuthorEvidence | null>();
     const fallbacks = new Map<string, Promise<Response>>();
     let pending: Promise<MetadataResult> | undefined;
     let fallbackRequests = 0;
+    const metadataFallbackReasons: Record<string, number> = {};
     let failure: HybridMetadataError | undefined;
     const transport: typeof fetch = async (input, init) => {
         assertRefreshSessionValid(options.session);
@@ -37,8 +40,20 @@ export function createHybridTransport(options: MetadataOptions) {
                     assertRefreshSessionValid(options.session);
                     if (Array.isArray(body.items))
                         for (const item of body.items) {
-                            if (typeof item?.pull_request?.url === 'string')
+                            if (typeof item?.pull_request?.url === 'string') {
                                 targets.add(item.pull_request.url);
+                                const key = item.pull_request.url;
+                                const evidence = discoveryAuthor(item);
+                                // Once conflicting, remain ambiguous for this trial.
+                                authors.set(
+                                    key,
+                                    authors.has(key) &&
+                                        JSON.stringify(authors.get(key)) !==
+                                            JSON.stringify(evidence)
+                                        ? null
+                                        : evidence
+                                );
+                            }
                         }
                 } catch {
                     assertRefreshSessionValid(options.session);
@@ -50,12 +65,20 @@ export function createHybridTransport(options: MetadataOptions) {
             /^\/repos\/[^/]+\/[^/]+\/pulls\/\d+$/.test(url.pathname) &&
             targets.has(url.href)
         ) {
-            pending ??= fetchMetadata([...targets], options).catch(
-                (error: unknown) => {
+            pending ??= fetchMetadata([...targets], {
+                ...options,
+                discoveryAuthors: authors,
+            })
+                .then((metadata) => {
+                    for (const reason of metadata.fallbackReasons.values())
+                        metadataFallbackReasons[reason] =
+                            (metadataFallbackReasons[reason] ?? 0) + 1;
+                    return metadata;
+                })
+                .catch((error: unknown) => {
                     if (error instanceof HybridMetadataError) failure = error;
                     throw error;
-                }
-            );
+                });
             const metadata = await pending;
             assertRefreshSessionValid(options.session);
             const detail = metadata.details.get(url.href);
@@ -74,6 +97,7 @@ export function createHybridTransport(options: MetadataOptions) {
     };
     return {
         transport,
+        metadataFallbackReasons,
         get fallbackRequests() {
             return fallbackRequests;
         },

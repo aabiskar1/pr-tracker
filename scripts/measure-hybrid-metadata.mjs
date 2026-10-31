@@ -44,8 +44,11 @@ if (live) {
     }).trim();
     try {
         result = process.argv.includes('--diagnose')
-            ? await diagnoseLiveMetadata(token)
+            ? await diagnoseLiveMetadata(token, {
+                  open: process.argv.includes('--open'),
+              })
             : await benchmarkLive(token, {
+                  open: process.argv.includes('--open'),
                   sizes: process.env.PR_TRACKER_HYBRID_LIVE_SIZES?.split(
                       ','
                   ).map(Number) ?? [40],

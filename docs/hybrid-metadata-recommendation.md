@@ -1,5 +1,9 @@
 # Hybrid metadata batching: recommendation and evidence
 
+> Historical PR #101 evidence. See the [compatibility follow-up](hybrid-metadata-compatibility.md)
+> for verified REST author preservation, explicit reviewer compatibility and repeated
+> open-PR measurements. The production pipeline remains REST.
+
 **NO-GO for production integration at this point. Keep REST enabled.** The
 isolated candidate reduces requests and payload and improves measured fetcher
 latency, but exact live metadata equivalence is not established. The mixed

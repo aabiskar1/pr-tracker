@@ -1,0 +1,2740 @@
+{
+    "kind": "live-public-fixed-membership-metadata-and-REST-supporting-requests",
+    "measuredAt": "2026-10-31T20:34:20.261Z",
+    "repository": "cli/cli (public)",
+    "sizes": [5, 20, 40],
+    "population": "open",
+    "scope": "Identity, canonical metadata and unchanged REST reviews/CI are live. REST discovery bodies are fixed-membership replay, counted separately. No browser storage/UI/notifications. Membership is captured once; this is not live default three-source dashboard discovery.",
+    "overheadHttpRequests": 26,
+    "trials": [
+        {
+            "size": 5,
+            "repeat": 0,
+            "measurements": [
+                {
+                    "client": "rest",
+                    "elapsedMs": 2010.8598000000002,
+                    "outcome": "success",
+                    "totalHttpRequests": 22,
+                    "completedResponses": 22,
+                    "coreRequests": 21,
+                    "searchRequests": 1,
+                    "graphqlRequests": 0,
+                    "decodedBodyBytes": 126262,
+                    "graphqlReportedPoints": 0,
+                    "fallbackRequests": 0,
+                    "additionalCIPaginationRequests": 0,
+                    "additionalReviewPaginationRequests": 0,
+                    "combinedStatusFallbackRequests": 5,
+                    "metadataFailure": null,
+                    "endpoints": {
+                        "user": 1,
+                        "search": 1,
+                        "detail": 5,
+                        "check-runs": 5,
+                        "reviews": 5,
+                        "status": 5
+                    },
+                    "failedResponses": 0,
+                    "failedTransports": 0,
+                    "retryRequests": 0,
+                    "actualHttpRequests": 21,
+                    "actualDecodedBodyBytes": 107170,
+                    "replayedDiscoveryRequests": 1,
+                    "budgetBefore": {
+                        "core": {
+                            "limit": 5000,
+                            "used": 95,
+                            "remaining": 4905,
+                            "reset": 1793479868
+                        },
+                        "search": {
+                            "limit": 30,
+                            "used": 1,
+                            "remaining": 29,
+                            "reset": 1793478864
+                        },
+                        "graphql": {
+                            "limit": 5000,
+                            "used": 4,
+                            "remaining": 4996,
+                            "reset": 1793481908
+                        },
+                        "integration_manifest": {
+                            "limit": 5000,
+                            "used": 0,
+                            "remaining": 5000,
+                            "reset": 1793482405
+                        },
+                        "source_import": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478865
+                        },
+                        "code_scanning_autofix": {
+                            "limit": 10,
+                            "used": 0,
+                            "remaining": 10,
+                            "reset": 1793478865
+                        },
+                        "actions_runner_registration": {
+                            "limit": 10000,
+                            "used": 0,
+                            "remaining": 10000,
+                            "reset": 1793482405
+                        },
+                        "scim": {
+                            "limit": 15000,
+                            "used": 0,
+                            "remaining": 15000,
+                            "reset": 1793482405
+                        },
+                        "dependency_snapshots": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478865
+                        },
+                        "dependency_sbom": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478865
+                        },
+                        "audit_log": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482405
+                        },
+                        "audit_log_streaming": {
+                            "limit": 15,
+                            "used": 0,
+                            "remaining": 15,
+                            "reset": 1793482405
+                        },
+                        "code_search": {
+                            "limit": 10,
+                            "used": 0,
+                            "remaining": 10,
+                            "reset": 1793478865
+                        },
+                        "copilot_usage_records": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482405
+                        },
+                        "enterprise_token_inventory": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482405
+                        }
+                    },
+                    "budgetAfter": {
+                        "core": {
+                            "limit": 5000,
+                            "used": 116,
+                            "remaining": 4884,
+                            "reset": 1793479868
+                        },
+                        "search": {
+                            "limit": 30,
+                            "used": 1,
+                            "remaining": 29,
+                            "reset": 1793478864
+                        },
+                        "graphql": {
+                            "limit": 5000,
+                            "used": 4,
+                            "remaining": 4996,
+                            "reset": 1793481908
+                        },
+                        "integration_manifest": {
+                            "limit": 5000,
+                            "used": 0,
+                            "remaining": 5000,
+                            "reset": 1793482408
+                        },
+                        "source_import": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478868
+                        },
+                        "code_scanning_autofix": {
+                            "limit": 10,
+                            "used": 0,
+                            "remaining": 10,
+                            "reset": 1793478868
+                        },
+                        "actions_runner_registration": {
+                            "limit": 10000,
+                            "used": 0,
+                            "remaining": 10000,
+                            "reset": 1793482408
+                        },
+                        "scim": {
+                            "limit": 15000,
+                            "used": 0,
+                            "remaining": 15000,
+                            "reset": 1793482408
+                        },
+                        "dependency_snapshots": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478868
+                        },
+                        "dependency_sbom": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478868
+                        },
+                        "audit_log": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482408
+                        },
+                        "audit_log_streaming": {
+                            "limit": 15,
+                            "used": 0,
+                            "remaining": 15,
+                            "reset": 1793482408
+                        },
+                        "code_search": {
+                            "limit": 10,
+                            "used": 0,
+                            "remaining": 10,
+                            "reset": 1793478868
+                        },
+                        "copilot_usage_records": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482408
+                        },
+                        "enterprise_token_inventory": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482408
+                        }
+                    },
+                    "observedBudgetDelta": {
+                        "core": 21,
+                        "search": 0,
+                        "graphql": 0
+                    }
+                },
+                {
+                    "client": "hybrid",
+                    "elapsedMs": 2303.9559,
+                    "outcome": "success",
+                    "totalHttpRequests": 19,
+                    "completedResponses": 19,
+                    "coreRequests": 17,
+                    "searchRequests": 1,
+                    "graphqlRequests": 1,
+                    "decodedBodyBytes": 70530,
+                    "graphqlReportedPoints": 1,
+                    "fallbackRequests": 1,
+                    "additionalCIPaginationRequests": 0,
+                    "additionalReviewPaginationRequests": 0,
+                    "combinedStatusFallbackRequests": 5,
+                    "metadataFailure": null,
+                    "endpoints": {
+                        "user": 1,
+                        "search": 1,
+                        "graphql": 1,
+                        "check-runs": 5,
+                        "reviews": 5,
+                        "status": 5,
+                        "detail": 1
+                    },
+                    "failedResponses": 0,
+                    "failedTransports": 0,
+                    "retryRequests": 0,
+                    "actualHttpRequests": 18,
+                    "actualDecodedBodyBytes": 51438,
+                    "replayedDiscoveryRequests": 1,
+                    "budgetBefore": {
+                        "core": {
+                            "limit": 5000,
+                            "used": 116,
+                            "remaining": 4884,
+                            "reset": 1793479868
+                        },
+                        "search": {
+                            "limit": 30,
+                            "used": 1,
+                            "remaining": 29,
+                            "reset": 1793478864
+                        },
+                        "graphql": {
+                            "limit": 5000,
+                            "used": 4,
+                            "remaining": 4996,
+                            "reset": 1793481908
+                        },
+                        "integration_manifest": {
+                            "limit": 5000,
+                            "used": 0,
+                            "remaining": 5000,
+                            "reset": 1793482408
+                        },
+                        "source_import": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478868
+                        },
+                        "code_scanning_autofix": {
+                            "limit": 10,
+                            "used": 0,
+                            "remaining": 10,
+                            "reset": 1793478868
+                        },
+                        "actions_runner_registration": {
+                            "limit": 10000,
+                            "used": 0,
+                            "remaining": 10000,
+                            "reset": 1793482408
+                        },
+                        "scim": {
+                            "limit": 15000,
+                            "used": 0,
+                            "remaining": 15000,
+                            "reset": 1793482408
+                        },
+                        "dependency_snapshots": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478868
+                        },
+                        "dependency_sbom": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478868
+                        },
+                        "audit_log": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482408
+                        },
+                        "audit_log_streaming": {
+                            "limit": 15,
+                            "used": 0,
+                            "remaining": 15,
+                            "reset": 1793482408
+                        },
+                        "code_search": {
+                            "limit": 10,
+                            "used": 0,
+                            "remaining": 10,
+                            "reset": 1793478868
+                        },
+                        "copilot_usage_records": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482408
+                        },
+                        "enterprise_token_inventory": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482408
+                        }
+                    },
+                    "budgetAfter": {
+                        "core": {
+                            "limit": 5000,
+                            "used": 133,
+                            "remaining": 4867,
+                            "reset": 1793479868
+                        },
+                        "search": {
+                            "limit": 30,
+                            "used": 1,
+                            "remaining": 29,
+                            "reset": 1793478864
+                        },
+                        "graphql": {
+                            "limit": 5000,
+                            "used": 5,
+                            "remaining": 4995,
+                            "reset": 1793481908
+                        },
+                        "integration_manifest": {
+                            "limit": 5000,
+                            "used": 0,
+                            "remaining": 5000,
+                            "reset": 1793482410
+                        },
+                        "source_import": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478870
+                        },
+                        "code_scanning_autofix": {
+                            "limit": 10,
+                            "used": 0,
+                            "remaining": 10,
+                            "reset": 1793478870
+                        },
+                        "actions_runner_registration": {
+                            "limit": 10000,
+                            "used": 0,
+                            "remaining": 10000,
+                            "reset": 1793482410
+                        },
+                        "scim": {
+                            "limit": 15000,
+                            "used": 0,
+                            "remaining": 15000,
+                            "reset": 1793482410
+                        },
+                        "dependency_snapshots": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478870
+                        },
+                        "dependency_sbom": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478870
+                        },
+                        "audit_log": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482410
+                        },
+                        "audit_log_streaming": {
+                            "limit": 15,
+                            "used": 0,
+                            "remaining": 15,
+                            "reset": 1793482410
+                        },
+                        "code_search": {
+                            "limit": 10,
+                            "used": 0,
+                            "remaining": 10,
+                            "reset": 1793478870
+                        },
+                        "copilot_usage_records": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482410
+                        },
+                        "enterprise_token_inventory": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482410
+                        }
+                    },
+                    "observedBudgetDelta": {
+                        "core": 17,
+                        "search": 0,
+                        "graphql": 1
+                    }
+                }
+            ],
+            "consumedDifferences": {},
+            "canonicalDifferences": {},
+            "differences": {},
+            "avatarDiagnostics": {
+                "rawDifferences": 0,
+                "sameHostAndPath": 0
+            }
+        },
+        {
+            "size": 5,
+            "repeat": 1,
+            "measurements": [
+                {
+                    "client": "hybrid",
+                    "elapsedMs": 2123.3258000000005,
+                    "outcome": "success",
+                    "totalHttpRequests": 19,
+                    "completedResponses": 19,
+                    "coreRequests": 17,
+                    "searchRequests": 1,
+                    "graphqlRequests": 1,
+                    "decodedBodyBytes": 70530,
+                    "graphqlReportedPoints": 1,
+                    "fallbackRequests": 1,
+                    "additionalCIPaginationRequests": 0,
+                    "additionalReviewPaginationRequests": 0,
+                    "combinedStatusFallbackRequests": 5,
+                    "metadataFailure": null,
+                    "endpoints": {
+                        "user": 1,
+                        "search": 1,
+                        "graphql": 1,
+                        "check-runs": 5,
+                        "reviews": 5,
+                        "status": 5,
+                        "detail": 1
+                    },
+                    "failedResponses": 0,
+                    "failedTransports": 0,
+                    "retryRequests": 0,
+                    "actualHttpRequests": 18,
+                    "actualDecodedBodyBytes": 51438,
+                    "replayedDiscoveryRequests": 1,
+                    "budgetBefore": {
+                        "core": {
+                            "limit": 5000,
+                            "used": 133,
+                            "remaining": 4867,
+                            "reset": 1793479868
+                        },
+                        "search": {
+                            "limit": 30,
+                            "used": 1,
+                            "remaining": 29,
+                            "reset": 1793478864
+                        },
+                        "graphql": {
+                            "limit": 5000,
+                            "used": 5,
+                            "remaining": 4995,
+                            "reset": 1793481908
+                        },
+                        "integration_manifest": {
+                            "limit": 5000,
+                            "used": 0,
+                            "remaining": 5000,
+                            "reset": 1793482410
+                        },
+                        "source_import": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478870
+                        },
+                        "code_scanning_autofix": {
+                            "limit": 10,
+                            "used": 0,
+                            "remaining": 10,
+                            "reset": 1793478870
+                        },
+                        "actions_runner_registration": {
+                            "limit": 10000,
+                            "used": 0,
+                            "remaining": 10000,
+                            "reset": 1793482410
+                        },
+                        "scim": {
+                            "limit": 15000,
+                            "used": 0,
+                            "remaining": 15000,
+                            "reset": 1793482410
+                        },
+                        "dependency_snapshots": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478870
+                        },
+                        "dependency_sbom": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478870
+                        },
+                        "audit_log": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482410
+                        },
+                        "audit_log_streaming": {
+                            "limit": 15,
+                            "used": 0,
+                            "remaining": 15,
+                            "reset": 1793482410
+                        },
+                        "code_search": {
+                            "limit": 10,
+                            "used": 0,
+                            "remaining": 10,
+                            "reset": 1793478870
+                        },
+                        "copilot_usage_records": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482410
+                        },
+                        "enterprise_token_inventory": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482410
+                        }
+                    },
+                    "budgetAfter": {
+                        "core": {
+                            "limit": 5000,
+                            "used": 150,
+                            "remaining": 4850,
+                            "reset": 1793479868
+                        },
+                        "search": {
+                            "limit": 30,
+                            "used": 1,
+                            "remaining": 29,
+                            "reset": 1793478864
+                        },
+                        "graphql": {
+                            "limit": 5000,
+                            "used": 5,
+                            "remaining": 4995,
+                            "reset": 1793481908
+                        },
+                        "integration_manifest": {
+                            "limit": 5000,
+                            "used": 0,
+                            "remaining": 5000,
+                            "reset": 1793482413
+                        },
+                        "source_import": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478873
+                        },
+                        "code_scanning_autofix": {
+                            "limit": 10,
+                            "used": 0,
+                            "remaining": 10,
+                            "reset": 1793478873
+                        },
+                        "actions_runner_registration": {
+                            "limit": 10000,
+                            "used": 0,
+                            "remaining": 10000,
+                            "reset": 1793482413
+                        },
+                        "scim": {
+                            "limit": 15000,
+                            "used": 0,
+                            "remaining": 15000,
+                            "reset": 1793482413
+                        },
+                        "dependency_snapshots": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478873
+                        },
+                        "dependency_sbom": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478873
+                        },
+                        "audit_log": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482413
+                        },
+                        "audit_log_streaming": {
+                            "limit": 15,
+                            "used": 0,
+                            "remaining": 15,
+                            "reset": 1793482413
+                        },
+                        "code_search": {
+                            "limit": 10,
+                            "used": 0,
+                            "remaining": 10,
+                            "reset": 1793478873
+                        },
+                        "copilot_usage_records": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482413
+                        },
+                        "enterprise_token_inventory": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482413
+                        }
+                    },
+                    "observedBudgetDelta": {
+                        "core": 17,
+                        "search": 0,
+                        "graphql": 0
+                    }
+                },
+                {
+                    "client": "rest",
+                    "elapsedMs": 1905.2055999999993,
+                    "outcome": "success",
+                    "totalHttpRequests": 22,
+                    "completedResponses": 22,
+                    "coreRequests": 21,
+                    "searchRequests": 1,
+                    "graphqlRequests": 0,
+                    "decodedBodyBytes": 126262,
+                    "graphqlReportedPoints": 0,
+                    "fallbackRequests": 0,
+                    "additionalCIPaginationRequests": 0,
+                    "additionalReviewPaginationRequests": 0,
+                    "combinedStatusFallbackRequests": 5,
+                    "metadataFailure": null,
+                    "endpoints": {
+                        "user": 1,
+                        "search": 1,
+                        "detail": 5,
+                        "check-runs": 5,
+                        "reviews": 5,
+                        "status": 5
+                    },
+                    "failedResponses": 0,
+                    "failedTransports": 0,
+                    "retryRequests": 0,
+                    "actualHttpRequests": 21,
+                    "actualDecodedBodyBytes": 107170,
+                    "replayedDiscoveryRequests": 1,
+                    "budgetBefore": {
+                        "core": {
+                            "limit": 5000,
+                            "used": 150,
+                            "remaining": 4850,
+                            "reset": 1793479868
+                        },
+                        "search": {
+                            "limit": 30,
+                            "used": 1,
+                            "remaining": 29,
+                            "reset": 1793478864
+                        },
+                        "graphql": {
+                            "limit": 5000,
+                            "used": 5,
+                            "remaining": 4995,
+                            "reset": 1793481908
+                        },
+                        "integration_manifest": {
+                            "limit": 5000,
+                            "used": 0,
+                            "remaining": 5000,
+                            "reset": 1793482413
+                        },
+                        "source_import": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478873
+                        },
+                        "code_scanning_autofix": {
+                            "limit": 10,
+                            "used": 0,
+                            "remaining": 10,
+                            "reset": 1793478873
+                        },
+                        "actions_runner_registration": {
+                            "limit": 10000,
+                            "used": 0,
+                            "remaining": 10000,
+                            "reset": 1793482413
+                        },
+                        "scim": {
+                            "limit": 15000,
+                            "used": 0,
+                            "remaining": 15000,
+                            "reset": 1793482413
+                        },
+                        "dependency_snapshots": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478873
+                        },
+                        "dependency_sbom": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478873
+                        },
+                        "audit_log": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482413
+                        },
+                        "audit_log_streaming": {
+                            "limit": 15,
+                            "used": 0,
+                            "remaining": 15,
+                            "reset": 1793482413
+                        },
+                        "code_search": {
+                            "limit": 10,
+                            "used": 0,
+                            "remaining": 10,
+                            "reset": 1793478873
+                        },
+                        "copilot_usage_records": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482413
+                        },
+                        "enterprise_token_inventory": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482413
+                        }
+                    },
+                    "budgetAfter": {
+                        "core": {
+                            "limit": 5000,
+                            "used": 171,
+                            "remaining": 4829,
+                            "reset": 1793479868
+                        },
+                        "search": {
+                            "limit": 30,
+                            "used": 1,
+                            "remaining": 29,
+                            "reset": 1793478864
+                        },
+                        "graphql": {
+                            "limit": 5000,
+                            "used": 5,
+                            "remaining": 4995,
+                            "reset": 1793481908
+                        },
+                        "integration_manifest": {
+                            "limit": 5000,
+                            "used": 0,
+                            "remaining": 5000,
+                            "reset": 1793482415
+                        },
+                        "source_import": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478875
+                        },
+                        "code_scanning_autofix": {
+                            "limit": 10,
+                            "used": 0,
+                            "remaining": 10,
+                            "reset": 1793478875
+                        },
+                        "actions_runner_registration": {
+                            "limit": 10000,
+                            "used": 0,
+                            "remaining": 10000,
+                            "reset": 1793482415
+                        },
+                        "scim": {
+                            "limit": 15000,
+                            "used": 0,
+                            "remaining": 15000,
+                            "reset": 1793482415
+                        },
+                        "dependency_snapshots": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478875
+                        },
+                        "dependency_sbom": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478875
+                        },
+                        "audit_log": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482415
+                        },
+                        "audit_log_streaming": {
+                            "limit": 15,
+                            "used": 0,
+                            "remaining": 15,
+                            "reset": 1793482415
+                        },
+                        "code_search": {
+                            "limit": 10,
+                            "used": 0,
+                            "remaining": 10,
+                            "reset": 1793478875
+                        },
+                        "copilot_usage_records": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482415
+                        },
+                        "enterprise_token_inventory": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482415
+                        }
+                    },
+                    "observedBudgetDelta": {
+                        "core": 21,
+                        "search": 0,
+                        "graphql": 0
+                    }
+                }
+            ],
+            "consumedDifferences": {},
+            "canonicalDifferences": {},
+            "differences": {},
+            "avatarDiagnostics": {
+                "rawDifferences": 0,
+                "sameHostAndPath": 0
+            }
+        },
+        {
+            "size": 20,
+            "repeat": 0,
+            "measurements": [
+                {
+                    "client": "rest",
+                    "elapsedMs": 5092.7664,
+                    "outcome": "success",
+                    "totalHttpRequests": 73,
+                    "completedResponses": 73,
+                    "coreRequests": 72,
+                    "searchRequests": 1,
+                    "graphqlRequests": 0,
+                    "decodedBodyBytes": 964338,
+                    "graphqlReportedPoints": 0,
+                    "fallbackRequests": 0,
+                    "additionalCIPaginationRequests": 0,
+                    "additionalReviewPaginationRequests": 0,
+                    "combinedStatusFallbackRequests": 11,
+                    "metadataFailure": null,
+                    "endpoints": {
+                        "user": 1,
+                        "search": 1,
+                        "detail": 20,
+                        "check-runs": 20,
+                        "reviews": 20,
+                        "status": 11
+                    },
+                    "failedResponses": 0,
+                    "failedTransports": 0,
+                    "retryRequests": 0,
+                    "actualHttpRequests": 72,
+                    "actualDecodedBodyBytes": 885149,
+                    "replayedDiscoveryRequests": 1,
+                    "budgetBefore": {
+                        "core": {
+                            "limit": 5000,
+                            "used": 171,
+                            "remaining": 4829,
+                            "reset": 1793479868
+                        },
+                        "search": {
+                            "limit": 30,
+                            "used": 1,
+                            "remaining": 29,
+                            "reset": 1793478864
+                        },
+                        "graphql": {
+                            "limit": 5000,
+                            "used": 5,
+                            "remaining": 4995,
+                            "reset": 1793481908
+                        },
+                        "integration_manifest": {
+                            "limit": 5000,
+                            "used": 0,
+                            "remaining": 5000,
+                            "reset": 1793482415
+                        },
+                        "source_import": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478875
+                        },
+                        "code_scanning_autofix": {
+                            "limit": 10,
+                            "used": 0,
+                            "remaining": 10,
+                            "reset": 1793478875
+                        },
+                        "actions_runner_registration": {
+                            "limit": 10000,
+                            "used": 0,
+                            "remaining": 10000,
+                            "reset": 1793482415
+                        },
+                        "scim": {
+                            "limit": 15000,
+                            "used": 0,
+                            "remaining": 15000,
+                            "reset": 1793482415
+                        },
+                        "dependency_snapshots": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478875
+                        },
+                        "dependency_sbom": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478875
+                        },
+                        "audit_log": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482415
+                        },
+                        "audit_log_streaming": {
+                            "limit": 15,
+                            "used": 0,
+                            "remaining": 15,
+                            "reset": 1793482415
+                        },
+                        "code_search": {
+                            "limit": 10,
+                            "used": 0,
+                            "remaining": 10,
+                            "reset": 1793478875
+                        },
+                        "copilot_usage_records": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482415
+                        },
+                        "enterprise_token_inventory": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482415
+                        }
+                    },
+                    "budgetAfter": {
+                        "core": {
+                            "limit": 5000,
+                            "used": 243,
+                            "remaining": 4757,
+                            "reset": 1793479868
+                        },
+                        "search": {
+                            "limit": 30,
+                            "used": 1,
+                            "remaining": 29,
+                            "reset": 1793478864
+                        },
+                        "graphql": {
+                            "limit": 5000,
+                            "used": 5,
+                            "remaining": 4995,
+                            "reset": 1793481908
+                        },
+                        "integration_manifest": {
+                            "limit": 5000,
+                            "used": 0,
+                            "remaining": 5000,
+                            "reset": 1793482421
+                        },
+                        "source_import": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478881
+                        },
+                        "code_scanning_autofix": {
+                            "limit": 10,
+                            "used": 0,
+                            "remaining": 10,
+                            "reset": 1793478881
+                        },
+                        "actions_runner_registration": {
+                            "limit": 10000,
+                            "used": 0,
+                            "remaining": 10000,
+                            "reset": 1793482421
+                        },
+                        "scim": {
+                            "limit": 15000,
+                            "used": 0,
+                            "remaining": 15000,
+                            "reset": 1793482421
+                        },
+                        "dependency_snapshots": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478881
+                        },
+                        "dependency_sbom": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478881
+                        },
+                        "audit_log": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482421
+                        },
+                        "audit_log_streaming": {
+                            "limit": 15,
+                            "used": 0,
+                            "remaining": 15,
+                            "reset": 1793482421
+                        },
+                        "code_search": {
+                            "limit": 10,
+                            "used": 0,
+                            "remaining": 10,
+                            "reset": 1793478881
+                        },
+                        "copilot_usage_records": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482421
+                        },
+                        "enterprise_token_inventory": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482421
+                        }
+                    },
+                    "observedBudgetDelta": {
+                        "core": 72,
+                        "search": 0,
+                        "graphql": 0
+                    }
+                },
+                {
+                    "client": "hybrid",
+                    "elapsedMs": 5418.371599999999,
+                    "outcome": "success",
+                    "totalHttpRequests": 65,
+                    "completedResponses": 65,
+                    "coreRequests": 63,
+                    "searchRequests": 1,
+                    "graphqlRequests": 1,
+                    "decodedBodyBytes": 846490,
+                    "graphqlReportedPoints": 1,
+                    "fallbackRequests": 11,
+                    "additionalCIPaginationRequests": 0,
+                    "additionalReviewPaginationRequests": 0,
+                    "combinedStatusFallbackRequests": 11,
+                    "metadataFailure": null,
+                    "endpoints": {
+                        "user": 1,
+                        "search": 1,
+                        "graphql": 1,
+                        "check-runs": 20,
+                        "reviews": 20,
+                        "status": 11,
+                        "detail": 11
+                    },
+                    "failedResponses": 0,
+                    "failedTransports": 0,
+                    "retryRequests": 0,
+                    "actualHttpRequests": 64,
+                    "actualDecodedBodyBytes": 767301,
+                    "replayedDiscoveryRequests": 1,
+                    "budgetBefore": {
+                        "core": {
+                            "limit": 5000,
+                            "used": 243,
+                            "remaining": 4757,
+                            "reset": 1793479868
+                        },
+                        "search": {
+                            "limit": 30,
+                            "used": 1,
+                            "remaining": 29,
+                            "reset": 1793478864
+                        },
+                        "graphql": {
+                            "limit": 5000,
+                            "used": 5,
+                            "remaining": 4995,
+                            "reset": 1793481908
+                        },
+                        "integration_manifest": {
+                            "limit": 5000,
+                            "used": 0,
+                            "remaining": 5000,
+                            "reset": 1793482421
+                        },
+                        "source_import": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478881
+                        },
+                        "code_scanning_autofix": {
+                            "limit": 10,
+                            "used": 0,
+                            "remaining": 10,
+                            "reset": 1793478881
+                        },
+                        "actions_runner_registration": {
+                            "limit": 10000,
+                            "used": 0,
+                            "remaining": 10000,
+                            "reset": 1793482421
+                        },
+                        "scim": {
+                            "limit": 15000,
+                            "used": 0,
+                            "remaining": 15000,
+                            "reset": 1793482421
+                        },
+                        "dependency_snapshots": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478881
+                        },
+                        "dependency_sbom": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478881
+                        },
+                        "audit_log": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482421
+                        },
+                        "audit_log_streaming": {
+                            "limit": 15,
+                            "used": 0,
+                            "remaining": 15,
+                            "reset": 1793482421
+                        },
+                        "code_search": {
+                            "limit": 10,
+                            "used": 0,
+                            "remaining": 10,
+                            "reset": 1793478881
+                        },
+                        "copilot_usage_records": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482421
+                        },
+                        "enterprise_token_inventory": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482421
+                        }
+                    },
+                    "budgetAfter": {
+                        "core": {
+                            "limit": 5000,
+                            "used": 306,
+                            "remaining": 4694,
+                            "reset": 1793479868
+                        },
+                        "search": {
+                            "limit": 30,
+                            "used": 1,
+                            "remaining": 29,
+                            "reset": 1793478864
+                        },
+                        "graphql": {
+                            "limit": 5000,
+                            "used": 5,
+                            "remaining": 4995,
+                            "reset": 1793481908
+                        },
+                        "integration_manifest": {
+                            "limit": 5000,
+                            "used": 0,
+                            "remaining": 5000,
+                            "reset": 1793482426
+                        },
+                        "source_import": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478886
+                        },
+                        "code_scanning_autofix": {
+                            "limit": 10,
+                            "used": 0,
+                            "remaining": 10,
+                            "reset": 1793478886
+                        },
+                        "actions_runner_registration": {
+                            "limit": 10000,
+                            "used": 0,
+                            "remaining": 10000,
+                            "reset": 1793482426
+                        },
+                        "scim": {
+                            "limit": 15000,
+                            "used": 0,
+                            "remaining": 15000,
+                            "reset": 1793482426
+                        },
+                        "dependency_snapshots": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478886
+                        },
+                        "dependency_sbom": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478886
+                        },
+                        "audit_log": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482426
+                        },
+                        "audit_log_streaming": {
+                            "limit": 15,
+                            "used": 0,
+                            "remaining": 15,
+                            "reset": 1793482426
+                        },
+                        "code_search": {
+                            "limit": 10,
+                            "used": 0,
+                            "remaining": 10,
+                            "reset": 1793478886
+                        },
+                        "copilot_usage_records": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482426
+                        },
+                        "enterprise_token_inventory": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482426
+                        }
+                    },
+                    "observedBudgetDelta": {
+                        "core": 63,
+                        "search": 0,
+                        "graphql": 0
+                    }
+                }
+            ],
+            "consumedDifferences": {},
+            "canonicalDifferences": {},
+            "differences": {},
+            "avatarDiagnostics": {
+                "rawDifferences": 0,
+                "sameHostAndPath": 0
+            }
+        },
+        {
+            "size": 20,
+            "repeat": 1,
+            "measurements": [
+                {
+                    "client": "hybrid",
+                    "elapsedMs": 5194.630399999998,
+                    "outcome": "success",
+                    "totalHttpRequests": 65,
+                    "completedResponses": 65,
+                    "coreRequests": 63,
+                    "searchRequests": 1,
+                    "graphqlRequests": 1,
+                    "decodedBodyBytes": 846490,
+                    "graphqlReportedPoints": 1,
+                    "fallbackRequests": 11,
+                    "additionalCIPaginationRequests": 0,
+                    "additionalReviewPaginationRequests": 0,
+                    "combinedStatusFallbackRequests": 11,
+                    "metadataFailure": null,
+                    "endpoints": {
+                        "user": 1,
+                        "search": 1,
+                        "graphql": 1,
+                        "check-runs": 20,
+                        "reviews": 20,
+                        "status": 11,
+                        "detail": 11
+                    },
+                    "failedResponses": 0,
+                    "failedTransports": 0,
+                    "retryRequests": 0,
+                    "actualHttpRequests": 64,
+                    "actualDecodedBodyBytes": 767301,
+                    "replayedDiscoveryRequests": 1,
+                    "budgetBefore": {
+                        "core": {
+                            "limit": 5000,
+                            "used": 306,
+                            "remaining": 4694,
+                            "reset": 1793479868
+                        },
+                        "search": {
+                            "limit": 30,
+                            "used": 1,
+                            "remaining": 29,
+                            "reset": 1793478864
+                        },
+                        "graphql": {
+                            "limit": 5000,
+                            "used": 5,
+                            "remaining": 4995,
+                            "reset": 1793481908
+                        },
+                        "integration_manifest": {
+                            "limit": 5000,
+                            "used": 0,
+                            "remaining": 5000,
+                            "reset": 1793482427
+                        },
+                        "source_import": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478887
+                        },
+                        "code_scanning_autofix": {
+                            "limit": 10,
+                            "used": 0,
+                            "remaining": 10,
+                            "reset": 1793478887
+                        },
+                        "actions_runner_registration": {
+                            "limit": 10000,
+                            "used": 0,
+                            "remaining": 10000,
+                            "reset": 1793482427
+                        },
+                        "scim": {
+                            "limit": 15000,
+                            "used": 0,
+                            "remaining": 15000,
+                            "reset": 1793482427
+                        },
+                        "dependency_snapshots": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478887
+                        },
+                        "dependency_sbom": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478887
+                        },
+                        "audit_log": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482427
+                        },
+                        "audit_log_streaming": {
+                            "limit": 15,
+                            "used": 0,
+                            "remaining": 15,
+                            "reset": 1793482427
+                        },
+                        "code_search": {
+                            "limit": 10,
+                            "used": 0,
+                            "remaining": 10,
+                            "reset": 1793478887
+                        },
+                        "copilot_usage_records": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482427
+                        },
+                        "enterprise_token_inventory": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482427
+                        }
+                    },
+                    "budgetAfter": {
+                        "core": {
+                            "limit": 5000,
+                            "used": 369,
+                            "remaining": 4631,
+                            "reset": 1793479868
+                        },
+                        "search": {
+                            "limit": 30,
+                            "used": 1,
+                            "remaining": 29,
+                            "reset": 1793478864
+                        },
+                        "graphql": {
+                            "limit": 5000,
+                            "used": 5,
+                            "remaining": 4995,
+                            "reset": 1793481908
+                        },
+                        "integration_manifest": {
+                            "limit": 5000,
+                            "used": 0,
+                            "remaining": 5000,
+                            "reset": 1793482432
+                        },
+                        "source_import": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478892
+                        },
+                        "code_scanning_autofix": {
+                            "limit": 10,
+                            "used": 0,
+                            "remaining": 10,
+                            "reset": 1793478892
+                        },
+                        "actions_runner_registration": {
+                            "limit": 10000,
+                            "used": 0,
+                            "remaining": 10000,
+                            "reset": 1793482432
+                        },
+                        "scim": {
+                            "limit": 15000,
+                            "used": 0,
+                            "remaining": 15000,
+                            "reset": 1793482432
+                        },
+                        "dependency_snapshots": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478892
+                        },
+                        "dependency_sbom": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478892
+                        },
+                        "audit_log": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482432
+                        },
+                        "audit_log_streaming": {
+                            "limit": 15,
+                            "used": 0,
+                            "remaining": 15,
+                            "reset": 1793482432
+                        },
+                        "code_search": {
+                            "limit": 10,
+                            "used": 0,
+                            "remaining": 10,
+                            "reset": 1793478892
+                        },
+                        "copilot_usage_records": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482432
+                        },
+                        "enterprise_token_inventory": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482432
+                        }
+                    },
+                    "observedBudgetDelta": {
+                        "core": 63,
+                        "search": 0,
+                        "graphql": 0
+                    }
+                },
+                {
+                    "client": "rest",
+                    "elapsedMs": 4907.155600000002,
+                    "outcome": "success",
+                    "totalHttpRequests": 73,
+                    "completedResponses": 73,
+                    "coreRequests": 72,
+                    "searchRequests": 1,
+                    "graphqlRequests": 0,
+                    "decodedBodyBytes": 964338,
+                    "graphqlReportedPoints": 0,
+                    "fallbackRequests": 0,
+                    "additionalCIPaginationRequests": 0,
+                    "additionalReviewPaginationRequests": 0,
+                    "combinedStatusFallbackRequests": 11,
+                    "metadataFailure": null,
+                    "endpoints": {
+                        "user": 1,
+                        "search": 1,
+                        "detail": 20,
+                        "check-runs": 20,
+                        "reviews": 20,
+                        "status": 11
+                    },
+                    "failedResponses": 0,
+                    "failedTransports": 0,
+                    "retryRequests": 0,
+                    "actualHttpRequests": 72,
+                    "actualDecodedBodyBytes": 885149,
+                    "replayedDiscoveryRequests": 1,
+                    "budgetBefore": {
+                        "core": {
+                            "limit": 5000,
+                            "used": 369,
+                            "remaining": 4631,
+                            "reset": 1793479868
+                        },
+                        "search": {
+                            "limit": 30,
+                            "used": 1,
+                            "remaining": 29,
+                            "reset": 1793478864
+                        },
+                        "graphql": {
+                            "limit": 5000,
+                            "used": 5,
+                            "remaining": 4995,
+                            "reset": 1793481908
+                        },
+                        "integration_manifest": {
+                            "limit": 5000,
+                            "used": 0,
+                            "remaining": 5000,
+                            "reset": 1793482432
+                        },
+                        "source_import": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478892
+                        },
+                        "code_scanning_autofix": {
+                            "limit": 10,
+                            "used": 0,
+                            "remaining": 10,
+                            "reset": 1793478892
+                        },
+                        "actions_runner_registration": {
+                            "limit": 10000,
+                            "used": 0,
+                            "remaining": 10000,
+                            "reset": 1793482432
+                        },
+                        "scim": {
+                            "limit": 15000,
+                            "used": 0,
+                            "remaining": 15000,
+                            "reset": 1793482432
+                        },
+                        "dependency_snapshots": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478892
+                        },
+                        "dependency_sbom": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478892
+                        },
+                        "audit_log": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482432
+                        },
+                        "audit_log_streaming": {
+                            "limit": 15,
+                            "used": 0,
+                            "remaining": 15,
+                            "reset": 1793482432
+                        },
+                        "code_search": {
+                            "limit": 10,
+                            "used": 0,
+                            "remaining": 10,
+                            "reset": 1793478892
+                        },
+                        "copilot_usage_records": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482432
+                        },
+                        "enterprise_token_inventory": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482432
+                        }
+                    },
+                    "budgetAfter": {
+                        "core": {
+                            "limit": 5000,
+                            "used": 441,
+                            "remaining": 4559,
+                            "reset": 1793479868
+                        },
+                        "search": {
+                            "limit": 30,
+                            "used": 1,
+                            "remaining": 29,
+                            "reset": 1793478864
+                        },
+                        "graphql": {
+                            "limit": 5000,
+                            "used": 5,
+                            "remaining": 4995,
+                            "reset": 1793481908
+                        },
+                        "integration_manifest": {
+                            "limit": 5000,
+                            "used": 0,
+                            "remaining": 5000,
+                            "reset": 1793482437
+                        },
+                        "source_import": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478897
+                        },
+                        "code_scanning_autofix": {
+                            "limit": 10,
+                            "used": 0,
+                            "remaining": 10,
+                            "reset": 1793478897
+                        },
+                        "actions_runner_registration": {
+                            "limit": 10000,
+                            "used": 0,
+                            "remaining": 10000,
+                            "reset": 1793482437
+                        },
+                        "scim": {
+                            "limit": 15000,
+                            "used": 0,
+                            "remaining": 15000,
+                            "reset": 1793482437
+                        },
+                        "dependency_snapshots": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478897
+                        },
+                        "dependency_sbom": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478897
+                        },
+                        "audit_log": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482437
+                        },
+                        "audit_log_streaming": {
+                            "limit": 15,
+                            "used": 0,
+                            "remaining": 15,
+                            "reset": 1793482437
+                        },
+                        "code_search": {
+                            "limit": 10,
+                            "used": 0,
+                            "remaining": 10,
+                            "reset": 1793478897
+                        },
+                        "copilot_usage_records": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482437
+                        },
+                        "enterprise_token_inventory": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482437
+                        }
+                    },
+                    "observedBudgetDelta": {
+                        "core": 72,
+                        "search": 0,
+                        "graphql": 0
+                    }
+                }
+            ],
+            "consumedDifferences": {},
+            "canonicalDifferences": {},
+            "differences": {},
+            "avatarDiagnostics": {
+                "rawDifferences": 0,
+                "sameHostAndPath": 0
+            }
+        },
+        {
+            "size": 40,
+            "repeat": 0,
+            "measurements": [
+                {
+                    "client": "rest",
+                    "elapsedMs": 9853.744400000003,
+                    "outcome": "success",
+                    "totalHttpRequests": 140,
+                    "completedResponses": 140,
+                    "coreRequests": 139,
+                    "searchRequests": 1,
+                    "graphqlRequests": 0,
+                    "decodedBodyBytes": 1989540,
+                    "graphqlReportedPoints": 0,
+                    "fallbackRequests": 0,
+                    "additionalCIPaginationRequests": 0,
+                    "additionalReviewPaginationRequests": 0,
+                    "combinedStatusFallbackRequests": 18,
+                    "metadataFailure": null,
+                    "endpoints": {
+                        "user": 1,
+                        "search": 1,
+                        "detail": 40,
+                        "check-runs": 40,
+                        "reviews": 40,
+                        "status": 18
+                    },
+                    "failedResponses": 0,
+                    "failedTransports": 0,
+                    "retryRequests": 0,
+                    "actualHttpRequests": 139,
+                    "actualDecodedBodyBytes": 1834107,
+                    "replayedDiscoveryRequests": 1,
+                    "budgetBefore": {
+                        "core": {
+                            "limit": 5000,
+                            "used": 441,
+                            "remaining": 4559,
+                            "reset": 1793479868
+                        },
+                        "search": {
+                            "limit": 30,
+                            "used": 1,
+                            "remaining": 29,
+                            "reset": 1793478864
+                        },
+                        "graphql": {
+                            "limit": 5000,
+                            "used": 5,
+                            "remaining": 4995,
+                            "reset": 1793481908
+                        },
+                        "integration_manifest": {
+                            "limit": 5000,
+                            "used": 0,
+                            "remaining": 5000,
+                            "reset": 1793482438
+                        },
+                        "source_import": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478898
+                        },
+                        "code_scanning_autofix": {
+                            "limit": 10,
+                            "used": 0,
+                            "remaining": 10,
+                            "reset": 1793478898
+                        },
+                        "actions_runner_registration": {
+                            "limit": 10000,
+                            "used": 0,
+                            "remaining": 10000,
+                            "reset": 1793482438
+                        },
+                        "scim": {
+                            "limit": 15000,
+                            "used": 0,
+                            "remaining": 15000,
+                            "reset": 1793482438
+                        },
+                        "dependency_snapshots": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478898
+                        },
+                        "dependency_sbom": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478898
+                        },
+                        "audit_log": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482438
+                        },
+                        "audit_log_streaming": {
+                            "limit": 15,
+                            "used": 0,
+                            "remaining": 15,
+                            "reset": 1793482438
+                        },
+                        "code_search": {
+                            "limit": 10,
+                            "used": 0,
+                            "remaining": 10,
+                            "reset": 1793478898
+                        },
+                        "copilot_usage_records": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482438
+                        },
+                        "enterprise_token_inventory": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482438
+                        }
+                    },
+                    "budgetAfter": {
+                        "core": {
+                            "limit": 5000,
+                            "used": 580,
+                            "remaining": 4420,
+                            "reset": 1793479868
+                        },
+                        "search": {
+                            "limit": 30,
+                            "used": 1,
+                            "remaining": 29,
+                            "reset": 1793478864
+                        },
+                        "graphql": {
+                            "limit": 5000,
+                            "used": 5,
+                            "remaining": 4995,
+                            "reset": 1793481908
+                        },
+                        "integration_manifest": {
+                            "limit": 5000,
+                            "used": 0,
+                            "remaining": 5000,
+                            "reset": 1793482448
+                        },
+                        "source_import": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478908
+                        },
+                        "code_scanning_autofix": {
+                            "limit": 10,
+                            "used": 0,
+                            "remaining": 10,
+                            "reset": 1793478908
+                        },
+                        "actions_runner_registration": {
+                            "limit": 10000,
+                            "used": 0,
+                            "remaining": 10000,
+                            "reset": 1793482448
+                        },
+                        "scim": {
+                            "limit": 15000,
+                            "used": 0,
+                            "remaining": 15000,
+                            "reset": 1793482448
+                        },
+                        "dependency_snapshots": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478908
+                        },
+                        "dependency_sbom": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478908
+                        },
+                        "audit_log": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482448
+                        },
+                        "audit_log_streaming": {
+                            "limit": 15,
+                            "used": 0,
+                            "remaining": 15,
+                            "reset": 1793482448
+                        },
+                        "code_search": {
+                            "limit": 10,
+                            "used": 0,
+                            "remaining": 10,
+                            "reset": 1793478908
+                        },
+                        "copilot_usage_records": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482448
+                        },
+                        "enterprise_token_inventory": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482448
+                        }
+                    },
+                    "observedBudgetDelta": {
+                        "core": 139,
+                        "search": 0,
+                        "graphql": 0
+                    }
+                },
+                {
+                    "client": "hybrid",
+                    "elapsedMs": 10265.7267,
+                    "outcome": "success",
+                    "totalHttpRequests": 124,
+                    "completedResponses": 124,
+                    "coreRequests": 121,
+                    "searchRequests": 1,
+                    "graphqlRequests": 2,
+                    "decodedBodyBytes": 1748243,
+                    "graphqlReportedPoints": 2,
+                    "fallbackRequests": 22,
+                    "additionalCIPaginationRequests": 0,
+                    "additionalReviewPaginationRequests": 0,
+                    "combinedStatusFallbackRequests": 18,
+                    "metadataFailure": null,
+                    "endpoints": {
+                        "user": 1,
+                        "search": 1,
+                        "graphql": 2,
+                        "check-runs": 40,
+                        "reviews": 40,
+                        "status": 18,
+                        "detail": 22
+                    },
+                    "failedResponses": 0,
+                    "failedTransports": 0,
+                    "retryRequests": 0,
+                    "actualHttpRequests": 123,
+                    "actualDecodedBodyBytes": 1592810,
+                    "replayedDiscoveryRequests": 1,
+                    "budgetBefore": {
+                        "core": {
+                            "limit": 5000,
+                            "used": 580,
+                            "remaining": 4420,
+                            "reset": 1793479868
+                        },
+                        "search": {
+                            "limit": 30,
+                            "used": 1,
+                            "remaining": 29,
+                            "reset": 1793478864
+                        },
+                        "graphql": {
+                            "limit": 5000,
+                            "used": 5,
+                            "remaining": 4995,
+                            "reset": 1793481908
+                        },
+                        "integration_manifest": {
+                            "limit": 5000,
+                            "used": 0,
+                            "remaining": 5000,
+                            "reset": 1793482448
+                        },
+                        "source_import": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478908
+                        },
+                        "code_scanning_autofix": {
+                            "limit": 10,
+                            "used": 0,
+                            "remaining": 10,
+                            "reset": 1793478908
+                        },
+                        "actions_runner_registration": {
+                            "limit": 10000,
+                            "used": 0,
+                            "remaining": 10000,
+                            "reset": 1793482448
+                        },
+                        "scim": {
+                            "limit": 15000,
+                            "used": 0,
+                            "remaining": 15000,
+                            "reset": 1793482448
+                        },
+                        "dependency_snapshots": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478908
+                        },
+                        "dependency_sbom": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478908
+                        },
+                        "audit_log": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482448
+                        },
+                        "audit_log_streaming": {
+                            "limit": 15,
+                            "used": 0,
+                            "remaining": 15,
+                            "reset": 1793482448
+                        },
+                        "code_search": {
+                            "limit": 10,
+                            "used": 0,
+                            "remaining": 10,
+                            "reset": 1793478908
+                        },
+                        "copilot_usage_records": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482448
+                        },
+                        "enterprise_token_inventory": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482448
+                        }
+                    },
+                    "budgetAfter": {
+                        "core": {
+                            "limit": 5000,
+                            "used": 701,
+                            "remaining": 4299,
+                            "reset": 1793479868
+                        },
+                        "search": {
+                            "limit": 30,
+                            "used": 1,
+                            "remaining": 29,
+                            "reset": 1793478864
+                        },
+                        "graphql": {
+                            "limit": 5000,
+                            "used": 5,
+                            "remaining": 4995,
+                            "reset": 1793481908
+                        },
+                        "integration_manifest": {
+                            "limit": 5000,
+                            "used": 0,
+                            "remaining": 5000,
+                            "reset": 1793482458
+                        },
+                        "source_import": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478918
+                        },
+                        "code_scanning_autofix": {
+                            "limit": 10,
+                            "used": 0,
+                            "remaining": 10,
+                            "reset": 1793478918
+                        },
+                        "actions_runner_registration": {
+                            "limit": 10000,
+                            "used": 0,
+                            "remaining": 10000,
+                            "reset": 1793482458
+                        },
+                        "scim": {
+                            "limit": 15000,
+                            "used": 0,
+                            "remaining": 15000,
+                            "reset": 1793482458
+                        },
+                        "dependency_snapshots": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478918
+                        },
+                        "dependency_sbom": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478918
+                        },
+                        "audit_log": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482458
+                        },
+                        "audit_log_streaming": {
+                            "limit": 15,
+                            "used": 0,
+                            "remaining": 15,
+                            "reset": 1793482458
+                        },
+                        "code_search": {
+                            "limit": 10,
+                            "used": 0,
+                            "remaining": 10,
+                            "reset": 1793478918
+                        },
+                        "copilot_usage_records": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482458
+                        },
+                        "enterprise_token_inventory": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482458
+                        }
+                    },
+                    "observedBudgetDelta": {
+                        "core": 121,
+                        "search": 0,
+                        "graphql": 0
+                    }
+                }
+            ],
+            "consumedDifferences": {},
+            "canonicalDifferences": {},
+            "differences": {},
+            "avatarDiagnostics": {
+                "rawDifferences": 0,
+                "sameHostAndPath": 0
+            }
+        },
+        {
+            "size": 40,
+            "repeat": 1,
+            "measurements": [
+                {
+                    "client": "hybrid",
+                    "elapsedMs": 10035.368799999997,
+                    "outcome": "success",
+                    "totalHttpRequests": 124,
+                    "completedResponses": 124,
+                    "coreRequests": 121,
+                    "searchRequests": 1,
+                    "graphqlRequests": 2,
+                    "decodedBodyBytes": 1748243,
+                    "graphqlReportedPoints": 2,
+                    "fallbackRequests": 22,
+                    "additionalCIPaginationRequests": 0,
+                    "additionalReviewPaginationRequests": 0,
+                    "combinedStatusFallbackRequests": 18,
+                    "metadataFailure": null,
+                    "endpoints": {
+                        "user": 1,
+                        "search": 1,
+                        "graphql": 2,
+                        "reviews": 40,
+                        "check-runs": 40,
+                        "status": 18,
+                        "detail": 22
+                    },
+                    "failedResponses": 0,
+                    "failedTransports": 0,
+                    "retryRequests": 0,
+                    "actualHttpRequests": 123,
+                    "actualDecodedBodyBytes": 1592810,
+                    "replayedDiscoveryRequests": 1,
+                    "budgetBefore": {
+                        "core": {
+                            "limit": 5000,
+                            "used": 701,
+                            "remaining": 4299,
+                            "reset": 1793479868
+                        },
+                        "search": {
+                            "limit": 30,
+                            "used": 1,
+                            "remaining": 29,
+                            "reset": 1793478864
+                        },
+                        "graphql": {
+                            "limit": 5000,
+                            "used": 5,
+                            "remaining": 4995,
+                            "reset": 1793481908
+                        },
+                        "integration_manifest": {
+                            "limit": 5000,
+                            "used": 0,
+                            "remaining": 5000,
+                            "reset": 1793482459
+                        },
+                        "source_import": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478919
+                        },
+                        "code_scanning_autofix": {
+                            "limit": 10,
+                            "used": 0,
+                            "remaining": 10,
+                            "reset": 1793478919
+                        },
+                        "actions_runner_registration": {
+                            "limit": 10000,
+                            "used": 0,
+                            "remaining": 10000,
+                            "reset": 1793482459
+                        },
+                        "scim": {
+                            "limit": 15000,
+                            "used": 0,
+                            "remaining": 15000,
+                            "reset": 1793482459
+                        },
+                        "dependency_snapshots": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478919
+                        },
+                        "dependency_sbom": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478919
+                        },
+                        "audit_log": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482459
+                        },
+                        "audit_log_streaming": {
+                            "limit": 15,
+                            "used": 0,
+                            "remaining": 15,
+                            "reset": 1793482459
+                        },
+                        "code_search": {
+                            "limit": 10,
+                            "used": 0,
+                            "remaining": 10,
+                            "reset": 1793478919
+                        },
+                        "copilot_usage_records": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482459
+                        },
+                        "enterprise_token_inventory": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482459
+                        }
+                    },
+                    "budgetAfter": {
+                        "core": {
+                            "limit": 5000,
+                            "used": 822,
+                            "remaining": 4178,
+                            "reset": 1793479868
+                        },
+                        "search": {
+                            "limit": 30,
+                            "used": 0,
+                            "remaining": 30,
+                            "reset": 1793478929
+                        },
+                        "graphql": {
+                            "limit": 5000,
+                            "used": 5,
+                            "remaining": 4995,
+                            "reset": 1793481908
+                        },
+                        "integration_manifest": {
+                            "limit": 5000,
+                            "used": 0,
+                            "remaining": 5000,
+                            "reset": 1793482469
+                        },
+                        "source_import": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478929
+                        },
+                        "code_scanning_autofix": {
+                            "limit": 10,
+                            "used": 0,
+                            "remaining": 10,
+                            "reset": 1793478929
+                        },
+                        "actions_runner_registration": {
+                            "limit": 10000,
+                            "used": 0,
+                            "remaining": 10000,
+                            "reset": 1793482469
+                        },
+                        "scim": {
+                            "limit": 15000,
+                            "used": 0,
+                            "remaining": 15000,
+                            "reset": 1793482469
+                        },
+                        "dependency_snapshots": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478929
+                        },
+                        "dependency_sbom": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478929
+                        },
+                        "audit_log": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482469
+                        },
+                        "audit_log_streaming": {
+                            "limit": 15,
+                            "used": 0,
+                            "remaining": 15,
+                            "reset": 1793482469
+                        },
+                        "code_search": {
+                            "limit": 10,
+                            "used": 0,
+                            "remaining": 10,
+                            "reset": 1793478929
+                        },
+                        "copilot_usage_records": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482469
+                        },
+                        "enterprise_token_inventory": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482469
+                        }
+                    },
+                    "observedBudgetDelta": {
+                        "core": 121,
+                        "search": null,
+                        "graphql": 0
+                    }
+                },
+                {
+                    "client": "rest",
+                    "elapsedMs": 9659.006600000008,
+                    "outcome": "success",
+                    "totalHttpRequests": 140,
+                    "completedResponses": 140,
+                    "coreRequests": 139,
+                    "searchRequests": 1,
+                    "graphqlRequests": 0,
+                    "decodedBodyBytes": 1989540,
+                    "graphqlReportedPoints": 0,
+                    "fallbackRequests": 0,
+                    "additionalCIPaginationRequests": 0,
+                    "additionalReviewPaginationRequests": 0,
+                    "combinedStatusFallbackRequests": 18,
+                    "metadataFailure": null,
+                    "endpoints": {
+                        "user": 1,
+                        "search": 1,
+                        "detail": 40,
+                        "reviews": 40,
+                        "check-runs": 40,
+                        "status": 18
+                    },
+                    "failedResponses": 0,
+                    "failedTransports": 0,
+                    "retryRequests": 0,
+                    "actualHttpRequests": 139,
+                    "actualDecodedBodyBytes": 1834107,
+                    "replayedDiscoveryRequests": 1,
+                    "budgetBefore": {
+                        "core": {
+                            "limit": 5000,
+                            "used": 822,
+                            "remaining": 4178,
+                            "reset": 1793479868
+                        },
+                        "search": {
+                            "limit": 30,
+                            "used": 0,
+                            "remaining": 30,
+                            "reset": 1793478929
+                        },
+                        "graphql": {
+                            "limit": 5000,
+                            "used": 5,
+                            "remaining": 4995,
+                            "reset": 1793481908
+                        },
+                        "integration_manifest": {
+                            "limit": 5000,
+                            "used": 0,
+                            "remaining": 5000,
+                            "reset": 1793482469
+                        },
+                        "source_import": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478929
+                        },
+                        "code_scanning_autofix": {
+                            "limit": 10,
+                            "used": 0,
+                            "remaining": 10,
+                            "reset": 1793478929
+                        },
+                        "actions_runner_registration": {
+                            "limit": 10000,
+                            "used": 0,
+                            "remaining": 10000,
+                            "reset": 1793482469
+                        },
+                        "scim": {
+                            "limit": 15000,
+                            "used": 0,
+                            "remaining": 15000,
+                            "reset": 1793482469
+                        },
+                        "dependency_snapshots": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478929
+                        },
+                        "dependency_sbom": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478929
+                        },
+                        "audit_log": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482469
+                        },
+                        "audit_log_streaming": {
+                            "limit": 15,
+                            "used": 0,
+                            "remaining": 15,
+                            "reset": 1793482469
+                        },
+                        "code_search": {
+                            "limit": 10,
+                            "used": 0,
+                            "remaining": 10,
+                            "reset": 1793478929
+                        },
+                        "copilot_usage_records": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482469
+                        },
+                        "enterprise_token_inventory": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482469
+                        }
+                    },
+                    "budgetAfter": {
+                        "core": {
+                            "limit": 5000,
+                            "used": 961,
+                            "remaining": 4039,
+                            "reset": 1793479868
+                        },
+                        "search": {
+                            "limit": 30,
+                            "used": 0,
+                            "remaining": 30,
+                            "reset": 1793478939
+                        },
+                        "graphql": {
+                            "limit": 5000,
+                            "used": 5,
+                            "remaining": 4995,
+                            "reset": 1793481908
+                        },
+                        "integration_manifest": {
+                            "limit": 5000,
+                            "used": 0,
+                            "remaining": 5000,
+                            "reset": 1793482479
+                        },
+                        "source_import": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478939
+                        },
+                        "code_scanning_autofix": {
+                            "limit": 10,
+                            "used": 0,
+                            "remaining": 10,
+                            "reset": 1793478939
+                        },
+                        "actions_runner_registration": {
+                            "limit": 10000,
+                            "used": 0,
+                            "remaining": 10000,
+                            "reset": 1793482479
+                        },
+                        "scim": {
+                            "limit": 15000,
+                            "used": 0,
+                            "remaining": 15000,
+                            "reset": 1793482479
+                        },
+                        "dependency_snapshots": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478939
+                        },
+                        "dependency_sbom": {
+                            "limit": 100,
+                            "used": 0,
+                            "remaining": 100,
+                            "reset": 1793478939
+                        },
+                        "audit_log": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482479
+                        },
+                        "audit_log_streaming": {
+                            "limit": 15,
+                            "used": 0,
+                            "remaining": 15,
+                            "reset": 1793482479
+                        },
+                        "code_search": {
+                            "limit": 10,
+                            "used": 0,
+                            "remaining": 10,
+                            "reset": 1793478939
+                        },
+                        "copilot_usage_records": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482479
+                        },
+                        "enterprise_token_inventory": {
+                            "limit": 1750,
+                            "used": 0,
+                            "remaining": 1750,
+                            "reset": 1793482479
+                        }
+                    },
+                    "observedBudgetDelta": {
+                        "core": 139,
+                        "search": null,
+                        "graphql": 0
+                    }
+                }
+            ],
+            "consumedDifferences": {},
+            "canonicalDifferences": {},
+            "differences": {},
+            "avatarDiagnostics": {
+                "rawDifferences": 0,
+                "sameHostAndPath": 0
+            }
+        }
+    ],
+    "environment": {
+        "runtime": "v22.14.0",
+        "platform": "win32",
+        "architecture": "x64"
+    }
+}

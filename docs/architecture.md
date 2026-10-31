@@ -471,5 +471,8 @@ with the existing REST identity, discovery, reviews and CI implementation. It is
 imported only by tests/tooling and does not participate in extension refreshes.
 The [hybrid recommendation](hybrid-metadata-recommendation.md) records fixture
 and opt-in public live measurements, field mismatches, fallback/session limits
-and a NO-GO decision for production integration at this point. Existing encrypted
+and its historical NO-GO decision. The [compatibility follow-up](hybrid-metadata-compatibility.md)
+adds strict per-session discovery-author verification, keeps raw reviewer differences
+visible beside consumed-field comparisons, and retains REST fallback for ambiguous
+metadata. Repeated open-PR latency regressions keep integration at NO-GO. Existing encrypted
 storage, numeric IDs, permissions, status semantics and UI are unchanged.

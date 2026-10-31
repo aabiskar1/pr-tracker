@@ -1,4 +1,10 @@
 import { runTrial, fieldDifferences } from './benchmark';
+import {
+    consumedPullRequests,
+    discoveryAuthor,
+    canonicalDifferences,
+    canonicalProjection,
+} from './compatibility';
 import type { PullRequest } from '../../types';
 
 type Budgets = Record<
@@ -7,9 +13,12 @@ type Budgets = Record<
 >;
 export async function benchmarkLive(
     token: string,
-    options: { sizes?: number[]; repeats?: number } = {}
+    options: { sizes?: number[]; repeats?: number; open?: boolean } = {}
 ) {
     const sizes = options.sizes ?? [40];
+    const query = options.open
+        ? 'repo:cli/cli is:pr is:open sort:created-asc'
+        : 'repo:cli/cli is:pr sort:created-asc';
     if (sizes.some((size) => ![5, 20, 40, 100, 150].includes(size)))
         throw new Error('Unsupported live size');
     const native = globalThis.fetch;
@@ -44,7 +53,7 @@ export async function benchmarkLive(
     for (let page = 1; pool.length < maximum; page++) {
         overheadHttpRequests++;
         const result = await network(
-            `https://api.github.com/search/issues?q=${encodeURIComponent('repo:cli/cli is:pr sort:created-asc')}&per_page=100&page=${page}`
+            `https://api.github.com/search/issues?q=${encodeURIComponent(query)}&per_page=100&page=${page}`
         );
         if (!result.ok) throw new Error('Live membership discovery failed');
         const body = await result.json();
@@ -54,11 +63,7 @@ export async function benchmarkLive(
             !body.items.length
         )
             throw new Error('Live membership incomplete');
-        pool.push(
-            ...body.items.map((item: { pull_request: { url: string } }) => ({
-                pull_request: { url: item.pull_request.url },
-            }))
-        );
+        pool.push(...body.items);
         if (page > 2) throw new Error('Live discovery page ceiling');
     }
     const trials = [];
@@ -105,7 +110,7 @@ export async function benchmarkLive(
                     return network(input, init);
                 };
                 const trial = await runTrial(fixedMembership, client, {
-                    customQuery: 'repo:cli/cli is:pr sort:created-asc',
+                    customQuery: query,
                 });
                 outputs[client] = trial;
                 const budgetAfter = await budgets();
@@ -164,6 +169,14 @@ export async function benchmarkLive(
                 size,
                 repeat,
                 measurements: measured,
+                consumedDifferences: fieldDifferences(
+                    consumedPullRequests(rest.pullRequests),
+                    consumedPullRequests(hybrid.pullRequests)
+                ),
+                canonicalDifferences: canonicalDifferences(
+                    outputs.rest!.canonicalDetails,
+                    outputs.hybrid!.canonicalDetails
+                ),
                 differences: fieldDifferences(
                     rest.pullRequests,
                     hybrid.pullRequests
@@ -179,7 +192,8 @@ export async function benchmarkLive(
         measuredAt: new Date().toISOString(),
         repository: 'cli/cli (public)',
         sizes,
-        scope: 'Identity, canonical metadata and unchanged REST reviews/CI are live. REST discovery bodies are fixed-membership replay, counted separately. No browser storage/UI/notifications. Query histories are not default open-dashboard populations.',
+        population: options.open ? 'open' : 'historical',
+        scope: 'Identity, canonical metadata and unchanged REST reviews/CI are live. REST discovery bodies are fixed-membership replay, counted separately. No browser storage/UI/notifications. Membership is captured once; this is not live default three-source dashboard discovery.',
         overheadHttpRequests,
         trials,
     };
@@ -189,7 +203,10 @@ import { mapWithConcurrency } from '../../utils/mapWithConcurrency';
 
 // A small, opt-in diagnostic, separate from timed trials. Only aggregate mismatch
 // categories leave memory; the public PR payloads and identities are not saved.
-export async function diagnoseLiveMetadata(token: string) {
+export async function diagnoseLiveMetadata(
+    token: string,
+    options: { open?: boolean } = {}
+) {
     const network: typeof fetch = (input, init) => {
         const url = new URL(String(input));
         if (url.origin !== 'https://api.github.com')
@@ -212,7 +229,7 @@ export async function diagnoseLiveMetadata(token: string) {
     )
         throw new Error('Insufficient diagnostic budget');
     const search = await network(
-        `https://api.github.com/search/issues?q=${encodeURIComponent('repo:cli/cli is:pr sort:created-asc')}&per_page=100&page=1`
+        `https://api.github.com/search/issues?q=${encodeURIComponent(options.open ? 'repo:cli/cli is:pr is:open sort:created-asc' : 'repo:cli/cli is:pr sort:created-asc')}&per_page=100&page=1`
     );
     const body = await search.json();
     if (
@@ -227,13 +244,27 @@ export async function diagnoseLiveMetadata(token: string) {
         .map(
             (item: { pull_request: { url: string } }) => item.pull_request.url
         );
+    const evidence = new Map<string, ReturnType<typeof discoveryAuthor>>(
+        body.items
+            .slice(0, 40)
+            .map((item: { pull_request: { url: string } }) => [
+                item.pull_request.url,
+                discoveryAuthor(item),
+            ])
+    );
     const graph = await fetchMetadata(urls, { token, transport: network });
+    const preserved = await fetchMetadata(urls, {
+        token,
+        transport: network,
+        discoveryAuthors: evidence,
+    });
     const raw = await mapWithConcurrency(urls, 4, async (url) => {
         const result = await network(url);
         if (!result.ok) throw new Error('Diagnostic detail inaccessible');
         return (await result.json()) as CanonicalDetail;
     });
     const fields: Record<string, number> = {};
+    const compatibleFields: Record<string, number> = {};
     const avatarParameterKeys = new Set<string>();
     const unconsumedReviewerFields = new Set<string>();
     let reviewerArraysWithExtraFields = 0;
@@ -244,45 +275,27 @@ export async function diagnoseLiveMetadata(token: string) {
         differentMembership: 0,
         avatarOnly: 0,
     };
-    const repo = (r: CanonicalDetail['base']['repo'] | null) =>
-        r
-            ? {
-                  name: r.name,
-                  full_name: r.full_name,
-                  url: r.url,
-                  html_url: r.html_url,
-              }
-            : null;
     for (let index = 0; index < urls.length; index++) {
         const rest = raw[index]!;
         const node = graph.details.get(urls[index]!);
+        if (!preserved.details.has(urls[index]!))
+            compatibleFields.fallbackRequired =
+                (compatibleFields.fallbackRequired ?? 0) + 1;
         if (!node) {
             fields.fallbackRequired = (fields.fallbackRequired ?? 0) + 1;
             continue;
         }
-        const projected = {
-            id: rest.id,
-            number: rest.number,
-            title: rest.title,
-            html_url: rest.html_url,
-            created_at: rest.created_at,
-            updated_at: rest.updated_at,
-            state: rest.state,
-            merged: rest.merged,
-            draft: rest.draft,
-            user: rest.user
-                ? { login: rest.user.login, avatar_url: rest.user.avatar_url }
-                : null,
-            requested_reviewers: rest.requested_reviewers.map((r) => ({
-                login: r.login,
-                avatar_url: r.avatar_url,
-            })),
-            requested_teams: rest.requested_teams.map((team) => ({
-                slug: team.slug,
-            })),
-            base: { repo: repo(rest.base.repo) },
-            head: { sha: rest.head.sha, repo: repo(rest.head.repo) },
-        };
+        const projected = canonicalProjection(rest);
+        const compatible = preserved.details.get(urls[index]!);
+        if (compatible)
+            for (const key of Object.keys(
+                compatible
+            ) as (keyof CanonicalDetail)[])
+                if (
+                    JSON.stringify(compatible[key]) !==
+                    JSON.stringify(projected[key])
+                )
+                    compatibleFields[key] = (compatibleFields[key] ?? 0) + 1;
         for (const key of Object.keys(node) as (keyof CanonicalDetail)[])
             if (JSON.stringify(node[key]) !== JSON.stringify(projected[key]))
                 fields[key] = (fields[key] ?? 0) + 1;
@@ -331,15 +344,28 @@ export async function diagnoseLiveMetadata(token: string) {
         repository: 'cli/cli (public)',
         count: 40,
         fields,
+        compatibleFields,
+        fallbackReasons: Object.fromEntries(
+            [...new Set(preserved.fallbackReasons.values())].map((reason) => [
+                reason,
+                [...preserved.fallbackReasons.values()].filter(
+                    (value) => value === reason
+                ).length,
+            ])
+        ),
+        population: options.open ? 'open' : 'historical',
         reviewer,
         avatarParameterKeys: [...avatarParameterKeys].sort(),
         reviewerArraysWithExtraFields,
         unconsumedReviewerFields: [...unconsumedReviewerFields].sort(),
-        httpRequests: 2 + urls.length + graph.rateUsage.length,
+        httpRequests:
+            2 +
+            urls.length +
+            graph.rateUsage.length +
+            preserved.rateUsage.length,
         overheadBudgetProbes: 1,
-        graphqlReportedPoints: graph.rateUsage.reduce(
-            (sum, rate) => sum + rate.cost,
-            0
-        ),
+        graphqlReportedPoints:
+            graph.rateUsage.reduce((sum, rate) => sum + rate.cost, 0) +
+            preserved.rateUsage.reduce((sum, rate) => sum + rate.cost, 0),
     };
 }

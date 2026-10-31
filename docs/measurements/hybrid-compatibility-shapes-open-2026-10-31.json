@@ -1,0 +1,22 @@
+{
+    "kind": "public-open-reviewer-and-author-shape-diagnostic",
+    "measuredAt": "2026-10-31T20:39:22.476Z",
+    "repository": "cli/cli (public)",
+    "population": "oldest open PRs",
+    "httpRequests": 2,
+    "graphqlReportedPoints": 1,
+    "counts": {
+        "prCount": 40,
+        "prsWithNullReviewers": 20,
+        "nullReviewerNodes": 23,
+        "reviewerTypes": {
+            "User": 21
+        },
+        "prsWithCountMismatch": 0,
+        "prsWithMorePages": 0,
+        "prsWithDuplicateIndividualLogins": 1,
+        "authorLoginDifferences": 1,
+        "authorDifferentLoginSameNodeAndType": 1,
+        "authorBotSuffixDifference": 0
+    }
+}
