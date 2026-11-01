@@ -167,9 +167,18 @@ live GitHub requests:
 npm run test:e2e:screenshots
 ```
 
-Chrome MV3 is the only runtime E2E target. Firefox MV2 remains covered by the
-build command, not browser automation. See `docs/testing.md` for the service
-worker restart gap and deterministic harness details.
+The main E2E suite targets Chrome MV3. The Advanced CI regression also runs in
+the real Firefox toolbar popup using the installed Puppeteer and Firefox:
+
+```sh
+npm run build:firefox
+npx vitest run --config vitest.config.ts tests/firefox/advanced-ci.firefox.test.ts
+```
+
+Set `FIREFOX_PATH` if Firefox is installed outside the default Windows path.
+This focused test is separate from the Chrome suite and needs a visible desktop
+session. See `docs/testing.md` for the service worker restart gap and
+deterministic harness details.
 
 The component foundation has a test-build-only showcase. Build with
 `npm run build:e2e`, load the popup with the

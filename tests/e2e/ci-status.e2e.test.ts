@@ -19,6 +19,7 @@ import {
 } from './harness.js';
 import { appData, POPULATED_PRS } from './fixtures.js';
 import type { CIStatus } from '../../src/types';
+import { openExtensionPopup } from './setup.js';
 
 const states: CIStatus[] = [
     'passing',
@@ -37,7 +38,16 @@ const cards = (page: Page) =>
     page.$$eval('.pr-card-title', (elements) =>
         elements.map((el) => el.textContent?.trim())
     );
+const advancedButton = 'button[aria-label="Advanced CI filters"]';
+const advancedMenu = '[role="dialog"][aria-label="Advanced CI filters"]';
+const openAdvanced = async (page: Page) => {
+    if (!(await page.$(advancedMenu)))
+        await page.click(advancedButton, { timeout: 5000 });
+    await page.waitForSelector(advancedMenu);
+    await page.waitForSelector(`${advancedButton}[aria-expanded="true"]`);
+};
 const toggle = async (page: Page, status: CIStatus) => {
+    if (status === 'no-ci' || status === 'unknown') await openAdvanced(page);
     const selector = `label:has([data-ci-status="${status}"])`;
     const wasSelected = await page.$eval(
         `${selector} input`,
@@ -127,11 +137,18 @@ describe('five CI states', () => {
                     (await readAppData(page)).preferences?.filters?.ciStatus
                 ).toEqual(['unknown'])
             );
-            await page.reload();
+            await page.close();
+            page = await openExtensionPopup();
             await waitForDashboard(page);
             await vi.waitFor(async () =>
                 expect(await cards(page)).toEqual(['CI fixture unknown'])
             );
+            expect(await page.$(advancedMenu)).toBeNull();
+            expect(
+                await page.$eval(advancedButton, (el) =>
+                    el.getAttribute('data-filtered')
+                )
+            ).toBe('true');
             await page.click('.filter-bar-container button:not([aria-label])');
             await page.waitForFunction(
                 () => document.querySelectorAll('.pr-card-title').length === 5
@@ -153,6 +170,225 @@ describe('five CI states', () => {
                 path: `screenshots/ci-status-${theme}.png`,
                 fullPage: true,
             });
+        }
+    );
+
+    it.each(['light', 'dark'] as const)(
+        'supports the Advanced menu, keyboard dismissal and empty CI selection in %s',
+        async (theme) => {
+            page = await openSeededPopup(github, { data: appData(prs), theme });
+            expect(await page.$(advancedMenu)).toBeNull();
+            expect(
+                await page.$eval(advancedButton, (el) =>
+                    el.getAttribute('data-filtered')
+                )
+            ).toBe('false');
+            expect(
+                await page.$$eval(
+                    '.filter-bar-container [data-slot="badge"][data-ci-status]',
+                    (els) =>
+                        els.map((el) => ({
+                            status: el.getAttribute('data-ci-status'),
+                            background: getComputedStyle(el).backgroundColor,
+                        }))
+                )
+            ).toEqual([
+                { status: 'passing', background: 'rgb(40, 167, 69)' },
+                { status: 'failing', background: 'rgb(203, 36, 49)' },
+                { status: 'pending', background: 'rgb(219, 171, 9)' },
+            ]);
+            const before = await page.$eval(
+                '.filter-bar-container',
+                (el) => el.getBoundingClientRect().height
+            );
+            await page.focus(advancedButton);
+            await page.keyboard.press('Enter');
+            await page.waitForSelector(advancedMenu);
+            await page.waitForFunction(
+                () =>
+                    document.activeElement?.getAttribute('data-ci-status') ===
+                    'no-ci'
+            );
+            expect(
+                await page.$$eval(`${advancedMenu} input`, (els) =>
+                    els.map((el) => (el as HTMLInputElement).checked)
+                )
+            ).toEqual([true, true]);
+            expect(
+                await page.$eval(
+                    '.filter-bar-container',
+                    (el) => el.getBoundingClientRect().height
+                )
+            ).toBe(before);
+            const surface = await page.$eval(advancedMenu, (el) => ({
+                background: getComputedStyle(el).backgroundColor,
+                overflow: el.scrollWidth > el.clientWidth,
+            }));
+            expect(surface.background).toBe(
+                theme === 'light' ? 'rgb(255, 255, 255)' : 'rgb(22, 27, 34)'
+            );
+            expect(surface.overflow).toBe(false);
+            await page.evaluate(() => document.fonts.ready);
+            await page.screenshot({
+                path: `screenshots/ci-advanced-${theme}.png`,
+            });
+            await page.keyboard.press('Space');
+            await page.keyboard.press('Tab');
+            expect(
+                await page.$eval(
+                    `${advancedMenu} input[data-ci-status="unknown"]`,
+                    (el) => el === document.activeElement
+                )
+            ).toBe(true);
+            await page.keyboard.press('Space');
+            await vi.waitFor(async () =>
+                expect(
+                    (await readAppData(page)).preferences?.filters?.ciStatus
+                ).toEqual(['passing', 'failing', 'pending'])
+            );
+            await vi.waitFor(async () =>
+                expect(await cards(page)).toEqual([
+                    'CI fixture passing',
+                    'CI fixture failing',
+                    'CI fixture pending',
+                ])
+            );
+            expect(
+                await page.$eval(advancedButton, (el) =>
+                    el.getAttribute('data-filtered')
+                )
+            ).toBe('true');
+            expect(
+                await page.$(`${advancedButton} .ci-advanced-indicator`)
+            ).not.toBeNull();
+            await page.keyboard.press('Escape');
+            await page.waitForSelector(
+                `${advancedButton}[aria-expanded="false"]`
+            );
+            expect(
+                await page.$eval(
+                    advancedButton,
+                    (el) => el === document.activeElement
+                )
+            ).toBe(true);
+            // A second activation closes it; outside pointer and Tab also dismiss it.
+            await openAdvanced(page);
+            await page.click(advancedButton);
+            await page.waitForSelector(
+                `${advancedButton}[aria-expanded="false"]`
+            );
+            await openAdvanced(page);
+            await page.click('[aria-label="Search Pull Requests"]');
+            await page.waitForSelector(
+                `${advancedButton}[aria-expanded="false"]`
+            );
+            await openAdvanced(page);
+            await page.keyboard.press('Tab');
+            await page.keyboard.press('Tab');
+            await page.waitForSelector(
+                `${advancedButton}[aria-expanded="false"]`
+            );
+            expect(
+                await page.evaluate(() =>
+                    document.activeElement?.textContent?.trim()
+                )
+            ).toBe('Reset Filters');
+            for (const status of ['passing', 'failing', 'pending'] as const)
+                await toggle(page, status);
+            // Existing convention: empty means no CI restriction, not an empty result.
+            await vi.waitFor(async () =>
+                expect(
+                    (await readAppData(page)).preferences?.filters?.ciStatus
+                ).toEqual([])
+            );
+            await vi.waitFor(async () =>
+                expect(await cards(page)).toHaveLength(5)
+            );
+            expect(
+                await page.$eval(advancedButton, (el) =>
+                    el.getAttribute('title')
+                )
+            ).toBe('All CI states included (no selection)');
+            await page.close();
+            page = await openExtensionPopup();
+            await waitForDashboard(page);
+            expect(
+                (await readAppData(page)).preferences?.filters?.ciStatus
+            ).toEqual([]);
+            await vi.waitFor(async () =>
+                expect(await cards(page)).toHaveLength(5)
+            );
+            await page.click('button::-p-text(Reset Filters)');
+            await vi.waitFor(async () =>
+                expect(
+                    (await readAppData(page)).preferences?.filters?.ciStatus
+                ).toEqual(states)
+            );
+            expect(
+                await page.$eval(advancedButton, (el) =>
+                    el.getAttribute('data-filtered')
+                )
+            ).toBe('false');
+            await openAdvanced(page);
+            expect(
+                await page.$$eval(`${advancedMenu} input`, (els) =>
+                    els.map((el) => (el as HTMLInputElement).checked)
+                )
+            ).toEqual([true, true]);
+        }
+    );
+
+    it.each([360, 600, 750])(
+        'keeps the Advanced menu inside a %ipx viewport without blocking scrolling',
+        async (width) => {
+            page = await openSeededPopup(github, { data: appData(prs) });
+            await page.setViewport({ width, height: 230 });
+            await openAdvanced(page);
+            const bounds = await page.$eval(advancedMenu, (el) => {
+                const r = el.getBoundingClientRect();
+                return {
+                    left: r.left,
+                    right: r.right,
+                    top: r.top,
+                    bottom: r.bottom,
+                    visible: el.contains(
+                        document.elementFromPoint(
+                            (r.left + r.right) / 2,
+                            (r.top + r.bottom) / 2
+                        )
+                    ),
+                    bodyOverflow: getComputedStyle(document.body).overflow,
+                };
+            });
+            expect(bounds.left).toBeGreaterThanOrEqual(0);
+            expect(bounds.right).toBeLessThanOrEqual(width);
+            expect(bounds.top).toBeGreaterThanOrEqual(0);
+            expect(bounds.bottom).toBeLessThanOrEqual(230);
+            expect(bounds.visible).toBe(true);
+            expect(bounds.bodyOverflow).not.toBe('hidden');
+            await page.evaluate(() =>
+                window.dispatchEvent(new Event('resize'))
+            );
+            await page.evaluate(
+                () =>
+                    new Promise((resolve) =>
+                        requestAnimationFrame(() =>
+                            requestAnimationFrame(resolve)
+                        )
+                    )
+            );
+            expect(await page.$(advancedMenu)).not.toBeNull();
+            await page.setViewport({ width, height: 240 });
+            await page.waitForSelector(
+                `${advancedButton}[aria-expanded="false"]`
+            );
+            await openAdvanced(page);
+            await page.mouse.move(width - 8, 220);
+            await page.mouse.wheel({ deltaY: 200 });
+            await page.waitForFunction(() => window.scrollY > 0);
+            await page.waitForSelector(
+                `${advancedButton}[aria-expanded="false"]`
+            );
         }
     );
 

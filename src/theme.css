@@ -322,3 +322,26 @@ a:hover {
     background: var(--secondary);
     color: var(--secondary-foreground);
 }
+
+.screen-prlist .ci-advanced-trigger {
+    height: 20px;
+    padding: 0 0.35rem;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+    line-height: 16px;
+    font-weight: 400;
+    color: var(--popup-subtle);
+}
+
+.screen-prlist .ci-advanced-trigger:hover,
+.screen-prlist .ci-advanced-trigger[aria-expanded='true'] {
+    background: var(--popup-secondary);
+    color: var(--popup-secondary-foreground);
+}
+
+.ci-advanced-indicator {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--popup-primary);
+}

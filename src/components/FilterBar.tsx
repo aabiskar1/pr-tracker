@@ -7,6 +7,7 @@ import {
     FaUserCheck,
 } from 'react-icons/fa';
 import { Badge } from './ui/badge';
+import { AdvancedCIFilters } from './AdvancedCIFilters';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import type { CIStatus, FilterState } from '../types';
@@ -54,6 +55,15 @@ export function FilterBar({
             [key]: value,
         };
         onFilterChange(newFilters);
+    };
+
+    const toggleCIStatus = (status: CIStatus) => {
+        handleFilterChange(
+            'ciStatus',
+            filters.ciStatus.includes(status)
+                ? filters.ciStatus.filter((s) => s !== status)
+                : [...filters.ciStatus, status]
+        );
     };
 
     return (
@@ -290,22 +300,12 @@ export function FilterBar({
                         </div>
                         <div className="inline-flex flex-wrap items-center gap-2 shrink min-w-0">
                             {(
-                                [
-                                    'passing',
-                                    'failing',
-                                    'pending',
-                                    'no-ci',
-                                    'unknown',
-                                ] as CIStatus[]
+                                ['passing', 'failing', 'pending'] as CIStatus[]
                             ).map((status) => (
                                 <label
                                     key={status}
                                     className="flex items-center gap-1 cursor-pointer"
-                                    title={
-                                        status === 'no-ci'
-                                            ? 'Show PRs with no CI'
-                                            : `Show ${status} checks`
-                                    }
+                                    title={`Show ${status} checks`}
                                 >
                                     <input
                                         type="checkbox"
@@ -313,23 +313,7 @@ export function FilterBar({
                                         checked={filters.ciStatus.includes(
                                             status
                                         )}
-                                        onChange={() => {
-                                            const newStatus =
-                                                filters.ciStatus.includes(
-                                                    status
-                                                )
-                                                    ? filters.ciStatus.filter(
-                                                          (s) => s !== status
-                                                      )
-                                                    : [
-                                                          ...filters.ciStatus,
-                                                          status,
-                                                      ];
-                                            handleFilterChange(
-                                                'ciStatus',
-                                                newStatus
-                                            );
-                                        }}
+                                        onChange={() => toggleCIStatus(status)}
                                     />
                                     <Badge
                                         data-ci-status={status}
@@ -342,20 +326,20 @@ export function FilterBar({
                                                     ? 'ciPassing'
                                                     : status === 'failing'
                                                       ? 'ciFailing'
-                                                      : status === 'pending'
-                                                        ? 'ciPending'
-                                                        : 'secondary'
+                                                      : 'ciPending'
                                                 : 'outline'
                                         }
                                         className="rounded-md"
                                     >
-                                        {status === 'no-ci'
-                                            ? 'No CI'
-                                            : status.charAt(0).toUpperCase() +
-                                              status.slice(1)}
+                                        {status.charAt(0).toUpperCase() +
+                                            status.slice(1)}
                                     </Badge>
                                 </label>
                             ))}
+                            <AdvancedCIFilters
+                                selected={filters.ciStatus}
+                                onToggle={toggleCIStatus}
+                            />
                         </div>
                     </div>
                 </div>

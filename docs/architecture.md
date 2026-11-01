@@ -418,8 +418,14 @@ incomplete, or failed CI responses yield Unknown. Optional rate-limit errors
 still propagate cooldowns; required refresh failures preserve the last successful
 snapshot. Cancellation, discovery, and notifications are unchanged.
 
-All five CI states have independent filters. Defaults and Reset Filters include
-all five. Legacy encrypted filters with all three original states selected
+All five CI states have independent filters. Passing, Failing and Pending remain
+in the main CI row; No CI and Unknown are checkboxes in an optional Advanced
+popover. Its open state is local UI state, not a saved preference. Defaults and
+Reset Filters include all five. An empty CI selection intentionally removes the
+CI restriction (all states included), including after popup reopening. The menu
+preserves this convention and the existing encrypted filter schema.
+
+Legacy encrypted filters with all three original states selected
 (or an empty selection, which previously meant all) expand to all five; restricted
 selections retain exactly their selected states. A `ciStatusVersion: 1` marker
 makes migration idempotent, including when users intentionally deselect the new
