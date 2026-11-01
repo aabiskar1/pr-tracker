@@ -169,7 +169,7 @@ describe('reviewed PR retention', () => {
         expect(await checked(reopened)).toBe(false);
         await reopened.click('button::-p-text(Reset Filters)');
         await count(reopened, 6);
-        expect(await checked(reopened)).toBe(true);
+        await expect.poll(() => checked(reopened)).toBe(true);
         await expect
             .poll(
                 async () =>
