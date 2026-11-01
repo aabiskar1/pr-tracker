@@ -20,6 +20,25 @@ export function AdvancedCIFilters({
     const restricted =
         !selected.includes('no-ci') || !selected.includes('unknown');
 
+    const positionPanel = () => {
+        const rect = trigger.current?.getBoundingClientRect();
+        if (!rect) return;
+        const width = Math.min(176, window.innerWidth - 16);
+        const below = window.innerHeight - rect.bottom - 12;
+        const above = rect.top - 12;
+        const flip = below < 96 && above > below;
+        setPosition({
+            width,
+            left: Math.max(
+                8,
+                Math.min(rect.right - width, window.innerWidth - width - 8)
+            ),
+            top: flip ? 'auto' : rect.bottom + 4,
+            bottom: flip ? window.innerHeight - rect.top + 4 : 'auto',
+            maxHeight: Math.max(0, flip ? above : below),
+        });
+    };
+
     useEffect(() => {
         if (!open) return;
         panel.current?.querySelector('input')?.focus({ preventScroll: true });
@@ -56,7 +75,18 @@ export function AdvancedCIFilters({
                 panel.current?.contains(event.target)
             )
                 return;
-            setOpen(false);
+            const rect = trigger.current?.getBoundingClientRect();
+            if (
+                !rect ||
+                rect.bottom <= 0 ||
+                rect.top >= window.innerHeight ||
+                rect.right <= 0 ||
+                rect.left >= window.innerWidth
+            ) {
+                setOpen(false);
+                return;
+            }
+            positionPanel();
         };
         document.addEventListener('keydown', onKeyDown);
         document.addEventListener('pointerdown', onPointerDown);
@@ -77,22 +107,7 @@ export function AdvancedCIFilters({
             setOpen(false);
             return;
         }
-        const rect = trigger.current?.getBoundingClientRect();
-        if (!rect) return;
-        const width = Math.min(176, window.innerWidth - 16);
-        const below = window.innerHeight - rect.bottom - 12;
-        const above = rect.top - 12;
-        const flip = below < 96 && above > below;
-        setPosition({
-            width,
-            left: Math.max(
-                8,
-                Math.min(rect.right - width, window.innerWidth - width - 8)
-            ),
-            top: flip ? 'auto' : rect.bottom + 4,
-            bottom: flip ? window.innerHeight - rect.top + 4 : 'auto',
-            maxHeight: Math.max(0, flip ? above : below),
-        });
+        positionPanel();
         setOpen(true);
     };
 
