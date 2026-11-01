@@ -219,6 +219,29 @@ to `unknown`. When an optional failure is a
 recognized rate limit, the work unit also retains its structured cooldown
 metadata; ordinary optional failures retain no cooldown.
 
+Review status uses the REST pull-request reviews endpoint with `per_page=100`.
+Pages are fetched sequentially only while GitHub supplies a validated `next`
+Link for the same endpoint, origin, page sequence, and page size. A full final
+page, including an exact multiple of 100, needs no empty terminal request.
+The per-PR ceiling is ten pages (1,000 reviews), matching the existing
+check-run page budget. A next Link beyond that ceiling, invalid pagination,
+malformed review data, or any page failure leaves the optional review status
+`pending` rather than classifying partial history. Recognized later-page rate
+limits still supply the existing cooldown metadata. The normal case of fewer
+than 100 reviews costs one review request; 101–200 cost two, and 201–300 cost
+three. This adds requests only for unusually review-heavy PRs, with no retry
+or concurrent review-page fan-out. Session validity is checked before and
+after every page fetch and parse, before aggregation, and before a later page;
+invalidation stops requests and cannot publish a partial status.
+
+The reducer retains the latest returned state per reviewer in REST page order.
+`CHANGES_REQUESTED` outranks `APPROVED` across reviewers; `COMMENTED`,
+`DISMISSED`, and `PENDING` replace that same reviewer's prior state but do not
+themselves imply approval or changes requested. This preserves the existing
+product rule rather than redefining ambiguous unsubmitted or dismissed
+review semantics. Review-request discovery and conversation comments remain
+separate from submitted review-history status.
+
 An ordinary required-detail failure preserves the complete evaluation behavior
 for scheduled work. Once a required-detail rate limit is recognized, the pool
 stops starting queued PRs because the refresh is already untrustworthy;

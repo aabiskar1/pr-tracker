@@ -99,7 +99,7 @@ describe('fetchPullRequests per-PR concurrency', () => {
                 }
                 await releaseFirstSupportingRequests.promise;
             }
-            if (url.endsWith('/reviews')) return jsonResponse([]);
+            if (url.endsWith('/reviews?per_page=100')) return jsonResponse([]);
             if (url.includes('/check-runs')) {
                 activeWorkers -= 1;
                 return successfulChecks();
@@ -162,7 +162,7 @@ describe('fetchPullRequests per-PR concurrency', () => {
                     ? jsonResponse({ message: 'Service unavailable' }, 503)
                     : jsonResponse(prDetail(number));
             }
-            if (url.endsWith('/reviews')) return jsonResponse([]);
+            if (url.endsWith('/reviews?per_page=100')) return jsonResponse([]);
             if (url.includes('/check-runs')) return successfulChecks();
             throw new Error(`Unexpected URL: ${url}`);
         });
@@ -230,7 +230,7 @@ describe('fetchPullRequests per-PR concurrency', () => {
                 }
                 return jsonResponse(prDetail(number));
             }
-            if (url.endsWith('/reviews')) return jsonResponse([]);
+            if (url.endsWith('/reviews?per_page=100')) return jsonResponse([]);
             if (url.includes('/check-runs')) return successfulChecks();
             throw new Error(`Unexpected URL: ${url}`);
         });
@@ -290,7 +290,7 @@ describe('fetchPullRequests per-PR concurrency', () => {
             if (/\/pulls\/\d+$/.test(url)) {
                 return jsonResponse(prDetail(prNumberFromUrl(url)));
             }
-            if (url.endsWith('/reviews')) {
+            if (url.endsWith('/reviews?per_page=100')) {
                 return jsonResponse({ message: 'Service unavailable' }, 503);
             }
             if (url.includes('/check-runs')) {

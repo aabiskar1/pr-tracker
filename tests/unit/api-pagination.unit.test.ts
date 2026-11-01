@@ -49,7 +49,7 @@ const deferred = <T>() => {
 };
 
 const supportingResponse = (url: string): Response => {
-    if (url.endsWith('/reviews')) return jsonResponse([]);
+    if (url.endsWith('/reviews?per_page=100')) return jsonResponse([]);
     if (url.includes('/check-runs')) {
         return jsonResponse({
             total_count: 1,

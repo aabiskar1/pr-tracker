@@ -40,7 +40,8 @@ describe('paired reviewer and review-state scenarios', () => {
                 return jsonResponse(
                     prDetail(1, { requested_reviewers: requestedReviewers })
                 );
-            if (url.endsWith('/reviews')) return jsonResponse(scenario.reviews);
+            if (url.endsWith('/reviews?per_page=100'))
+                return jsonResponse(scenario.reviews);
             if (new URL(url).pathname.endsWith('/check-runs'))
                 return jsonResponse({
                     total_count: 1,
@@ -131,7 +132,7 @@ describe('later commits and source overlap', () => {
                             head: { sha: later ? 'head-new' : 'head-old' },
                         })
                     );
-                if (url.endsWith('/reviews'))
+                if (url.endsWith('/reviews?per_page=100'))
                     return jsonResponse([
                         {
                             user: { id: 10 },
@@ -233,7 +234,7 @@ describe('later commits and source overlap', () => {
                         searchItem
                     )
                 );
-            const match = /\/pulls\/(\d+)(\/reviews)?$/.exec(url);
+            const match = /\/pulls\/(\d+)(\/reviews\?per_page=100)?$/.exec(url);
             if (match) {
                 const id = Number(match[1]);
                 if (match[2])

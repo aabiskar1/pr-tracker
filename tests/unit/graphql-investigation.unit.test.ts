@@ -410,7 +410,7 @@ describe('deterministic REST/GraphQL request comparison', () => {
                     return searchResponse(
                         nodes.map((_, i) => searchItem(i + 1))
                     );
-                if (url.endsWith('/reviews'))
+                if (url.endsWith('/reviews?per_page=100'))
                     return jsonResponse([
                         { user: { id: 10 }, state: 'APPROVED' },
                     ]);
@@ -479,7 +479,7 @@ describe('deterministic REST/GraphQL request comparison', () => {
         installFetch((url) => {
             if (url.includes('/search/issues?'))
                 return searchResponse([searchItem(1)]);
-            if (url.endsWith('/reviews'))
+            if (url.endsWith('/reviews?per_page=100'))
                 return jsonResponse([{ user: { id: 10 }, state: 'APPROVED' }]);
             if (new URL(url).pathname.endsWith('/check-runs'))
                 return jsonResponse({

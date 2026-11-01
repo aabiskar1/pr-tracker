@@ -35,7 +35,7 @@ const prNumberFromUrl = (url: string): number => {
 };
 
 const successfulSupportingResponse = (url: string): Response => {
-    if (url.endsWith('/reviews')) return jsonResponse([]);
+    if (url.endsWith('/reviews?per_page=100')) return jsonResponse([]);
     if (url.includes('/check-runs')) {
         return jsonResponse({
             total_count: 1,
@@ -91,7 +91,7 @@ describe('fetchPullRequests search and transformation behavior', () => {
                 }
                 return searchResponse([searchItem(1), searchItem(2)]);
             }
-            if (url.endsWith('/reviews')) {
+            if (url.endsWith('/reviews?per_page=100')) {
                 const number = prNumberFromUrl(url);
                 return jsonResponse(
                     number === 1
@@ -170,7 +170,7 @@ describe('fetchPullRequests search and transformation behavior', () => {
             ).toHaveLength(1);
             expect(
                 requestedUrls.filter(
-                    (url) => url === `${prUrl(number)}/reviews`
+                    (url) => url === `${prUrl(number)}/reviews?per_page=100`
                 )
             ).toHaveLength(1);
             expect(
@@ -202,7 +202,7 @@ describe('fetchPullRequests search and transformation behavior', () => {
                             head: { sha: `subsequent-commit-${headVersion++}` },
                         })
                     );
-                if (url.endsWith('/reviews'))
+                if (url.endsWith('/reviews?per_page=100'))
                     return jsonResponse([
                         { user: { id: 1 }, state },
                         { user: { id: 2 }, state: 'APPROVED' },
@@ -233,7 +233,7 @@ describe('fetchPullRequests search and transformation behavior', () => {
                         ? [searchItem(1)]
                         : []
                 );
-            if (url.endsWith('/reviews'))
+            if (url.endsWith('/reviews?per_page=100'))
                 return jsonResponse([
                     { user: { id: 2 }, state: 'CHANGES_REQUESTED' },
                 ]);
@@ -586,7 +586,7 @@ describe('fetchPullRequests search and transformation behavior', () => {
                     searchItem(12),
                 ]);
             }
-            if (url.endsWith('/reviews')) return jsonResponse([]);
+            if (url.endsWith('/reviews?per_page=100')) return jsonResponse([]);
             if (url.includes('/check-runs')) {
                 return jsonResponse({ check_runs: [] }, 500);
             }
@@ -643,7 +643,8 @@ describe('fetchPullRequests search and transformation behavior', () => {
                 throw new TypeError('Malformed URL');
             }
             if (url.startsWith(incompleteUrl)) {
-                if (url.endsWith('/reviews')) return jsonResponse([]);
+                if (url.endsWith('/reviews?per_page=100'))
+                    return jsonResponse([]);
                 return jsonResponse({ id: 21, head: { sha: 'sha-21' } });
             }
             return successfulSupportingResponse(url);
@@ -683,7 +684,7 @@ describe('fetchPullRequests search and transformation behavior', () => {
             if (isSearchUrl(url)) {
                 return searchResponse([searchItem(40)]);
             }
-            if (url.endsWith('/reviews')) return jsonResponse([]);
+            if (url.endsWith('/reviews?per_page=100')) return jsonResponse([]);
             if (url === prUrl(40)) return response();
             return jsonResponse({ check_runs: [] }, 500);
         });
@@ -701,7 +702,7 @@ describe('fetchPullRequests search and transformation behavior', () => {
             if (isSearchUrl(url)) {
                 return searchResponse([searchItem(41)]);
             }
-            if (url.endsWith('/reviews')) return jsonResponse([]);
+            if (url.endsWith('/reviews?per_page=100')) return jsonResponse([]);
             if (url === prUrl(41)) {
                 return Promise.reject(new TypeError('network unavailable'));
             }
@@ -795,7 +796,9 @@ describe('fetchPullRequests search and transformation behavior', () => {
         expect(requestedUrls.filter((url) => url === prUrl(30))).toHaveLength(
             1
         );
-        expect(requestedUrls).not.toContain(`${prUrl(30)}/reviews`);
+        expect(requestedUrls).not.toContain(
+            `${prUrl(30)}/reviews?per_page=100`
+        );
         expect(
             requestedUrls.some((url) => url.includes('/repo-30/commits/'))
         ).toBe(false);
@@ -807,7 +810,7 @@ describe('fetchPullRequests search and transformation behavior', () => {
                 return searchResponse([searchItem(50), searchItem(51)]);
             }
             if (url === prUrl(50)) return jsonResponse(prDetail(50));
-            if (url === `${prUrl(50)}/reviews`) {
+            if (url === `${prUrl(50)}/reviews?per_page=100`) {
                 return jsonResponse({ message: 'secondary rate limit' }, 429, {
                     'retry-after': '60',
                 });

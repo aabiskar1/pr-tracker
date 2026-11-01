@@ -78,6 +78,46 @@ describe('reviewed PR retention', () => {
         await github.close();
     });
 
+    it('shows the latest review after a second REST page', async () => {
+        const pullRequest = POPULATED_PRS[0];
+        const page = await openSeededPopup(github, {
+            data: appData([pullRequest]),
+        });
+        pages.push(page);
+        await page.evaluate(() =>
+            chrome.runtime.sendMessage({ type: 'CHECK_PRS' })
+        );
+        github.resetRequests();
+        github.setScenario({
+            pullRequests: [pullRequest],
+            reviewHistoryByPrId: {
+                [pullRequest.id]: [
+                    ...Array.from({ length: 100 }, () => ({
+                        user: { id: 1 },
+                        state: 'APPROVED',
+                    })),
+                    { user: { id: 1 }, state: 'CHANGES_REQUESTED' },
+                ],
+            },
+        });
+        await refresh(page);
+        await expect
+            .poll(
+                async () =>
+                    (await readAppData(page)).pullRequests[0].review_status
+            )
+            .toBe('changes-requested');
+        expect(
+            github.requests.filter((url) =>
+                url.includes(`/pulls/${pullRequest.id}/reviews?`)
+            )
+        ).toEqual([
+            `https://api.github.com/repos/acme/${pullRequest.repository.name}/pulls/${pullRequest.id}/reviews?per_page=100`,
+            `https://api.github.com/repos/acme/${pullRequest.repository.name}/pulls/${pullRequest.id}/reviews?per_page=100&page=2`,
+        ]);
+        await page.waitForSelector('[aria-label="Review: changes-requested"]');
+    });
+
     it('retains every review outcome, filters cached sources, persists across reopen/unlock, and resets', async () => {
         const page = await openSeededPopup(github, {
             data: appData(reviewedPRs),

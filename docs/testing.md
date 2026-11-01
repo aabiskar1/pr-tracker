@@ -60,6 +60,8 @@ approval/change-request/comment-only results, cached filtering, legacy encrypted
 preferences and snapshots, reload/unlock/reset persistence, custom-query
 isolation, merged/closed removal (including stale search hits), historical
 notification suppression, and required reviewed-search pagination failures.
+It also checks a two-page REST review history in the packaged Chrome extension,
+including the final card badge, encrypted snapshot, and exact request URLs.
 API semantics are mocked deterministically; GitHub's search-index freshness is
 not under extension control. Browser tests run the existing filter layout
 checks in both Chrome and Firefox CSS paths; Firefox runtime remains build-only.
@@ -93,6 +95,10 @@ Use unit tests for rules that can be evaluated without a real browser:
   pre-detail deduplication of matching search results;
 - PR filtering, text matching, and sorting;
 - review and CI status reduction;
+- sequential REST review-history pagination, including 0/30/100/101/250/1,000
+  reviews, latest-state aggregation across pages, a ten-page request ceiling,
+  later-page failures and rate limits, malformed or cyclic Links, malformed
+  records, and session cancellation without extra page requests;
 - refresh and notification eligibility;
 - popup refresh/query completion, rejected runtime messages, cooldown/error
   completion without `DATA_UPDATED`, and loading cleanup without fixed delays;

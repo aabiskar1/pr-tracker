@@ -11,6 +11,10 @@ import {
 
 type GitHubScenario = {
     pullRequests: PullRequest[];
+    reviewHistoryByPrId?: Record<
+        number,
+        { user: { id: number }; state: string }[]
+    >;
     userStatus?: number;
     searchStatus?: number;
     detailStatusByPrId?: Record<number, number>;
@@ -46,7 +50,10 @@ const jsonBody = (value: unknown) =>
 const prApiUrl = (pr: PullRequest) =>
     `https://api.github.com/repos/acme/${pr.repository.name}/pulls/${pr.id}`;
 
-function responseFor(url: string, scenario: GitHubScenario) {
+function responseFor(
+    url: string,
+    scenario: GitHubScenario
+): { status: number; body: unknown; link?: string } {
     if (url === 'https://api.github.com/user') {
         return {
             status: scenario.userStatus ?? 200,
@@ -89,7 +96,21 @@ function responseFor(url: string, scenario: GitHubScenario) {
     );
     if (!pr) return { status: 404, body: { message: 'Fixture not found' } };
 
-    if (url.endsWith('/reviews')) {
+    if (new URL(url).pathname === `${new URL(prApiUrl(pr)).pathname}/reviews`) {
+        const history = scenario.reviewHistoryByPrId?.[pr.id];
+        if (history) {
+            const page = Number(new URL(url).searchParams.get('page') ?? 1);
+            const nextPage = page + 1;
+            return {
+                status: 200,
+                body: history.slice((page - 1) * 100, page * 100),
+                ...(page * 100 < history.length
+                    ? {
+                          link: `<${prApiUrl(pr)}/reviews?per_page=100&page=${nextPage}>; rel="next"`,
+                      }
+                    : {}),
+            };
+        }
         const state =
             pr.review_status === 'approved'
                 ? 'APPROVED'
@@ -199,6 +220,9 @@ export async function installGitHubApiMock(
                 responseHeaders: [
                     { name: 'content-type', value: 'application/json' },
                     { name: 'x-oauth-scopes', value: 'repo' },
+                    ...(response.link
+                        ? [{ name: 'link', value: response.link }]
+                        : []),
                 ],
                 body: jsonBody(response.body),
             });

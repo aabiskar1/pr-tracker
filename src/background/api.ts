@@ -55,6 +55,8 @@ const NOTIFICATION_ICON = 'icons/icon-128.png';
 const SEARCH_RESULTS_PER_PAGE = 100;
 const SEARCH_RESULT_LIMIT = 1000;
 const SEARCH_MAX_PAGES = SEARCH_RESULT_LIMIT / SEARCH_RESULTS_PER_PAGE;
+const REVIEWS_PER_PAGE = 100;
+const REVIEWS_MAX_PAGES = 10;
 const CI_CHECKS_PER_PAGE = 100;
 const CI_CHECKS_MAX_PAGES = 10;
 const CI_CHECKS_RESULT_LIMIT = CI_CHECKS_PER_PAGE * CI_CHECKS_MAX_PAGES;
@@ -109,6 +111,42 @@ export async function handleApiError(
 }
 
 // API Functions
+function getNextReviewPageUrl(
+    linkHeader: string | null,
+    currentUrl: string,
+    reviewsUrl: string,
+    nextPage: number
+): string | null {
+    if (!linkHeader) return null;
+
+    let nextUrl: string | null = null;
+    for (const link of linkHeader.split(',')) {
+        const match = /^\s*<([^<>]+)>;\s*rel="([^"]+)"\s*$/.exec(link);
+        if (!match?.[1]) throw new Error('Invalid review pagination link');
+        if (match[2] !== 'next') continue;
+        if (nextUrl) throw new Error('Duplicate review next-page link');
+        const target = new URL(match[1]);
+        const endpoint = new URL(reviewsUrl);
+        const parameters = target.searchParams;
+        if (
+            target.origin !== endpoint.origin ||
+            target.pathname !== endpoint.pathname ||
+            target.hash ||
+            parameters.get('per_page') !== String(REVIEWS_PER_PAGE) ||
+            parameters.get('page') !== String(nextPage) ||
+            [...parameters.keys()].some(
+                (key) => key !== 'per_page' && key !== 'page'
+            ) ||
+            [...parameters.keys()].length !== 2 ||
+            target.href === currentUrl
+        ) {
+            throw new Error('Invalid review next-page target');
+        }
+        nextUrl = target.href;
+    }
+    return nextUrl;
+}
+
 async function getReviewStatus(
     prUrl: string,
     token: string,
@@ -117,35 +155,74 @@ async function getReviewStatus(
     try {
         assertRefreshSessionValid(refreshSession);
         const reviewsUrl = `${prUrl}/reviews`;
-        const response = await fetch(reviewsUrl, {
-            signal: refreshSession?.signal,
-            headers: {
-                Authorization: `token ${token}`,
-                Accept: 'application/vnd.github.v3+json',
-            },
-        });
-        assertRefreshSessionValid(refreshSession);
-
-        if (!response.ok) {
-            const errorInfo = await analyzeHttpError(response);
+        let pageUrl: string | null =
+            `${reviewsUrl}?per_page=${REVIEWS_PER_PAGE}`;
+        const latestReviews = new Map<number, string>();
+        const visitedUrls = new Set<string>();
+        for (let page = 1; page <= REVIEWS_MAX_PAGES; page++) {
             assertRefreshSessionValid(refreshSession);
-            return {
-                status: 'pending',
-                ...(errorInfo.rateLimit
-                    ? { rateLimit: errorInfo.rateLimit }
-                    : {}),
-            };
+            if (!pageUrl || visitedUrls.has(pageUrl))
+                throw new Error('Repeated review pagination page');
+            visitedUrls.add(pageUrl);
+            const response = await fetch(pageUrl, {
+                signal: refreshSession?.signal,
+                headers: {
+                    Authorization: `token ${token}`,
+                    Accept: 'application/vnd.github.v3+json',
+                },
+            });
+            assertRefreshSessionValid(refreshSession);
+            if (!response.ok) {
+                const errorInfo = await analyzeHttpError(response);
+                assertRefreshSessionValid(refreshSession);
+                return {
+                    status: 'pending',
+                    ...(errorInfo.rateLimit
+                        ? { rateLimit: errorInfo.rateLimit }
+                        : {}),
+                };
+            }
+
+            const data: unknown = await response.json();
+            assertRefreshSessionValid(refreshSession);
+            if (
+                !Array.isArray(data) ||
+                data.length > REVIEWS_PER_PAGE ||
+                !data.every(
+                    (review: unknown) =>
+                        isRecord(review) &&
+                        isRecord(review.user) &&
+                        Number.isSafeInteger(review.user.id) &&
+                        Number(review.user.id) >= 0 &&
+                        typeof review.state === 'string' &&
+                        [
+                            'APPROVED',
+                            'CHANGES_REQUESTED',
+                            'COMMENTED',
+                            'DISMISSED',
+                            'PENDING',
+                        ].includes(review.state)
+                )
+            ) {
+                throw new Error('Invalid review response');
+            }
+            const reviews = data as GitHubReview[];
+            for (const review of reviews) {
+                latestReviews.set(review.user.id, review.state);
+            }
+            pageUrl = getNextReviewPageUrl(
+                response.headers.get('link'),
+                pageUrl,
+                reviewsUrl,
+                page + 1
+            );
+            assertRefreshSessionValid(refreshSession);
+            if (!pageUrl) break;
+            if (page === REVIEWS_MAX_PAGES)
+                throw new Error('Review pagination limit reached');
         }
 
-        const reviews: GitHubReview[] = await response.json();
         assertRefreshSessionValid(refreshSession);
-
-        // Get latest review per user
-        const latestReviews = new Map<number, string>();
-        reviews.forEach((review) => {
-            latestReviews.set(review.user.id, review.state);
-        });
-
         const states = Array.from(latestReviews.values());
         if (states.includes('CHANGES_REQUESTED'))
             return { status: 'changes-requested' };

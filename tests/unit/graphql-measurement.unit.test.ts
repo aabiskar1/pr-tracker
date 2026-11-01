@@ -93,7 +93,7 @@ it('measures internal REST requests as well as GraphQL without live credentials'
               ? searchResponse([searchItem(1)])
               : url.endsWith('/graphql')
                 ? jsonResponse(graphqlPage())
-                : url.endsWith('/reviews')
+                : url.endsWith('/reviews?per_page=100')
                   ? jsonResponse([{ user: { id: 10 }, state: 'APPROVED' }])
                   : new URL(url).pathname.endsWith('/check-runs')
                     ? jsonResponse({
