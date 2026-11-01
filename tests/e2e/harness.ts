@@ -322,10 +322,13 @@ export async function seedEncryptedState(
             theme,
             token,
         }) => {
+            const extensionApi =
+                (globalThis as typeof globalThis & { browser?: typeof chrome })
+                    .browser ?? chrome;
             const salt = new Uint8Array([
                 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
             ]);
-            const extension = await chrome.management.getSelf();
+            const extension = await extensionApi.management.getSelf();
             const encoded = new TextEncoder().encode(
                 `${extension.id}:${password}`
             );
@@ -368,7 +371,7 @@ export async function seedEncryptedState(
             const encryptedData = await encrypt(dataToStore, 3);
             const encryptedHidden = await encrypt(hiddenIds, 4);
 
-            await chrome.storage.local.set({
+            await extensionApi.storage.local.set({
                 prtracker_salt: Array.from(salt),
                 encryptedGithubToken: encryptedToken.data,
                 prtracker_iv: encryptedToken.iv,
@@ -379,7 +382,7 @@ export async function seedEncryptedState(
                 hiddenPrIdsIv: encryptedHidden.iv,
                 'theme-preference': theme,
             });
-            await chrome.runtime.sendMessage({
+            await extensionApi.runtime.sendMessage({
                 type: 'SET_PASSWORD',
                 password,
                 remember,
@@ -443,12 +446,15 @@ export async function waitForDashboard(page: Page) {
 
 export async function readAppData(page: Page): Promise<AppData> {
     return page.evaluate(async (password) => {
-        const stored = await chrome.storage.local.get([
+        const extensionApi =
+            (globalThis as typeof globalThis & { browser?: typeof chrome })
+                .browser ?? chrome;
+        const stored = await extensionApi.storage.local.get([
             'prtracker_salt',
             'encryptedAppData',
             'appDataIv',
         ]);
-        const extension = await chrome.management.getSelf();
+        const extension = await extensionApi.management.getSelf();
         const material = await crypto.subtle.importKey(
             'raw',
             new TextEncoder().encode(`${extension.id}:${password}`),

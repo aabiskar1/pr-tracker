@@ -19,8 +19,15 @@ export function AdvancedCIFilters({
 
     useEffect(() => {
         if (!open) return;
-        // Dismiss rather than leave a floating menu detached from its trigger.
+        const width = window.innerWidth;
+        const height = window.innerHeight;
         const dismiss = (event: Event) => {
+            if (
+                event.type === 'resize' &&
+                window.innerWidth === width &&
+                window.innerHeight === height
+            )
+                return;
             if (
                 event.target instanceof Node &&
                 menu.current?.contains(event.target)

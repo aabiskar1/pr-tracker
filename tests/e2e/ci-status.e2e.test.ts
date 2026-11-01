@@ -359,7 +359,18 @@ describe('five CI states', () => {
             expect(bounds.top).toBeGreaterThanOrEqual(0);
             expect(bounds.bottom).toBeLessThanOrEqual(230);
             expect(bounds.bodyOverflow).not.toBe('hidden');
-            // Resizing and scrolling dismiss an overlay anchored to the old position.
+            await page.evaluate(() =>
+                window.dispatchEvent(new Event('resize'))
+            );
+            await page.evaluate(
+                () =>
+                    new Promise((resolve) =>
+                        requestAnimationFrame(() =>
+                            requestAnimationFrame(resolve)
+                        )
+                    )
+            );
+            expect(await page.$(`${advancedMenu}:popover-open`)).not.toBeNull();
             await page.setViewport({ width, height: 240 });
             await page.waitForSelector(
                 `${advancedButton}[aria-expanded="false"]`

@@ -326,3 +326,10 @@ across popup reopening, empty-selection behavior, reset, light/dark screenshots,
 and viewport-bound positioning and dismissal on resize/scroll. The dashboard
 retains its existing fixed-width layout; narrow viewport tests constrain the
 popover itself without changing that established application layout.
+
+The focused Firefox regression loads the Firefox MV2 build as a temporary
+extension and opens its actual toolbar popup. It records native popover and
+resize events, then verifies that a same-size panel resize leaves Advanced
+visible, focused and within the viewport. Run it with the Firefox command in
+`docs/development.md`; it requires a visible Firefox session and is separate
+from the Chrome E2E suite.
