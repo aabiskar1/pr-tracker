@@ -19,7 +19,11 @@ import {
 } from '@/src/background/appDataStore';
 import type { AppDataMutation } from '../../src/types';
 import { replayPendingPullRequestNotificationsForActiveSession } from '@/src/background/notificationReplay';
-import { clearSecureStorage } from '@/src/services/secureStorage';
+import {
+    clearDetailCacheStorage,
+    clearSecureStorage,
+} from '@/src/services/secureStorage';
+import { waitForDetailCacheWrites } from '@/src/background/detailCache';
 
 vi.mock('webextension-polyfill', () => ({
     default: {
@@ -88,6 +92,11 @@ vi.mock('@/src/background/notificationReplay', () => ({
 
 vi.mock('@/src/services/secureStorage', () => ({
     clearSecureStorage: vi.fn(async () => undefined),
+    clearDetailCacheStorage: vi.fn(async () => undefined),
+}));
+
+vi.mock('@/src/background/detailCache', () => ({
+    waitForDetailCacheWrites: vi.fn(async () => undefined),
 }));
 
 type MessageListener = (
@@ -457,6 +466,8 @@ describe('background remembered-session wiring', () => {
             expect(sendResponse).toHaveBeenCalledWith(true);
         });
         expect(waitForAppDataMutations).toHaveBeenCalledOnce();
+        expect(waitForDetailCacheWrites).toHaveBeenCalledOnce();
+        expect(clearDetailCacheStorage).toHaveBeenCalledOnce();
     });
 
     it('does not acknowledge CLEAR_SESSION until storage, alarms, and queued writes settle', async () => {
@@ -464,6 +475,7 @@ describe('background remembered-session wiring', () => {
         const expiryAlarm = deferred<boolean>();
         const refreshAlarm = deferred<boolean>();
         const queuedWrites = deferred<void>();
+        const queuedCacheWrites = deferred<void>();
         vi.mocked(browser.storage.session.remove).mockReturnValueOnce(
             storageRemoval.promise
         );
@@ -472,6 +484,9 @@ describe('background remembered-session wiring', () => {
             .mockReturnValueOnce(refreshAlarm.promise);
         vi.mocked(waitForAppDataMutations).mockReturnValueOnce(
             queuedWrites.promise
+        );
+        vi.mocked(waitForDetailCacheWrites).mockReturnValueOnce(
+            queuedCacheWrites.promise
         );
         const listener = await loadBackground();
         const sendResponse = vi.fn();
@@ -488,6 +503,9 @@ describe('background remembered-session wiring', () => {
         expect(sendResponse).not.toHaveBeenCalled();
 
         queuedWrites.resolve();
+        await Promise.resolve();
+        expect(sendResponse).not.toHaveBeenCalled();
+        queuedCacheWrites.resolve();
         await vi.waitFor(() => {
             expect(sendResponse).toHaveBeenCalledWith(true);
         });
@@ -523,6 +541,8 @@ describe('background remembered-session wiring', () => {
             expect(sendResponse).toHaveBeenCalledWith(true);
         });
         expect(waitForAppDataMutations).toHaveBeenCalledOnce();
+        expect(waitForDetailCacheWrites).toHaveBeenCalledOnce();
+        expect(clearDetailCacheStorage).toHaveBeenCalledOnce();
         expect(clearSecureStorage).toHaveBeenCalledOnce();
         expect(
             resetPullRequestManagerStateAfterAccountReset

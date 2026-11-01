@@ -54,6 +54,10 @@ close/reopen/reload, and critical link targets.
 The manual-refresh E2E coverage also verifies that one failed canonical PR
 detail request preserves the encrypted cached and notification-comparison
 snapshots, and that the next complete refresh recovers normally.
+It also verifies, in the packaged Chrome extension with intercepted GitHub
+responses, that a validated canonical detail is stored encrypted, a later
+request sends `If-None-Match`, a 304 reuses it, and review/CI requests still run.
+This does not exercise a live GitHub 304 or actual MV3 worker termination.
 
 Reviewed-retention coverage exercises discovery-source union/deduplication,
 approval/change-request/comment-only results, cached filtering, legacy encrypted
@@ -93,6 +97,11 @@ Use unit tests for rules that can be evaluated without a real browser:
   subsequent refresh without retrying the current one;
 - endpoint-specific request counts, including canonical-detail reuse and
   pre-detail deduplication of matching search results;
+- encrypted canonical-detail ETag cache loading and one-batch persistence,
+  200/304 reconstruction, missing ETags and bodies, corrupt/versioned data,
+  token/account isolation, size/count/age bounds, worker-restart reload,
+  cancellation, failure and rate-limit fallback, and independent review/CI
+  changes with a detail 304;
 - PR filtering, text matching, and sorting;
 - review and CI status reduction;
 - sequential REST review-history pagination, including 0/30/100/101/250/1,000

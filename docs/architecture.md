@@ -219,6 +219,17 @@ to `unknown`. When an optional failure is a
 recognized rate limit, the work unit also retains its structured cooldown
 metadata; ordinary optional failures retain no cooldown.
 
+Canonical details alone have a persistent conditional-request pilot. After
+`/user` succeeds, `prManager.ts` opens one account/token-scoped encrypted cache
+for the accepted refresh. A work unit still sends its detail GET; an eligible
+entry adds `If-None-Match`. A 304 reconstructs the exact cached response and
+runs the same required-detail mapping again, while a validated 200 stages a
+new ETag/minimal validated projection. Missing cache bodies, invalid 304s and HTTP errors retain the
+required-failure path; no stale fallback is used. Reviews and CI remain fresh
+and independent, and neither discovery nor the four-work-unit limit changes.
+Only a completed refresh with a successful encrypted PR snapshot commits the
+staged cache once. Cache write failures do not undo a successful snapshot.
+
 Review status uses the REST pull-request reviews endpoint with `per_page=100`.
 Pages are fetched sequentially only while GitHub supplies a validated `next`
 Link for the same endpoint, origin, page sequence, and page size. A full final
@@ -289,6 +300,22 @@ contains current and previous PR snapshots, pending new-PR notification IDs,
 plus preferences such as filters, sort order, custom query, and notification
 enablement. Pending IDs remain inside the encrypted application-data envelope;
 older records without that field normalize it to an empty list.
+
+The canonical-detail cache is a separate AES-GCM-encrypted local-storage
+envelope, not part of the application snapshot. `detailCache.ts` validates a
+versioned, bounded entry set after one decrypt per refresh; the cipher reuses
+the existing password-derived key and salt with a fresh IV per write. Account
+login and token are hashed into a scope identifier stored only inside the
+encrypted envelope. Entries key the exact GitHub API detail URL and Accept
+representation, and expire after 24 hours. At most 100 entries, 64 KiB per
+detail body and 1 MiB total detail bodies are retained; oldest updated entries
+are evicted first. The encrypted base64 payload is separately capped at 1.6M
+characters on load. Invalid, unsupported or oversized data is discarded
+without affecting ordinary fetching. The cache's write queue is separate from
+app-data mutations because it owns separate keys; sign-out and Full Reset wait
+for both queues, then remove cache storage. Replacing the token clears cache
+storage; a token/account scope mismatch also prevents reuse. Worker/browser
+restarts reload the same encrypted envelope, never a module-global cache.
 
 The non-sensitive GitHub cooldown metadata is also stored in
 `browser.storage.local` under its own key. It is deliberately outside the

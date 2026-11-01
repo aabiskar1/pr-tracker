@@ -274,7 +274,8 @@ describe('background PR polling and notification decisions', () => {
             { login: 'octo-user' },
             'is:pr org:acme',
             expect.any(Function),
-            refreshSessionMatcher()
+            refreshSessionMatcher(),
+            expect.objectContaining({ lookup: expect.any(Function) })
         );
         expect(setBadgeText).toHaveBeenCalledWith('2');
         expect(browser.runtime.sendMessage).toHaveBeenCalledWith({
@@ -542,7 +543,8 @@ describe('background PR polling and notification decisions', () => {
             { login: 'octo-user' },
             'is:pr org:message',
             expect.any(Function),
-            refreshSessionMatcher()
+            refreshSessionMatcher(),
+            expect.objectContaining({ lookup: expect.any(Function) })
         );
     });
 

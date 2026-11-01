@@ -346,6 +346,8 @@ describe('secure storage', () => {
             'prtracker_salt',
             'encryptedAppData',
             'appDataIv',
+            'encryptedDetailCache',
+            'detailCacheIv',
             'encryptedHiddenPrIds',
             'hiddenPrIdsIv',
             'prtracker_github_rate_limit_cooldown',
