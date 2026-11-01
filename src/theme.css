@@ -323,7 +323,6 @@ a:hover {
     color: var(--secondary-foreground);
 }
 
-/* Advanced CI filters stay compact; the native top layer avoids card/scroll clipping. */
 .screen-prlist .ci-advanced-trigger {
     height: 20px;
     padding: 0 0.35rem;
@@ -345,43 +344,4 @@ a:hover {
     height: 5px;
     border-radius: 50%;
     background: var(--popup-primary);
-}
-
-.ci-advanced-popover {
-    position: fixed;
-    inset: auto;
-    margin: 0;
-    box-sizing: border-box;
-    overflow: auto;
-    overscroll-behavior: contain;
-    padding: 0.35rem;
-    border: 1px solid var(--popup-border);
-    border-radius: 4px;
-    background: var(--popup-surface);
-    color: var(--popup-foreground);
-    box-shadow: 0 4px 12px #0002;
-    font-size: 0.8125rem;
-}
-
-.ci-advanced-popover label {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    min-height: 30px;
-    padding: 0.25rem 0.4rem;
-    border-radius: 3px;
-    cursor: pointer;
-}
-
-.ci-advanced-popover label:hover {
-    background: var(--popup-secondary);
-}
-
-.ci-advanced-popover label:focus-within {
-    outline: 2px solid var(--ring);
-    outline-offset: -2px;
-}
-
-.ci-advanced-popover input {
-    accent-color: var(--popup-primary);
 }

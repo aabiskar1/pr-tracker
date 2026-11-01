@@ -245,7 +245,7 @@ still propagate cooldowns; required refresh failures preserve the last successfu
 snapshot. Cancellation, discovery, and notifications are unchanged.
 
 All five CI states have independent filters. Passing, Failing and Pending remain
-in the CI row; No CI and Unknown are checkboxes in the optional Advanced popover.
+in the CI row; No CI and Unknown are checkboxes in the optional Advanced dropdown.
 Defaults and Reset Filters include all five. An empty CI selection intentionally
 means no CI restriction and includes all five states; this remains true after
 reopening the popup. The Advanced indicator reflects unchecked advanced options,
@@ -325,11 +325,12 @@ Escape/outside/Tab dismissal, independent main/advanced filters, encrypted state
 across popup reopening, empty-selection behavior, reset, light/dark screenshots,
 and viewport-bound positioning and dismissal on resize/scroll. The dashboard
 retains its existing fixed-width layout; narrow viewport tests constrain the
-popover itself without changing that established application layout.
+dropdown itself without changing that established application layout.
 
 The focused Firefox regression loads the Firefox MV2 build as a temporary
-extension and opens its actual toolbar popup. It records native popover and
-resize events, then verifies that a same-size panel resize leaves Advanced
-visible, focused and within the viewport. Run it with the Firefox command in
+extension and opens its actual toolbar popup. It verifies that a same-size
+panel resize leaves the React-controlled Card visible, focused and within the
+viewport. It also checks checkbox interaction, Escape focus restoration and
+outside-click dismissal. Run it with the Firefox command in
 `docs/development.md`; it requires a visible Firefox session and is separate
 from the Chrome E2E suite.

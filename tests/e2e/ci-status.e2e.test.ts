@@ -39,11 +39,11 @@ const cards = (page: Page) =>
         elements.map((el) => el.textContent?.trim())
     );
 const advancedButton = 'button[aria-label="Advanced CI filters"]';
-const advancedMenu = '[popover][aria-label="Advanced CI filters"]';
+const advancedMenu = '[role="dialog"][aria-label="Advanced CI filters"]';
 const openAdvanced = async (page: Page) => {
-    if (!(await page.$(`${advancedMenu}:popover-open`)))
-        await page.click(advancedButton);
-    await page.waitForSelector(`${advancedMenu}:popover-open`);
+    if (!(await page.$(advancedMenu)))
+        await page.click(advancedButton, { timeout: 5000 });
+    await page.waitForSelector(advancedMenu);
     await page.waitForSelector(`${advancedButton}[aria-expanded="true"]`);
 };
 const toggle = async (page: Page, status: CIStatus) => {
@@ -143,7 +143,7 @@ describe('five CI states', () => {
             await vi.waitFor(async () =>
                 expect(await cards(page)).toEqual(['CI fixture unknown'])
             );
-            expect(await page.$(`${advancedMenu}:popover-open`)).toBeNull();
+            expect(await page.$(advancedMenu)).toBeNull();
             expect(
                 await page.$eval(advancedButton, (el) =>
                     el.getAttribute('data-filtered')
@@ -177,7 +177,7 @@ describe('five CI states', () => {
         'supports the Advanced menu, keyboard dismissal and empty CI selection in %s',
         async (theme) => {
             page = await openSeededPopup(github, { data: appData(prs), theme });
-            expect(await page.$(`${advancedMenu}:popover-open`)).toBeNull();
+            expect(await page.$(advancedMenu)).toBeNull();
             expect(
                 await page.$eval(advancedButton, (el) =>
                     el.getAttribute('data-filtered')
@@ -203,7 +203,7 @@ describe('five CI states', () => {
             );
             await page.focus(advancedButton);
             await page.keyboard.press('Enter');
-            await page.waitForSelector(`${advancedMenu}:popover-open`);
+            await page.waitForSelector(advancedMenu);
             await page.waitForFunction(
                 () =>
                     document.activeElement?.getAttribute('data-ci-status') ===
@@ -225,7 +225,7 @@ describe('five CI states', () => {
                 overflow: el.scrollWidth > el.clientWidth,
             }));
             expect(surface.background).toBe(
-                theme === 'light' ? 'rgb(255, 255, 255)' : 'rgb(34, 39, 46)'
+                theme === 'light' ? 'rgb(255, 255, 255)' : 'rgb(22, 27, 34)'
             );
             expect(surface.overflow).toBe(false);
             await page.evaluate(() => document.fonts.ready);
@@ -351,6 +351,12 @@ describe('five CI states', () => {
                     right: r.right,
                     top: r.top,
                     bottom: r.bottom,
+                    visible: el.contains(
+                        document.elementFromPoint(
+                            (r.left + r.right) / 2,
+                            (r.top + r.bottom) / 2
+                        )
+                    ),
                     bodyOverflow: getComputedStyle(document.body).overflow,
                 };
             });
@@ -358,6 +364,7 @@ describe('five CI states', () => {
             expect(bounds.right).toBeLessThanOrEqual(width);
             expect(bounds.top).toBeGreaterThanOrEqual(0);
             expect(bounds.bottom).toBeLessThanOrEqual(230);
+            expect(bounds.visible).toBe(true);
             expect(bounds.bodyOverflow).not.toBe('hidden');
             await page.evaluate(() =>
                 window.dispatchEvent(new Event('resize'))
@@ -370,7 +377,7 @@ describe('five CI states', () => {
                         )
                     )
             );
-            expect(await page.$(`${advancedMenu}:popover-open`)).not.toBeNull();
+            expect(await page.$(advancedMenu)).not.toBeNull();
             await page.setViewport({ width, height: 240 });
             await page.waitForSelector(
                 `${advancedButton}[aria-expanded="false"]`

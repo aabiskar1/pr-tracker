@@ -143,30 +143,34 @@ it('keeps Advanced open through Firefox toolbar popup resize events', async () =
 
     const frameScript = `
         const popup = content.document;
-        const menu = popup.querySelector('[popover]');
         const button = popup.querySelector('button[aria-label="Advanced CI filters"]');
         const events = [];
-        for (const type of ['beforetoggle', 'toggle']) {
-            menu.addEventListener(type, event => events.push({ type, state: event.newState }));
-        }
         content.addEventListener('resize', () => events.push({
             type: 'resize', viewport: [content.innerWidth, content.innerHeight]
         }));
         content.addEventListener('error', event => events.push({ type: 'error', message: event.message }));
         const viewport = [content.innerWidth, content.innerHeight];
         button.click();
-        content.requestAnimationFrame(() => content.requestAnimationFrame(() => {
+        content.requestAnimationFrame(() => {
+            content.dispatchEvent(new content.Event('resize'));
+            content.requestAnimationFrame(() => {
+            const menu = popup.querySelector('[role="dialog"][aria-label="Advanced CI filters"]');
             const rect = menu.getBoundingClientRect();
             sendAsyncMessage('advanced-ci-result', {
                 events, viewport,
-                native: typeof menu.showPopover,
-                open: menu.matches(':popover-open'),
+                open: Boolean(menu),
+                popover: menu.hasAttribute('popover'),
                 expanded: button.getAttribute('aria-expanded'),
                 focused: popup.activeElement?.getAttribute('data-ci-status'),
                 checked: Array.from(menu.querySelectorAll('input'), input => input.checked),
+                visible: menu.contains(popup.elementFromPoint(
+                    (rect.left + rect.right) / 2,
+                    (rect.top + rect.bottom) / 2
+                )),
                 rect: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom }
             });
-        }));
+            });
+        });
     `;
     const response = await evaluateChrome(
         context,
@@ -181,31 +185,71 @@ it('keeps Advanced open through Firefox toolbar popup resize events', async () =
         })`
     );
     const result = JSON.parse(response) as {
-        events: { type: string; state?: string; viewport?: number[] }[];
+        events: { type: string; viewport?: number[] }[];
         viewport: number[];
-        native: string;
         open: boolean;
+        popover: boolean;
         expanded: string;
         focused: string;
         checked: boolean[];
+        visible: boolean;
         rect: { left: number; top: number; right: number; bottom: number };
     };
-    const openedAt = result.events.findIndex(
-        (event) => event.type === 'toggle' && event.state === 'open'
-    );
-    expect(result.native).toBe('function');
-    expect(openedAt).toBeGreaterThanOrEqual(0);
-    expect(result.events.slice(openedAt + 1)).toContainEqual({
+    expect(result.events).toContainEqual({
         type: 'resize',
         viewport: result.viewport,
     });
     expect(result.events.some((event) => event.type === 'error')).toBe(false);
     expect(result.open).toBe(true);
+    expect(result.popover).toBe(false);
     expect(result.expanded).toBe('true');
     expect(result.focused).toBe('no-ci');
     expect(result.checked).toEqual([true, true]);
+    expect(result.visible).toBe(true);
     expect(result.rect.left).toBeGreaterThanOrEqual(0);
     expect(result.rect.top).toBeGreaterThanOrEqual(0);
     expect(result.rect.right).toBeLessThanOrEqual(result.viewport[0]);
     expect(result.rect.bottom).toBeLessThanOrEqual(result.viewport[1]);
+
+    const interactionScript = `
+        const popup = content.document;
+        const button = popup.querySelector('button[aria-label="Advanced CI filters"]');
+        popup.querySelector('[data-ci-status="unknown"]').click();
+        content.requestAnimationFrame(() => {
+            const unchecked = !popup.querySelector('[data-ci-status="unknown"]').checked;
+            popup.dispatchEvent(new content.KeyboardEvent('keydown', {
+                key: 'Escape', bubbles: true
+            }));
+            content.requestAnimationFrame(() => {
+                const escaped = !popup.querySelector('[role="dialog"][aria-label="Advanced CI filters"]');
+                const focusRestored = popup.activeElement === button;
+                button.click();
+                content.requestAnimationFrame(() => {
+                    popup.body.dispatchEvent(new content.PointerEvent('pointerdown', { bubbles: true }));
+                    content.requestAnimationFrame(() => sendAsyncMessage('advanced-ci-interaction', {
+                        unchecked, escaped, focusRestored,
+                        outsideDismissed: !popup.querySelector('[role="dialog"][aria-label="Advanced CI filters"]')
+                    }));
+                });
+            });
+        });
+    `;
+    const interactionResponse = await evaluateChrome(
+        context,
+        `new Promise(resolve => {
+            const manager = document.querySelector('#customizationui-widget-panel browser').messageManager;
+            const listener = message => {
+                manager.removeMessageListener('advanced-ci-interaction', listener);
+                resolve(JSON.stringify(message.data));
+            };
+            manager.addMessageListener('advanced-ci-interaction', listener);
+            manager.loadFrameScript('data:application/javascript,' + encodeURIComponent(${JSON.stringify(interactionScript)}), false);
+        })`
+    );
+    expect(JSON.parse(interactionResponse)).toEqual({
+        unchecked: true,
+        escaped: true,
+        focusRestored: true,
+        outsideDismissed: true,
+    });
 });
