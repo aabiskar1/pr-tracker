@@ -19,9 +19,13 @@ import {
     parseAppDataMutation,
     waitForAppDataMutations,
 } from '@/src/background/appDataStore';
+import { waitForDetailCacheWrites } from '@/src/background/detailCache';
 import { SessionStorageSchema } from '@/src/services/storageSchemas';
 import { replayPendingPullRequestNotificationsForActiveSession } from '@/src/background/notificationReplay';
-import { clearSecureStorage } from '@/src/services/secureStorage';
+import {
+    clearDetailCacheStorage,
+    clearSecureStorage,
+} from '@/src/services/secureStorage';
 
 export default defineBackground(() => {
     // Initialize the remembered password state when the service worker starts
@@ -111,7 +115,9 @@ export default defineBackground(() => {
             browser.alarms.clear(constants.PASSWORD_EXPIRY_ALARM),
             browser.alarms.clear(constants.ALARM_NAME),
             waitForAppDataMutations(),
+            waitForDetailCacheWrites(),
         ]);
+        await clearDetailCacheStorage();
     };
 
     const clearAccountData = async () => {

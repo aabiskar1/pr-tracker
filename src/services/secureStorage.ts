@@ -5,6 +5,7 @@ import {
     EncryptedDataSchema,
     EncryptedTokenSchema,
     EncryptedHiddenIdsSchema,
+    EncryptedDetailCacheSchema,
 } from './storageSchemas';
 
 /**
@@ -22,6 +23,8 @@ const TEST_KEY = 'encryptionTestVector';
 // New constants for encrypted app data
 const ENCRYPTED_DATA_KEY = 'encryptedAppData';
 const DATA_IV_KEY = 'appDataIv';
+const DETAIL_CACHE_KEY = 'encryptedDetailCache';
+const DETAIL_CACHE_IV_KEY = 'detailCacheIv';
 
 // Generate a random initialization vector for AES-GCM
 const generateIV = (): Uint8Array => {
@@ -79,6 +82,66 @@ const getEncryptionKey = async (userPassword: string): Promise<CryptoKey> => {
         ['encrypt', 'decrypt']
     );
 };
+
+export async function createDetailCacheCipher(password: string) {
+    const key = await getEncryptionKey(password);
+    return {
+        async load(): Promise<{
+            value: unknown;
+            encryptedBytes: number;
+        } | null> {
+            const stored = await browser.storage.local.get([
+                DETAIL_CACHE_KEY,
+                DETAIL_CACHE_IV_KEY,
+            ]);
+            const parsed = EncryptedDetailCacheSchema.safeParse(stored);
+            if (!parsed.success) return null;
+            const ciphertext = parsed.data[DETAIL_CACHE_KEY];
+            const iv = parsed.data[DETAIL_CACHE_IV_KEY];
+            if (!ciphertext || !iv) return null;
+            try {
+                const bytes = Uint8Array.from(atob(ciphertext), (char) =>
+                    char.charCodeAt(0)
+                );
+                const plaintext = await crypto.subtle.decrypt(
+                    { name: 'AES-GCM', iv: new Uint8Array(iv) },
+                    key,
+                    bytes
+                );
+                return {
+                    value: JSON.parse(new TextDecoder().decode(plaintext)),
+                    encryptedBytes: ciphertext.length,
+                };
+            } catch {
+                return null;
+            }
+        },
+        async save(value: unknown, beforeStore: () => void): Promise<number> {
+            const iv = generateIV();
+            const plaintext = new TextEncoder().encode(JSON.stringify(value));
+            const encrypted = await crypto.subtle.encrypt(
+                { name: 'AES-GCM', iv: iv as BufferSource },
+                key,
+                plaintext
+            );
+            const ciphertext = btoa(
+                Array.from(new Uint8Array(encrypted), (byte) =>
+                    String.fromCharCode(byte)
+                ).join('')
+            );
+            beforeStore();
+            await browser.storage.local.set({
+                [DETAIL_CACHE_KEY]: ciphertext,
+                [DETAIL_CACHE_IV_KEY]: Array.from(iv),
+            });
+            return ciphertext.length;
+        },
+    };
+}
+
+export async function clearDetailCacheStorage(): Promise<void> {
+    await browser.storage.local.remove([DETAIL_CACHE_KEY, DETAIL_CACHE_IV_KEY]);
+}
 
 const createEncryptionTestVector = async (key: CryptoKey) => {
     const iv = generateIV();
@@ -346,6 +409,8 @@ export const encryptToken = async (
             [TEST_KEY]: testVector,
         });
 
+        await clearDetailCacheStorage().catch(() => undefined);
+
         console.log('Token encrypted and stored securely');
     } catch (error) {
         console.error('Error encrypting token:', error);
@@ -424,6 +489,8 @@ export const clearSecureStorage = async (): Promise<void> => {
         SALT_KEY,
         ENCRYPTED_DATA_KEY,
         DATA_IV_KEY,
+        DETAIL_CACHE_KEY,
+        DETAIL_CACHE_IV_KEY,
         'encryptedHiddenPrIds',
         'hiddenPrIdsIv',
         'prtracker_github_rate_limit_cooldown',
