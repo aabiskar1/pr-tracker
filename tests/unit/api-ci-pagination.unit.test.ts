@@ -46,7 +46,7 @@ function scenario(
         if (url.includes('/search/issues?'))
             return searchResponse([searchItem(40)]);
         if (url === prUrl(40)) return jsonResponse(prDetail(40));
-        if (url.endsWith('/reviews')) return jsonResponse([]);
+        if (url.endsWith('/reviews?per_page=100')) return jsonResponse([]);
         if (url.includes('/check-runs')) {
             const parsed = new URL(url);
             expect(parsed.searchParams.get('per_page')).toBe('100');

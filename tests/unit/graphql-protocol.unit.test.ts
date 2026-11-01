@@ -81,7 +81,7 @@ it('contrasts REST optional-error degradation with GraphQL partial-response reje
         if (url.includes('/search/issues?'))
             return searchResponse([searchItem(1)]);
         if (url === prUrl(1)) return jsonResponse(prDetail(1));
-        if (url.endsWith('/reviews'))
+        if (url.endsWith('/reviews?per_page=100'))
             return jsonResponse({ message: 'Forbidden' }, 403);
         if (new URL(url).pathname.endsWith('/check-runs'))
             return jsonResponse({

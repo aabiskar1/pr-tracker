@@ -54,7 +54,7 @@ const runScenario = async (scenario: Scenario = {}) => {
         if (url.startsWith('https://api.github.com/search/issues?')) {
             return searchResponse([searchItem(40)]);
         }
-        if (url === `${targetPrUrl}/reviews`) {
+        if (url === `${targetPrUrl}/reviews?per_page=100`) {
             return endpointResponse(scenario.reviews, []);
         }
         if (url.includes('/check-runs')) {
@@ -213,7 +213,9 @@ describe('fetchPullRequests CI-status reduction', () => {
             1
         );
         expect(
-            requestedUrls.filter((url) => url === `${targetPrUrl}/reviews`)
+            requestedUrls.filter(
+                (url) => url === `${targetPrUrl}/reviews?per_page=100`
+            )
         ).toHaveLength(1);
         expect(
             requestedUrls.filter((url) => url.includes('/check-runs'))
@@ -499,12 +501,13 @@ describe('fetchPullRequests optional rate-limit aggregation', () => {
                 requestedDetails.push(number);
                 return jsonResponse(prDetail(number));
             }
-            if (url === `${prUrl(1)}/reviews`) {
+            if (url === `${prUrl(1)}/reviews?per_page=100`) {
                 return jsonResponse({ message: 'secondary rate limit' }, 429, {
                     'retry-after': '60',
                 });
             }
-            if (url === `${prUrl(2)}/reviews`) return jsonResponse([]);
+            if (url === `${prUrl(2)}/reviews?per_page=100`)
+                return jsonResponse([]);
             if (
                 url.includes('/repo-1/commits/') &&
                 new URL(url).pathname.endsWith('/check-runs')
