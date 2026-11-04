@@ -44,8 +44,9 @@ or authenticated network behaviour. No manual browser testing is claimed.
 The native-network and longitudinal cache gaps recorded in the
 [cache investigation](investigations/encrypted-etag-cache-pilot.md) remain.
 
-The Windows working-tree formatting check still reports 122 unrelated files
-because of checkout line endings.
+The Windows working-tree formatting check still reports 122 unrelated files:
+119 have checkout line-ending differences, and three are untracked local
+artifacts with existing formatting differences. None is part of this PR.
 All 205 supported tracked files passed Prettier when read directly from Git;
 the full `npm run check-format` also passed in an LF snapshot with the release
 changes overlaid. Existing files were not reformatted.
