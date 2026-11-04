@@ -8,7 +8,10 @@ import {
 } from '../../src/background/detailCache';
 import { fetchPullRequests } from '../../src/background/api';
 import type { RefreshSessionContext } from '../../src/background/refreshSession';
-import { createDetailCacheCipher } from '../../src/services/secureStorage';
+import {
+    createDetailCacheCipher,
+    encryptToken,
+} from '../../src/services/secureStorage';
 import {
     TOKEN,
     USER,
@@ -305,49 +308,56 @@ describe('encrypted canonical detail cache', () => {
         ).toBe(true);
     });
 
-    it('uses fresh draft and reviewer metadata from a changed 200', async () => {
-        const cold = await createDetailCache(
-            'password',
-            TOKEN,
-            USER.login,
-            session()
-        );
-        cold.record(prUrl(1), detailResponse(1), prDetail(1));
-        await cold.persist();
-        const warm = await createDetailCache(
-            'password',
-            TOKEN,
-            USER.login,
-            session()
-        );
-        const body = prDetail(1, {
-            draft: true,
-            requested_reviewers: [
-                { login: 'new-reviewer', avatar_url: 'data:,' },
-            ],
-        });
-        const changed = await runRefresh(
-            warm,
-            jsonResponse(body, 200, { etag: '"detail-2"' })
-        );
-        expect(changed.result.status).toBe('success');
-        if (changed.result.status === 'success')
-            expect(changed.result.pullRequests[0]).toMatchObject({
-                draft: true,
-                requested_reviewers: [{ login: 'new-reviewer' }],
+    it.each([true, false])(
+        'uses fresh draft=%s and reviewer metadata from a changed 200',
+        async (draft) => {
+            const cold = await createDetailCache(
+                'password',
+                TOKEN,
+                USER.login,
+                session()
+            );
+            cold.record(
+                prUrl(1),
+                detailResponse(1),
+                prDetail(1, { draft: !draft })
+            );
+            await cold.persist();
+            const warm = await createDetailCache(
+                'password',
+                TOKEN,
+                USER.login,
+                session()
+            );
+            const body = prDetail(1, {
+                draft,
+                requested_reviewers: [
+                    { login: 'new-reviewer', avatar_url: 'data:,' },
+                ],
             });
-        await warm.persist();
-        expect(
-            (
-                await createDetailCache(
-                    'password',
-                    TOKEN,
-                    USER.login,
-                    session()
-                )
-            ).lookup(prUrl(1))?.etag
-        ).toBe('"detail-2"');
-    });
+            const changed = await runRefresh(
+                warm,
+                jsonResponse(body, 200, { etag: '"detail-2"' })
+            );
+            expect(changed.result.status).toBe('success');
+            if (changed.result.status === 'success')
+                expect(changed.result.pullRequests[0]).toMatchObject({
+                    draft,
+                    requested_reviewers: [{ login: 'new-reviewer' }],
+                });
+            await warm.persist();
+            expect(
+                (
+                    await createDetailCache(
+                        'password',
+                        TOKEN,
+                        USER.login,
+                        session()
+                    )
+                ).lookup(prUrl(1))?.etag
+            ).toBe('"detail-2"');
+        }
+    );
 
     it('does not turn a bare 304 or failed detail into stale success', async () => {
         const empty = await createDetailCache(
@@ -538,5 +548,141 @@ describe('encrypted canonical detail cache', () => {
         );
         await expect(cache.persist()).rejects.toThrow('quota');
         expect(stored.has('encryptedDetailCache')).toBe(false);
+    });
+
+    it.each(['storage', 'encryption'] as const)(
+        'continues ordinary fetching after cache %s failure',
+        async (failure) => {
+            if (failure === 'storage') {
+                vi.mocked(browser.storage.local.get).mockRejectedValueOnce(
+                    new Error('storage unavailable')
+                );
+            } else {
+                vi.spyOn(crypto.subtle, 'deriveKey').mockRejectedValueOnce(
+                    new Error('key derivation unavailable')
+                );
+            }
+            const cache = await createDetailCache(
+                'password',
+                TOKEN,
+                USER.login,
+                session()
+            );
+            const refreshed = await runRefresh(cache, detailResponse(1));
+            expect(refreshed.result.status).toBe('success');
+            expect(
+                refreshed.requested.find((request) => request.url === prUrl(1))
+                    ?.headers
+            ).not.toHaveProperty('If-None-Match');
+            await cache.persist();
+            expect(stored.has('encryptedDetailCache')).toBe(false);
+        }
+    );
+
+    it('rejects malformed decrypted detail before sending a validator', async () => {
+        const cache = await createDetailCache(
+            'password',
+            TOKEN,
+            USER.login,
+            session()
+        );
+        cache.record(prUrl(1), detailResponse(1), prDetail(1));
+        await cache.persist();
+        const cipher = await createDetailCacheCipher('password');
+        const loaded = (await cipher.load())!.value as {
+            entries: { detail: Record<string, unknown> }[];
+        };
+        loaded.entries[0].detail.id = 'invalid';
+        await cipher.save(loaded, () => undefined);
+        const restored = await createDetailCache(
+            'password',
+            TOKEN,
+            USER.login,
+            session()
+        );
+        const result = await runRefresh(
+            restored,
+            new Response(null, { status: 304 })
+        );
+        expect(result.result.status).toBe('failure');
+        expect(
+            result.requested.find((request) => request.url === prUrl(1))
+                ?.headers
+        ).not.toHaveProperty('If-None-Match');
+        expect(
+            result.requested.some((request) =>
+                request.url.includes('/reviews?')
+            )
+        ).toBe(false);
+    });
+
+    it('does not commit when invalidated while cache encryption is pending', async () => {
+        let valid = true;
+        const cache = await createDetailCache('password', TOKEN, USER.login, {
+            signal: new AbortController().signal,
+            isValid: () => valid,
+        });
+        cache.record(prUrl(1), detailResponse(1), prDetail(1));
+        const encrypt = crypto.subtle.encrypt.bind(crypto.subtle);
+        vi.spyOn(crypto.subtle, 'encrypt').mockImplementationOnce(
+            async (...args) => {
+                const ciphertext = await encrypt(...args);
+                valid = false;
+                return ciphertext;
+            }
+        );
+        await expect(cache.persist()).rejects.toThrow('invalidated');
+        expect(stored.has('encryptedDetailCache')).toBe(false);
+    });
+
+    it('sends an unconditional request after expiry and after a missing ETag', async () => {
+        const cold = await createDetailCache(
+            'password',
+            TOKEN,
+            USER.login,
+            session()
+        );
+        await runRefresh(cold, detailResponse(1));
+        await cold.persist();
+        const clock = vi
+            .spyOn(Date, 'now')
+            .mockReturnValue(Date.now() + DETAIL_CACHE_MAX_AGE_MS + 1);
+        const expired = await createDetailCache(
+            'password',
+            TOKEN,
+            USER.login,
+            session()
+        );
+        const refreshed = await runRefresh(expired, jsonResponse(prDetail(1)));
+        expect(refreshed.result.status).toBe('success');
+        expect(
+            refreshed.requested.find((request) => request.url === prUrl(1))
+                ?.headers
+        ).not.toHaveProperty('If-None-Match');
+        await expired.persist();
+        const missing = await createDetailCache(
+            'password',
+            TOKEN,
+            USER.login,
+            session()
+        );
+        expect(missing.lookup(prUrl(1))).toBeNull();
+        clock.mockRestore();
+    });
+
+    it('removes the encrypted cache when a replacement token is stored', async () => {
+        const cache = await createDetailCache(
+            'password',
+            TOKEN,
+            USER.login,
+            session()
+        );
+        await runRefresh(cache, detailResponse(1));
+        await cache.persist();
+        expect(stored.has('encryptedDetailCache')).toBe(true);
+        await encryptToken('replacement-token', 'password');
+        expect(stored.has('encryptedDetailCache')).toBe(false);
+        expect(stored.has('detailCacheIv')).toBe(false);
+        expect(stored.has('encryptedGithubToken')).toBe(true);
     });
 });

@@ -24,6 +24,7 @@ import {
     decryptHiddenPrIds,
     decryptToken,
     encryptAppData,
+    createDetailCacheCipher,
 } from '../../src/services/secureStorage';
 import type { AppData, PullRequest } from '../../src/types';
 
@@ -48,6 +49,7 @@ vi.mock('../../src/services/secureStorage', () => ({
     decryptAppData: vi.fn(),
     encryptAppData: vi.fn(),
     decryptHiddenPrIds: vi.fn(),
+    createDetailCacheCipher: vi.fn(),
 }));
 
 vi.mock('../../src/background/api', () => ({
@@ -197,6 +199,37 @@ describe('background PR polling and notification decisions', () => {
             expect(storedData.pullRequests).toEqual([pullRequest(1)]);
         }
     );
+
+    it('publishes the complete snapshot when optional cache storage exceeds quota', async () => {
+        const save = vi.fn(async () => {
+            throw new Error('quota');
+        });
+        vi.mocked(createDetailCacheCipher).mockResolvedValueOnce({
+            load: async () => null,
+            save,
+        });
+        vi.mocked(fetchPullRequests).mockImplementationOnce(
+            async (_token, _user, _query, _notify, _session, cache) => {
+                cache!.record(
+                    'https://api.github.com/repos/acme/repo/pulls/1',
+                    new Response(null, { headers: { etag: '"v1"' } }),
+                    { id: 1, html_url: 'https://github.com/acme/repo/pull/1' }
+                );
+                return successfulFetch([pullRequest(1)]);
+            }
+        );
+        await checkPullRequests(true);
+        expect(save).toHaveBeenCalledOnce();
+        expect(storedData.pullRequests).toEqual([pullRequest(1)]);
+        expect(storedData.oldPullRequests).toEqual([pullRequest(1)]);
+        expect(storedData.lastSuccessfulRefreshAt).toBe(
+            FIXED_TIME.toISOString()
+        );
+        expect(browser.runtime.sendMessage).toHaveBeenCalledWith(
+            expect.objectContaining({ type: 'DATA_UPDATED' })
+        );
+        expect(setBadgeText).toHaveBeenCalledWith('1');
+    });
 
     it.each(['request', 'required-detail', 'persistence', 'invalidation'])(
         'preserves the successful timestamp after %s failure',
