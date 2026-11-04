@@ -52,7 +52,7 @@ const jsonBody = (value: unknown) =>
 const prApiUrl = (pr: PullRequest) =>
     `https://api.github.com/repos/acme/${pr.repository.name}/pulls/${pr.id}`;
 
-function responseFor(
+export function responseFor(
     url: string,
     scenario: GitHubScenario
 ): { status: number; body: unknown; link?: string; etag?: string } {
