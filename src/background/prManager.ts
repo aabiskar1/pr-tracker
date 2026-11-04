@@ -9,6 +9,7 @@ import { fetchPullRequests, handleApiError } from './api';
 import { createNotification, setBadgeText } from './notifications';
 import { state, constants } from './state';
 import { updateEncryptedAppData } from './appDataStore';
+import { createDetailCache, type DetailCache } from './detailCache';
 import {
     clearGitHubRateLimitCooldown,
     formatGitHubCooldownTime,
@@ -133,6 +134,8 @@ async function runPullRequestCheck(
     customQueryFromMsg: string | null | undefined,
     refreshSession: RefreshSessionContext
 ): Promise<void> {
+    const refreshStarted = performance.now();
+    let detailCache: DetailCache | undefined;
     console.log('Starting PR check');
     const sessionNotification = (
         id: string | undefined,
@@ -302,6 +305,19 @@ async function runPullRequestCheck(
 
         const user = await userResponse.json();
         assertRefreshSessionValid(refreshSession);
+        if (typeof user.login === 'string') {
+            try {
+                detailCache = await createDetailCache(
+                    sessionPassword,
+                    token,
+                    user.login,
+                    refreshSession
+                );
+            } catch (error) {
+                if (isRefreshSessionInvalidated(error, refreshSession))
+                    throw error;
+            }
+        }
 
         // --- Custom Query Support ---
         let customQuery = customQueryFromMsg;
@@ -332,9 +348,11 @@ async function runPullRequestCheck(
             user,
             customQuery || undefined,
             sessionNotification,
-            refreshSession
+            refreshSession,
+            detailCache
         );
         assertRefreshSessionValid(refreshSession);
+
         if (result.status === 'failure') {
             if (result.rateLimit) {
                 await persistGitHubRateLimitCooldown(result.rateLimit);
@@ -368,6 +386,13 @@ async function runPullRequestCheck(
             },
             { isValid: refreshSession.isValid }
         );
+        assertRefreshSessionValid(refreshSession);
+
+        try {
+            await detailCache?.persist();
+        } catch (error) {
+            if (isRefreshSessionInvalidated(error, refreshSession)) throw error;
+        }
         assertRefreshSessionValid(refreshSession);
 
         // Notify popup about data update
@@ -458,6 +483,8 @@ async function runPullRequestCheck(
             refreshSession
         );
         assertRefreshSessionValid(refreshSession);
+        if (detailCache)
+            detailCache.metrics.refreshMs = performance.now() - refreshStarted;
     } catch (error) {
         if (isRefreshSessionInvalidated(error, refreshSession)) {
             console.log('PR check stopped because its session was invalidated');

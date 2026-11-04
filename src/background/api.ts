@@ -15,6 +15,7 @@ import {
     type GitHubRateLimitCooldown,
 } from '../utils/githubRateLimit';
 import { mapWithConcurrency } from '../utils/mapWithConcurrency';
+import type { DetailCache } from './detailCache';
 import {
     assertRefreshSessionValid,
     type RefreshSessionContext,
@@ -735,7 +736,8 @@ export async function fetchPullRequests(
         },
         forceShow?: boolean
     ) => Promise<void>,
-    refreshSession?: RefreshSessionContext
+    refreshSession?: RefreshSessionContext,
+    detailCache?: DetailCache
 ): Promise<PullRequestFetchResult> {
     assertRefreshSessionValid(refreshSession);
     let prItems: GitHubIssueSearchItem[] = [];
@@ -862,16 +864,32 @@ export async function fetchPullRequests(
 
             const prUrl = item.pull_request.url;
 
+            let cachedDetail = detailCache?.lookup(prUrl) ?? null;
+            if (
+                cachedDetail &&
+                !mapPullRequestDetail(cachedDetail.detail, 'pending', 'pending')
+            ) {
+                detailCache?.discard(prUrl);
+                cachedDetail = null;
+            }
+
             const prResponse = await fetch(prUrl, {
                 signal: refreshSession?.signal,
                 headers: {
                     Authorization: `token ${token}`,
                     Accept: 'application/vnd.github.v3+json',
+                    ...(cachedDetail
+                        ? { 'If-None-Match': cachedDetail.etag }
+                        : {}),
                 },
             });
             assertRefreshSessionValid(refreshSession);
+            detailCache?.observe(prResponse);
 
-            if (!prResponse.ok) {
+            if (
+                !prResponse.ok &&
+                !(prResponse.status === 304 && cachedDetail)
+            ) {
                 console.error(
                     `Required PR detail request failed with status: ${prResponse.status}`
                 );
@@ -886,7 +904,10 @@ export async function fetchPullRequests(
                 };
             }
 
-            const prData: unknown = await prResponse.json();
+            const prData: unknown =
+                prResponse.status === 304 && cachedDetail
+                    ? cachedDetail.detail
+                    : await prResponse.json();
             assertRefreshSessionValid(refreshSession);
             const pullRequest = mapPullRequestDetail(
                 prData,
@@ -899,6 +920,28 @@ export async function fetchPullRequests(
             }
 
             const ciContext = getCIContext(prData);
+            if (prResponse.status === 304) {
+                detailCache?.record304(prResponse);
+            } else {
+                detailCache?.record(prUrl, prResponse, prData, {
+                    id: pullRequest.id,
+                    html_url: pullRequest.html_url,
+                    title: pullRequest.title,
+                    state: pullRequest.state,
+                    draft: pullRequest.draft,
+                    created_at: pullRequest.created_at,
+                    requested_reviewers: pullRequest.requested_reviewers,
+                    user: pullRequest.author,
+                    base: {
+                        repo: {
+                            name: pullRequest.repository.name,
+                            url: ciContext?.repoUrl,
+                        },
+                    },
+                    head: { sha: ciContext?.headSha },
+                });
+            }
+
             const [reviewResult, ciResult] = await Promise.all([
                 getReviewStatus(prUrl, token, refreshSession),
                 ciContext

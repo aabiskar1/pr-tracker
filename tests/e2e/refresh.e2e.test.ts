@@ -58,6 +58,80 @@ describe('manual refresh journey', () => {
         ]);
     });
 
+    it('stores canonical details encrypted and revalidates them with ETags', async () => {
+        const page = await openSeededPopup(github, {
+            data: appData([POPULATED_PRS[0]]),
+        });
+        pages.push(page);
+        github.setScenario({
+            pullRequests: [POPULATED_PRS[0]],
+            detailEtag: '"detail-v1"',
+        });
+        await page.click('[aria-label="Refresh Pull Requests"]');
+        await expect
+            .poll(async () =>
+                page.evaluate(async () => {
+                    const stored = await chrome.storage.local.get([
+                        'encryptedDetailCache',
+                        'detailCacheIv',
+                    ]);
+                    return (
+                        typeof stored.encryptedDetailCache === 'string' &&
+                        Array.isArray(stored.detailCacheIv)
+                    );
+                })
+            )
+            .toBe(true);
+        await waitForDashboard(page);
+        const ciphertext = await page.evaluate(
+            async () =>
+                (await chrome.storage.local.get('encryptedDetailCache'))
+                    .encryptedDetailCache as string
+        );
+        expect(ciphertext).not.toContain(POPULATED_PRS[0].title);
+        github.resetRequests();
+        await resetManualRefreshThrottle();
+        await page.evaluate(async () =>
+            chrome.runtime.sendMessage({ type: 'CHECK_PRS', manual: true })
+        );
+        await expect
+            .poll(() =>
+                github.detailRequests.some((request) => request.status === 304)
+            )
+            .toBe(true);
+        expect(github.detailRequests).toContainEqual({
+            ifNoneMatch: '"detail-v1"',
+            status: 304,
+        });
+        expect(github.requests.some((url) => url.includes('/reviews?'))).toBe(
+            true
+        );
+        expect(
+            github.requests.some((url) => url.includes('/check-runs?'))
+        ).toBe(true);
+        expect((await readAppData(page)).pullRequests[0].title).toBe(
+            POPULATED_PRS[0].title
+        );
+
+        github.setScenario({
+            pullRequests: [POPULATED_PRS[0], POPULATED_PRS[1]],
+            detailEtag: '"detail-v2"',
+            detailStatusByPrId: { [POPULATED_PRS[1].id]: 503 },
+        });
+        await resetManualRefreshThrottle();
+        await page.evaluate(async () =>
+            chrome.runtime.sendMessage({ type: 'CHECK_PRS', manual: true })
+        );
+        expect(
+            await page.evaluate(
+                async () =>
+                    (await chrome.storage.local.get('encryptedDetailCache'))
+                        .encryptedDetailCache
+            )
+        ).toBe(ciphertext);
+        expect((await readAppData(page)).pullRequests).toHaveLength(1);
+    });
+
     it('shows no check for legacy cached data and updates the open popup after a background check', async () => {
         const page = await openSeededPopup(github, {
             data: appData([POPULATED_PRS[0]]),

@@ -11,6 +11,7 @@ import {
 
 type GitHubScenario = {
     pullRequests: PullRequest[];
+    detailEtag?: string;
     reviewHistoryByPrId?: Record<
         number,
         { user: { id: number }; state: string }[]
@@ -22,11 +23,12 @@ type GitHubScenario = {
 
 type PausedRequest = {
     requestId: string;
-    request: { url: string };
+    request: { url: string; headers: Record<string, string> };
 };
 
 export type GitHubMock = {
     requests: string[];
+    detailRequests: Array<{ ifNoneMatch: string | null; status: number }>;
     setScenario: (scenario: GitHubScenario) => void;
     resetRequests: () => void;
     pauseNextUserRequest: () => {
@@ -53,7 +55,7 @@ const prApiUrl = (pr: PullRequest) =>
 function responseFor(
     url: string,
     scenario: GitHubScenario
-): { status: number; body: unknown; link?: string } {
+): { status: number; body: unknown; link?: string; etag?: string } {
     if (url === 'https://api.github.com/user') {
         return {
             status: scenario.userStatus ?? 200,
@@ -154,6 +156,7 @@ function responseFor(
         }
         return {
             status: 200,
+            etag: scenario.detailEtag,
             body: {
                 ...pr,
                 user: pr.author,
@@ -176,6 +179,7 @@ export async function installGitHubApiMock(
 ): Promise<GitHubMock> {
     let scenario = initial;
     const requests: string[] = [];
+    const detailRequests: GitHubMock['detailRequests'] = [];
     let pausedUserRequest:
         | {
               reached: ReturnType<typeof deferred>;
@@ -213,18 +217,33 @@ export async function installGitHubApiMock(
             activePausedUserRequest = undefined;
         }
         const response = responseFor(event.request.url, scenario);
+        const ifNoneMatch =
+            Object.entries(event.request.headers).find(
+                ([name]) => name.toLowerCase() === 'if-none-match'
+            )?.[1] ?? null;
+        const responseCode =
+            response.etag && ifNoneMatch === response.etag
+                ? 304
+                : response.status;
+        if (response.etag)
+            detailRequests.push({ ifNoneMatch, status: responseCode });
         try {
             await session.send('Fetch.fulfillRequest', {
                 requestId: event.requestId,
-                responseCode: response.status,
+                responseCode,
                 responseHeaders: [
                     { name: 'content-type', value: 'application/json' },
                     { name: 'x-oauth-scopes', value: 'repo' },
                     ...(response.link
                         ? [{ name: 'link', value: response.link }]
                         : []),
+                    ...(response.etag
+                        ? [{ name: 'etag', value: response.etag }]
+                        : []),
                 ],
-                body: jsonBody(response.body),
+                ...(responseCode === 304
+                    ? {}
+                    : { body: jsonBody(response.body) }),
             });
         } catch (error) {
             // An invalidated refresh can abort while this deterministic request
@@ -235,10 +254,14 @@ export async function installGitHubApiMock(
 
     return {
         requests,
+        detailRequests,
         setScenario: (next) => {
             scenario = next;
         },
-        resetRequests: () => requests.splice(0),
+        resetRequests: () => {
+            requests.splice(0);
+            detailRequests.splice(0);
+        },
         pauseNextUserRequest: () => {
             if (pausedUserRequest || activePausedUserRequest) {
                 throw new Error('A GitHub user request is already paused');

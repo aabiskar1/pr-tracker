@@ -28,6 +28,11 @@ export const EncryptedDataSchema = z.object({
     appDataIv: ByteArraySchema.optional(),
 });
 
+export const EncryptedDetailCacheSchema = z.object({
+    encryptedDetailCache: z.string().max(1_600_000).optional(),
+    detailCacheIv: ByteArraySchema.length(12).optional(),
+});
+
 export const EncryptedTokenSchema = z.object({
     encryptedGithubToken: ByteArraySchema.optional(),
     prtracker_iv: ByteArraySchema.optional(),
