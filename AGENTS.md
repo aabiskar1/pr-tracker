@@ -79,6 +79,24 @@ rules above as the direction for small, approved improvements, not permission
 for an unrelated refactor. See `docs/architecture.md` for the current-state
 details.
 
+### Security and correctness
+
+When changing storage, GitHub API requests, or background refresh logic, agents
+must:
+
+- preserve encrypted storage for sensitive GitHub data;
+- maintain account and credential isolation;
+- respect session invalidation, cancellation, and background-worker restarts;
+- never treat stale cached information as fresh;
+- preserve required-detail failure handling and last-known-good snapshots;
+- avoid skipping review or CI requests based solely on PR timestamps or commit
+  SHA;
+- preserve GitHub rate-limit and cooldown handling;
+- keep cache storage bounded and maintain safe reset and sign-out behaviour; and
+- check Chrome and Firefox compatibility.
+
+See [`docs/architecture.md`](docs/architecture.md) for implementation details.
+
 ## Dependency rules
 
 Agents must:
@@ -144,6 +162,43 @@ update this document at that time.
 
 Preserve unrelated local work. Review the complete diff before committing, and
 do not rewrite or discard changes that are outside the assigned task.
+
+## Writing and communication
+
+PR descriptions, commit messages, release notes, changelogs, and documentation
+should sound natural, as a developer explaining their own work. Follow the
+tone and style of existing human-written project communication where possible.
+Aim for professional, straightforward British English, without overly polished
+or promotional wording.
+
+- Use clear, concise sentences and plain language.
+- Explain what changed, why it changed, and anything important reviewers should
+  know. Keep PR descriptions proportional to the size and complexity of the
+  change, without forcing them into a fixed template.
+- Avoid unnecessary headings, repetitive summaries, excessive bullet points,
+  and emojis. Ordinary PR descriptions do not need sections such as "Key
+  Achievements", "Impact Summary", or "Technical Excellence".
+- Avoid marketing language and AI-sounding expressions such as "leveraging",
+  "seamless experience", "robust solution", "enhanced capabilities", and
+  "comprehensive improvements".
+- Avoid exaggerated claims about performance, reliability, or security.
+  Clearly distinguish measured results from estimates, synthetic benchmarks,
+  and expected improvements.
+- Include technical detail when useful, without overexplaining obvious changes.
+- Be transparent about limitations, incomplete testing, and known issues.
+- Write release notes for users, focusing on what changed and why it matters
+  rather than internal implementation details.
+- Use short, descriptive commit messages that explain the actual change.
+
+Prefer wording such as:
+
+> Added encrypted caching for PR details. Unchanged responses now use ETags,
+> while review and CI information is still fetched normally.
+
+Rather than:
+
+> Implemented a robust and seamless caching architecture that significantly
+> enhances performance and optimises the user experience.
 
 ## Change discipline
 
