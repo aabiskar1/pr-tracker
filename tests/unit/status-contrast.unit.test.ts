@@ -80,8 +80,8 @@ describe.each(['light', 'dark'] as const)('%s status colours', (theme) => {
             ).toBeGreaterThanOrEqual(4.5);
         }
     );
-    it('uses the same white-on-amber Pending pair for cards and active filters', () => {
-        expect(resolve('--popup-status-pending')).toBe('#946200');
+    it('uses the same white-on-yellow Pending pair for cards and active filters', () => {
+        expect(resolve('--popup-status-pending')).toBe('#927206');
         expect(resolve('--popup-card-status-pending')).toBe(
             resolve('--popup-status-pending')
         );

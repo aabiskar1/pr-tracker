@@ -114,13 +114,13 @@ export function assertStatusContrast(
     for (const row of audit.rows) {
         if (row.state === 'pending' && row.selected !== 'false') {
             if (
-                row.background !== 'rgb(148, 98, 0)' ||
+                row.background !== 'rgb(146, 114, 6)' ||
                 [row.foreground, ...row.contentColours].some(
                     (colour) => colour !== 'rgb(255, 255, 255)'
                 )
             )
                 throw new Error(
-                    `Pending must use white text, icons and separators on the shared amber: ${JSON.stringify(row)}`
+                    `Pending must use white text, icons and separators on the shared yellow: ${JSON.stringify(row)}`
                 );
         }
         if (row.contrast < 4.5)

@@ -3,9 +3,10 @@
 Follow-up to the [PR #112 investigation](grouping-performance-usability.md#accessibility).
 Checked on 13 November 2026 against `main` at `4643cd6` and this fix.
 
-Pending uses a darker amber `#946200` background with white `#ffffff` text,
-icons and separators in cards and active filters. The suggested amber measures
-5.2418:1 against white, so no alternative shade was needed. Active Passing and Approved
+Pending uses yellow `#927206` with white `#ffffff` text, icons and separators
+in cards and active filters. It keeps the original yellow's hue and saturation,
+with the lightness reduced enough to reach 4.5339:1 against white. Lighter nearby
+shades fail 4.5:1 (`#927306` is 4.4899:1). Active Passing and Approved
 filters use the existing card green `#238636`. Their text is white in both themes,
 as is active red filter text. Card green/red, draft and neutral palettes are
 unchanged. Status names, icons, sizes, layout and filter behaviour are unchanged.
@@ -25,8 +26,8 @@ Both browsers returned the same values in each theme.
 
 | Text                         | Before light/dark | After light/dark |
 | ---------------------------- | ----------------: | ---------------: |
-| Pending card badge           |       2.13 / 2.13 |      5.24 / 5.24 |
-| Active Pending filter        |       2.13 / 1.81 |      5.24 / 5.24 |
+| Pending card badge           |       2.13 / 2.13 |      4.53 / 4.53 |
+| Active Pending filter        |       2.13 / 1.81 |      4.53 / 4.53 |
 | Active Passing/Approved      |       3.13 / 2.65 |      4.63 / 4.63 |
 | Active Failing/Changes       |       5.47 / 4.63 |      5.47 / 5.47 |
 | Passing/Approved card        |       4.63 / 4.63 |      4.63 / 4.63 |
@@ -39,7 +40,7 @@ No CI intentionally has no card badge. Advanced choices retain ordinary text
 and native checkboxes. Active Drafts/Ready/Reviewed checkmarks remain 6.29:1
 in light and 4.63:1 in dark. Deselected Pending chips also pass the text threshold.
 Faded card icons are measured after compositing their existing 80% opacity:
-the minimum is **3.56:1**. Focus outlines exceed 3:1 against the filter surface.
+the minimum is **3.52:1**. Focus outlines exceed 3:1 against the filter surface.
 
 ## Reproduction and coverage
 
