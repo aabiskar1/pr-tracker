@@ -247,7 +247,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </div>
 
             {/* Search PRs input */}
-            <div className="relative mb-4 leading-none">
+            <div className="relative mb-2 leading-none">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <FaSearch className="text-muted-foreground" />
                 </div>

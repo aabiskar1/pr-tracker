@@ -71,7 +71,7 @@ describe('repository grouping', () => {
         await github.close();
     });
 
-    it('defaults to None and preserves collapse choices through mode changes, search, reset filters, reopen and unlock', async () => {
+    it('defaults to All PRs and preserves collapse choices through view changes, search, reset filters, reopen and unlock', async () => {
         const page = await openSeededPopup(github);
         pages.push(page);
         expect(
@@ -80,6 +80,20 @@ describe('repository grouping', () => {
                 (element) => (element as HTMLSelectElement).value
             )
         ).toBe('none');
+        expect(
+            await page.$eval('[name="pr-grouping"]', (select) => ({
+                label: (select as HTMLSelectElement).labels?.[0]?.textContent,
+                options: [...(select as HTMLSelectElement).options].map(
+                    (option) => [option.value, option.text]
+                ),
+            }))
+        ).toEqual({
+            label: 'View',
+            options: [
+                ['none', 'All PRs'],
+                ['repository', 'By repository'],
+            ],
+        });
         expect(await page.$('[data-testid="repository-groups"]')).toBeNull();
         expect((await readAppData(page)).preferences?.grouping).toBeUndefined();
         await page.select('[name="pr-grouping"]', 'repository');
@@ -406,6 +420,118 @@ describe('repository grouping', () => {
             expect(geometry.viewport).toBeGreaterThanOrEqual(750);
             expect(geometry.viewport).toBeLessThanOrEqual(800);
             expect(geometry.overflow).toBe(false);
+            expect(
+                await page.$$eval('.repository-group-toggle', (buttons) =>
+                    buttons.every((button) => {
+                        const name = button
+                            .querySelector('span')!
+                            .getBoundingClientRect();
+                        const target = button.getBoundingClientRect();
+                        return (
+                            name.top >= target.top &&
+                            name.bottom <= target.bottom
+                        );
+                    })
+                )
+            ).toBe(true);
+            const toolbar = await page.evaluate(() => {
+                const summary = document.querySelector(
+                    '[data-testid="grouping-summary"]'
+                )!;
+                const select = document.querySelector<HTMLSelectElement>(
+                    '[name="pr-grouping"]'
+                )!;
+                const bulk = document.querySelector(
+                    '.grouping-controls button'
+                )!;
+                const heading = document.querySelector(
+                    '.repository-group-toggle'
+                )!;
+                return {
+                    summary: summary.textContent,
+                    label: select.labels?.[0].textContent,
+                    countLeft:
+                        summary.getBoundingClientRect().right <
+                        select.labels![0].getBoundingClientRect().left,
+                    bulkBelow:
+                        bulk.getBoundingClientRect().top >=
+                        select.getBoundingClientRect().bottom,
+                    bulkHeight: bulk.getBoundingClientRect().height,
+                    background: getComputedStyle(heading).backgroundColor,
+                    border: getComputedStyle(heading).borderTopWidth,
+                };
+            });
+            expect(toolbar).toMatchObject({
+                summary: '2 PRs in 2 repositories',
+                label: 'View',
+                countLeft: true,
+                bulkBelow: true,
+                bulkHeight: 24,
+                border: '1px',
+            });
+            expect(toolbar.background).toBe(
+                theme === 'light' ? 'rgb(243, 244, 246)' : 'rgb(33, 38, 45)'
+            );
+            expect(
+                await page.$$eval('.repository-group-toggle', (elements) =>
+                    elements.map((element) => element.getAttribute('title'))
+                )
+            ).toEqual(prs.map((pr) => pr.repository.full_name));
+            expect(
+                await page.$$eval('.pr-card-title', (elements) =>
+                    elements.map((element) => element.getAttribute('title'))
+                )
+            ).toEqual(prs.map((pr) => pr.title));
+            await page.select('[name="pr-grouping"]', 'none');
+            await expect
+                .poll(
+                    async () =>
+                        (await readAppData(page)).preferences?.grouping?.mode
+                )
+                .toBe('none');
+            await page.waitForSelector('[data-testid="repository-groups"]', {
+                hidden: true,
+            });
+            expect(
+                await page.$eval(
+                    '[data-testid="grouping-summary"]',
+                    (element) => element.textContent
+                )
+            ).toBe('2 PRs');
+            expect(await page.$$('.grouping-controls button')).toHaveLength(0);
+            expect(
+                await page.$$eval('.popup-repo-badge', (elements) =>
+                    elements.map((element) => ({
+                        title: element.getAttribute('title'),
+                        visible: (element as HTMLElement).innerText,
+                    }))
+                )
+            ).toEqual(
+                prs.map((pr) => ({
+                    title: pr.repository.full_name,
+                    visible: repository,
+                }))
+            );
+            const card = await page.$('.pr-card-link');
+            await card!.focus();
+            const accessibleCard = await page.accessibility.snapshot({
+                root: card!,
+            });
+            expect(accessibleCard?.description).toBe(
+                prs[0].repository.full_name
+            );
+            expect(accessibleCard?.name).toContain(prs[0].title);
+            await page.screenshot({
+                path: path.join(os.tmpdir(), `pr-grouping-flat-${theme}.png`),
+            });
+            await page.select('[name="pr-grouping"]', 'repository');
+            await expect
+                .poll(
+                    async () =>
+                        (await readAppData(page)).preferences?.grouping?.mode
+                )
+                .toBe('repository');
+            await page.waitForSelector('.repository-group-toggle');
             await page.focus('.repository-group-toggle');
             const focus = await page.$eval(
                 '.repository-group-toggle',

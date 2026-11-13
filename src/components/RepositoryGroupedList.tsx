@@ -79,6 +79,9 @@ export function RepositoryGroupedList({
                                 }}
                                 variant="ghost"
                                 className="repository-group-toggle h-auto min-h-8 w-full justify-start whitespace-normal py-2 text-left"
+                                title={
+                                    group.persistable ? group.name : undefined
+                                }
                                 aria-expanded={expanded}
                                 aria-controls={panelId}
                                 aria-disabled={searchActive}

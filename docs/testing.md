@@ -356,8 +356,10 @@ from the Chrome E2E suite.
 `pr-grouping.unit.test.tsx` covers canonical and legacy identity, malformed URLs,
 owner collisions, casing, timestamp validity, complete/incomplete ordering,
 deterministic ties, matching counts, input-order preservation and collapsed/search
-markup. Grouping preference cases cover legacy defaults, invalid values,
-deduplication and bounded retention. Existing hook sort tests remain the source
+markup, View labels, exact native title tooltips and canonical/legacy repository
+descriptions without changing visible badge text. Unavailable identities do not
+gain invented tooltip identities. Grouping preference cases cover legacy defaults,
+invalid values, deduplication and bounded retention. Existing hook sort tests remain the source
 of truth for the four sort meanings; grouping retains their resulting order.
 
 `app-data-store.unit.test.ts` exercises validated mode/batch operations,
@@ -372,7 +374,7 @@ revalidation, version-1 invalidation, no extra GET and continued review/CI calls
 `tests/e2e/grouping.e2e.test.ts` exercises the production popup with deterministic
 GitHub fixtures and real encrypted storage:
 
-- None defaults, independent collapse, counts, bulk actions, filter interaction,
+- All PRs defaults, independent collapse, counts, bulk actions, filter interaction,
   hiding and focus recovery when the last PR in a group disappears;
 - mode switching, search revealing a saved collapsed repository without any
   encrypted preference write, search-disabled controls and clear restoration;
@@ -380,7 +382,9 @@ GitHub fixtures and real encrypted storage:
   close/relaunch with the same isolated profile followed by password unlock;
 - mapped identity/activity in encrypted snapshots after 200 and 304 responses;
 - maximum-length repository/owner names in the real Chrome action panel in both
-  themes, wrapping, keyboard activation and visible focus; and
+  themes, wrapping, keyboard activation and visible focus, count/selector placement,
+  compact secondary bulk actions, header background/borders, exact native tooltips
+  and the focused card link's accessible repository description; and
 - 5/2, 40/8, 100/20, 200/30 and 100/1 PR/repository fixtures, retaining every card,
   followed by bulk collapse, expansion and a search for one PR.
 
@@ -394,8 +398,9 @@ wait for storage-driven UI reload before checking the reset indicator.
 Focused Firefox runtime coverage is separate from Chrome CI and more than a
 build check. `tests/firefox/grouping.firefox.test.ts` loads MV2, opens the actual
 toolbar panel, separates same-named repositories under different owners, checks
-maximum-length identity wrapping and geometry/focus, saves collapse, reopens and verifies temporary search expansion
-and restoration. It uses the existing privileged frame-script pattern from the
+both themes, long titles, maximum-length identity wrapping, toolbar geometry,
+native tooltips and accessible descriptions, saves collapse, reopens and verifies
+temporary search expansion and restoration. It uses the existing privileged frame-script pattern from the
 Advanced CI test and a local fixture bridge for background requests. The bridge
 page stays alive while panels close. Run all three focused Firefox regressions:
 

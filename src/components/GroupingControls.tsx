@@ -23,48 +23,57 @@ export function GroupingControls({
 }: GroupingControlsProps) {
     const id = useId();
     return (
-        <div className="grouping-controls mb-3 flex flex-wrap items-center gap-2 text-sm">
-            <label htmlFor={id}>Group by</label>
-            <select
-                id={id}
-                name="pr-grouping"
-                value={mode}
-                onChange={(event) =>
-                    onModeChange(
-                        event.target.value as GroupingPreferences['mode']
-                    )
-                }
-                className="rounded border border-input bg-background px-2 py-1 text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-            >
-                <option value="none">None</option>
-                <option value="repository">Repository</option>
-            </select>
-            <span
-                className="text-muted-foreground"
-                data-testid="grouping-summary"
-            >
-                {prCount} {prCount === 1 ? 'PR' : 'PRs'}
-                {mode === 'repository' &&
-                    ` in ${repositoryCount} ${repositoryCount === 1 ? 'repository' : 'repositories'}`}
-            </span>
+        <div className="grouping-controls mb-2 space-y-1 text-sm">
+            <div className="flex items-center justify-between gap-2">
+                <span
+                    className="text-muted-foreground"
+                    data-testid="grouping-summary"
+                >
+                    {prCount} {prCount === 1 ? 'PR' : 'PRs'}
+                    {mode === 'repository' &&
+                        ` in ${repositoryCount} ${repositoryCount === 1 ? 'repository' : 'repositories'}`}
+                </span>
+                <div className="flex shrink-0 items-center gap-2">
+                    <label htmlFor={id}>View</label>
+                    <select
+                        id={id}
+                        name="pr-grouping"
+                        value={mode}
+                        onChange={(event) =>
+                            onModeChange(
+                                event.target
+                                    .value as GroupingPreferences['mode']
+                            )
+                        }
+                        className="rounded border border-input bg-background px-2 py-1 text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                    >
+                        <option value="none">All PRs</option>
+                        <option value="repository">By repository</option>
+                    </select>
+                </div>
+            </div>
             {mode === 'repository' && (
                 <>
-                    <Button
-                        variant="secondary"
-                        size="sm"
-                        disabled={repositoryCount === 0 || searchActive}
-                        onClick={onExpandAll}
-                    >
-                        Expand all
-                    </Button>
-                    <Button
-                        variant="secondary"
-                        size="sm"
-                        disabled={repositoryCount === 0 || searchActive}
-                        onClick={onCollapseAll}
-                    >
-                        Collapse all
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            className="h-6 px-2 text-xs"
+                            disabled={repositoryCount === 0 || searchActive}
+                            onClick={onExpandAll}
+                        >
+                            Expand all
+                        </Button>
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            className="h-6 px-2 text-xs"
+                            disabled={repositoryCount === 0 || searchActive}
+                            onClick={onCollapseAll}
+                        >
+                            Collapse all
+                        </Button>
+                    </div>
                     {searchActive && (
                         <p
                             id="grouping-search-explanation"

@@ -1,4 +1,5 @@
 import { createElement } from 'react';
+import { PullRequestList } from '../../src/components/PullRequestList';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import {
@@ -249,6 +250,7 @@ describe('grouping presentation', () => {
             createElement(RepositoryGroupedList, props)
         );
         expect(html).toContain('Acme/API');
+        expect(html).toContain('title="Acme/API"');
         expect(html).toContain('2');
         expect(html).toContain('aria-expanded="false"');
         expect(html).toContain('hidden=""');
@@ -278,9 +280,111 @@ describe('grouping presentation', () => {
                 onCollapseAll: () => {},
             })
         );
-        expect(html).toContain('Group by');
+        expect(html).toContain('>View</label>');
+        expect(html).toContain('<option value="none">All PRs</option>');
+        expect(html).toContain(
+            '<option value="repository" selected="">By repository</option>'
+        );
         expect(html).toContain('name="pr-grouping"');
+        expect(html).toContain('2 PRs in 1 repository');
         expect(html.match(/disabled=""/g)).toHaveLength(2);
         expect(html).toContain('Clear search to collapse them');
+    });
+    it('shows only the PR count and no bulk actions in the flat view', () => {
+        const html = renderToStaticMarkup(
+            createElement(GroupingControls, {
+                mode: 'none',
+                onModeChange: () => {},
+                prCount: 1,
+                repositoryCount: 1,
+                searchActive: false,
+                onExpandAll: () => {},
+                onCollapseAll: () => {},
+            })
+        );
+        expect(html).toContain('1 PR');
+        expect(html).not.toContain('in 1 repository');
+        expect(html).not.toContain('Expand all');
+        expect(html).not.toContain('Collapse all');
+    });
+    it('keeps the exact title in native tooltips and visible heading text', () => {
+        const html = renderToStaticMarkup(
+            createElement(PullRequestList, {
+                pullRequests: [
+                    {
+                        ...pr(1),
+                        title: '  Fix "quotes" & <markup> — exact title  ',
+                        draft: true,
+                    },
+                ],
+                onToggleHide: () => {},
+            })
+        );
+        expect(html).toContain(
+            'title="  Fix &quot;quotes&quot; &amp; &lt;markup&gt; — exact title  "'
+        );
+        expect(html).toContain(
+            '>  Fix &quot;quotes&quot; &amp; &lt;markup&gt; — exact title  <span'
+        );
+        expect(html).not.toContain('exact title  Draft"');
+    });
+    it.each([
+        {
+            name: 'canonical',
+            repository: { name: 'API', full_name: 'Canonical/API' },
+            url: 'https://github.com/legacy/api/pull/1',
+            expected: 'Canonical/API',
+        },
+        {
+            name: 'legacy URL',
+            repository: { name: 'API' },
+            url: 'https://github.com/Legacy/API/pull/1',
+            expected: 'Legacy/API',
+        },
+        {
+            name: 'invalid canonical with valid fallback',
+            repository: { name: 'API', full_name: 'invalid' },
+            url: 'https://github.com/Legacy/API/pull/1',
+            expected: 'Legacy/API',
+        },
+    ])(
+        'exposes the $name identity on hover and as the card link description',
+        ({ repository, url, expected }) => {
+            const html = renderToStaticMarkup(
+                createElement(PullRequestList, {
+                    pullRequests: [{ ...pr(1), repository, html_url: url }],
+                    onToggleHide: () => {},
+                })
+            );
+            expect(html).toContain(`title="${expected}"`);
+            expect(html).toContain(`aria-description="${expected}"`);
+            expect(html).toMatch(/title="[^"]+">API<\/span>/);
+        }
+    );
+    it('does not invent a full repository tooltip or description for unavailable identities', () => {
+        const pullRequests = [
+            {
+                ...pr(1),
+                repository: { name: 'API' },
+                html_url: 'https://example.com/acme/api/pull/1',
+            },
+        ];
+        const html = renderToStaticMarkup(
+            createElement(PullRequestList, {
+                pullRequests,
+                onToggleHide: () => {},
+            })
+        );
+        expect(html).not.toContain('aria-description');
+        expect(html).not.toContain('title="Acme/API"');
+        expect(html).toMatch(/class="[^"]*popup-repo-badge[^"]*">API<\/span>/);
+        const grouped = renderToStaticMarkup(
+            createElement(RepositoryGroupedList, {
+                ...props,
+                groups: groupPullRequests(pullRequests),
+            })
+        );
+        expect(grouped).toContain('Repository unavailable');
+        expect(grouped).not.toContain('title="Repository unavailable"');
     });
 });

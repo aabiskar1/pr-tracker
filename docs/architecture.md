@@ -119,21 +119,32 @@ not lost and decrypt work never runs in parallel.
 
 ## Repository grouping in the popup
 
-Dashboard places the labelled Group by select below local search. None remains
-the default and renders the original PullRequestList. Repository mode derives
-groups from the existing filtered, sorted and search-matched array through
+Dashboard places a results row below local search, with the matching PR count on
+the left and the labelled View select on the right. All PRs (`none`) remains
+the default and renders the original PullRequestList. By repository (`repository`)
+derives groups from the existing filtered, sorted and search-matched array through
 `src/utils/prGrouping.ts`. Group construction retains card order within each
 repository; it does not change filtering, search terms or the meaning of the sort
 options. Counts include every matching PR, even when a group is collapsed. Only
 total PR counts are shown; there is no attention classification.
 
-`GroupingControls` supplies mode and matching-set bulk actions.
+`GroupingControls` supplies mode and matching-set bulk actions on a compact
+secondary row in repository mode. The matching repository count appears alongside
+the PR count.
 `RepositoryGroupedList` uses native buttons inside h2 headings, with
 `aria-expanded` and stable panel IDs. The dashboard title is h1 and existing card
 titles remain h3. Collapsed panels do not mount their card subtrees. There is one
 document scroll area, no pagination, and no new disclosure library or animation.
 Focus stays on disclosure buttons; if a focused card is removed, focus returns to
-the surviving header or Group by control. Long identities wrap in both themes.
+the surviving header or View control. Long identities wrap in both themes, with
+subtle background and border styling separating each heading.
+
+Native title attributes expose exact PR titles and full repository identities on
+card badges and group headings. Badge identities use the same canonical/validated
+legacy fallback as grouping, without changing the short visible badge text. The
+full identity is also the card link's accessible description; titles and grouped
+identities remain in the visible heading text, so hover is not their only route.
+Unavailable identities receive no invented owner or full-identity tooltip.
 
 The canonical mapper retains validated `base.repo.full_name` as optional
 `repository.full_name`, preserving display casing. Comparison/preference keys are

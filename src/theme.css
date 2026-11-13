@@ -63,6 +63,10 @@ a:hover {
 
 .screen-prlist .repository-group-toggle {
     text-align: left !important;
+    /* Override the primitive's fixed control height when an identity wraps. */
+    height: auto;
+    background: var(--popup-secondary);
+    border: 1px solid var(--popup-border);
 }
 
 .screen-prlist .repository-group-toggle:focus-visible {
