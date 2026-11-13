@@ -10,7 +10,7 @@ export const DETAIL_CACHE_MAX_BODY_BYTES = 64 * 1024;
 export const DETAIL_CACHE_MAX_TOTAL_BYTES = 1024 * 1024;
 export const DETAIL_CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const ACCEPT = 'application/vnd.github.v3+json';
-const CACHE_VERSION = 1;
+const CACHE_VERSION = 2;
 const encoder = new TextEncoder();
 
 const EntrySchema = z

@@ -103,6 +103,138 @@ beforeEach(() => {
 });
 
 describe('encrypted canonical detail cache', () => {
+    it('retains canonical target identity and activity through mapped 200, encrypted projection and 304', async () => {
+        const updated_at = '2026-11-12T12:13:14Z';
+        const full = prDetail(1, {
+            updated_at,
+            base: {
+                repo: {
+                    name: 'API',
+                    full_name: 'Target/API',
+                    url: 'https://api.github.com/repos/Target/API',
+                },
+            },
+            head: { sha: 'fixed', repo: { full_name: 'Fork/API' } },
+        });
+        const cold = await createDetailCache(
+            'password',
+            TOKEN,
+            USER.login,
+            session()
+        );
+        const initial = await runRefresh(
+            cold,
+            jsonResponse(full, 200, { etag: '"identity"' })
+        );
+        expect(initial.result.status).toBe('success');
+        if (initial.result.status === 'success')
+            expect(initial.result.pullRequests[0]).toMatchObject({
+                repository: { full_name: 'Target/API' },
+                updated_at,
+            });
+        await cold.persist();
+        const warm = await createDetailCache(
+            'password',
+            TOKEN,
+            USER.login,
+            session()
+        );
+        expect(warm.lookup(prUrl(1))?.detail).toMatchObject({
+            base: { repo: { full_name: 'Target/API' } },
+            updated_at,
+        });
+        const revalidated = await runRefresh(
+            warm,
+            new Response(null, { status: 304 })
+        );
+        expect(revalidated.result.status).toBe('success');
+        if (revalidated.result.status === 'success')
+            expect(revalidated.result.pullRequests[0]).toMatchObject({
+                repository: { full_name: 'Target/API' },
+                updated_at,
+            });
+        expect(revalidated.requested).toHaveLength(4);
+        expect(
+            revalidated.requested.some(({ url }) => url.includes('/reviews?'))
+        ).toBe(true);
+        expect(
+            revalidated.requested.some(({ url }) =>
+                url.includes('/check-runs?')
+            )
+        ).toBe(true);
+    });
+
+    it('invalidates version-one reduced projections and rebuilds with one normal unconditional GET', async () => {
+        const cold = await createDetailCache(
+            'password',
+            TOKEN,
+            USER.login,
+            session()
+        );
+        await runRefresh(cold, detailResponse(1));
+        await cold.persist();
+        const cipher = await createDetailCacheCipher('password');
+        const loaded = await cipher.load();
+        const old = loaded!.value as {
+            version: number;
+            entries: { version: number }[];
+        };
+        old.version = 1;
+        old.entries.forEach((entry) => {
+            entry.version = 1;
+        });
+        await cipher.save(old, () => {});
+        const warm = await createDetailCache(
+            'password',
+            TOKEN,
+            USER.login,
+            session()
+        );
+        expect(warm.lookup(prUrl(1))).toBeNull();
+        const refreshed = await runRefresh(warm, detailResponse(1));
+        expect(refreshed.result.status).toBe('success');
+        expect(
+            refreshed.requested.filter(({ url }) => url === prUrl(1))
+        ).toHaveLength(1);
+        expect(
+            refreshed.requested.find(({ url }) => url === prUrl(1))?.headers
+        ).not.toHaveProperty('If-None-Match');
+    });
+
+    it('does not map malformed optional identity or activity as valid data', async () => {
+        const cache = await createDetailCache(
+            'password',
+            TOKEN,
+            USER.login,
+            session()
+        );
+        const result = await runRefresh(
+            cache,
+            jsonResponse(
+                prDetail(1, {
+                    updated_at: '2026-02-30T00:00:00Z',
+                    base: {
+                        repo: {
+                            name: 'repo-1',
+                            full_name: 'owner/repo/extra',
+                            url: 'https://api.github.com/repos/acme/repo-1',
+                        },
+                    },
+                }),
+                200,
+                { etag: '"invalid-fields"' }
+            )
+        );
+        expect(result.result.status).toBe('success');
+        if (result.result.status === 'success') {
+            expect(result.result.pullRequests[0].repository).not.toHaveProperty(
+                'full_name'
+            );
+            expect(result.result.pullRequests[0]).not.toHaveProperty(
+                'updated_at'
+            );
+        }
+    });
     it('persists one encrypted batch and restores it after a worker restart', async () => {
         const cache = await createDetailCache(
             'password',

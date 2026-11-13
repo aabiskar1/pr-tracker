@@ -49,8 +49,11 @@ const deferred = () => {
 const jsonBody = (value: unknown) =>
     Buffer.from(JSON.stringify(value)).toString('base64');
 
+const fixtureRepository = (pr: PullRequest) =>
+    pr.repository.full_name ??
+    new URL(pr.html_url).pathname.split('/').slice(1, 3).join('/');
 const prApiUrl = (pr: PullRequest) =>
-    `https://api.github.com/repos/acme/${pr.repository.name}/pulls/${pr.id}`;
+    `https://api.github.com/repos/${fixtureRepository(pr)}/pulls/${pr.id}`;
 
 export function responseFor(
     url: string,
@@ -163,7 +166,8 @@ export function responseFor(
                 base: {
                     repo: {
                         name: pr.repository.name,
-                        url: `https://api.github.com/repos/acme/${pr.repository.name}`,
+                        full_name: fixtureRepository(pr),
+                        url: `https://api.github.com/repos/${fixtureRepository(pr)}`,
                     },
                 },
                 head: { sha: `fixed-sha-${pr.id}` },
@@ -456,7 +460,7 @@ export async function openSeededPopup(
     const page = await openCleanPopup();
     await seedEncryptedState(page, options);
     await page.reload({ waitUntil: 'domcontentloaded' });
-    await waitForText(page, 'h2', 'PR Tracker');
+    await waitForText(page, 'h1', 'PR Tracker');
     const expectedPrs = options.data?.pullRequests ?? POPULATED_PRS;
     if (expectedPrs.length > 0) {
         await waitForText(page, 'li', expectedPrs[0].title);
@@ -487,7 +491,7 @@ export async function waitForText(
 }
 
 export async function waitForDashboard(page: Page) {
-    await waitForText(page, 'h2', 'PR Tracker');
+    await waitForText(page, 'h1', 'PR Tracker');
     await page.waitForSelector('[aria-label="Refresh Pull Requests"]');
 }
 

@@ -95,7 +95,7 @@ beforeAll(async () => {
     } catch (error) {
         if (!(error instanceof TimeoutError)) throw error;
     }
-    await page.waitForSelector('h2');
+    await page.waitForSelector('h1, h2');
     await seedEncryptedState(page, { data: appData([]), theme: 'light' });
     try {
         await page.reload({ waitUntil: 'domcontentloaded', timeout: 3000 });

@@ -55,10 +55,19 @@ a:hover {
     color: var(--popup-foreground);
 }
 
-.screen-prlist h2,
+.screen-prlist :is(h1, h2),
 .screen-prlist li h3,
 .screen-auth h2 {
     color: var(--popup-heading);
+}
+
+.screen-prlist .repository-group-toggle {
+    text-align: left !important;
+}
+
+.screen-prlist .repository-group-toggle:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
 }
 
 .screen-auth p {

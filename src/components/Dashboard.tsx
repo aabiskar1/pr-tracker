@@ -1,10 +1,17 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import browser from 'webextension-polyfill';
 import { FaSync, FaSignOutAlt, FaSearch, FaCoffee } from 'react-icons/fa';
 import { FilterBar, type FilterState, type SortOption } from './FilterBar';
 import { PullRequestList } from './PullRequestList';
 import { Settings } from './Settings';
-import type { PullRequest, ThemePreference } from '../types';
+import type {
+    PullRequest,
+    ThemePreference,
+    GroupingPreferences,
+} from '../types';
+import { GroupingControls } from './GroupingControls';
+import { RepositoryGroupedList } from './RepositoryGroupedList';
+import { groupPullRequests } from '../utils/prGrouping';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { LastChecked } from './LastChecked';
@@ -35,6 +42,10 @@ interface DashboardProps {
     handleSearch: (e: React.ChangeEvent<HTMLInputElement>) => void;
     filteredPRs: PullRequest[];
     toggleHidePR: (id: number) => void;
+    groupingPreferences: GroupingPreferences;
+    handleGroupingModeChange: (mode: GroupingPreferences['mode']) => void;
+    handleRepositoryToggle: (key: string) => void;
+    handleRepositoriesCollapsed: (keys: string[], collapsed: boolean) => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -63,7 +74,56 @@ export const Dashboard: React.FC<DashboardProps> = ({
     handleSearch,
     filteredPRs,
     toggleHidePR,
+    groupingPreferences,
+    handleGroupingModeChange,
+    handleRepositoryToggle,
+    handleRepositoriesCollapsed,
 }) => {
+    const groups = useMemo(
+        () =>
+            groupingPreferences.mode === 'repository'
+                ? groupPullRequests(filteredPRs)
+                : [],
+        [filteredPRs, groupingPreferences.mode]
+    );
+    const [unavailableCollapsed, setUnavailableCollapsed] = useState<string[]>(
+        []
+    );
+    const collapsedRepositories = useMemo(
+        () =>
+            new Set([
+                ...groupingPreferences.collapsedRepositories,
+                ...unavailableCollapsed,
+            ]),
+        [groupingPreferences.collapsedRepositories, unavailableCollapsed]
+    );
+    const setAllCollapsed = (collapsed: boolean) => {
+        if (searchTerm.length > 0) return;
+        handleRepositoriesCollapsed(
+            groups
+                .filter((group) => group.persistable)
+                .map((group) => group.key),
+            collapsed
+        );
+        const keys = groups
+            .filter((group) => !group.persistable)
+            .map((group) => group.key);
+        setUnavailableCollapsed((previous) =>
+            collapsed
+                ? [...new Set([...previous, ...keys])]
+                : previous.filter((key) => !keys.includes(key))
+        );
+    };
+    const toggleRepository = (key: string) => {
+        if (searchTerm.length > 0) return;
+        if (key.startsWith('unavailable:'))
+            setUnavailableCollapsed((previous) =>
+                previous.includes(key)
+                    ? previous.filter((item) => item !== key)
+                    : [...previous, key]
+            );
+        else handleRepositoryToggle(key);
+    };
     return (
         <div className="screen-prlist mx-auto w-full max-w-3xl rounded-lg bg-background p-4 text-foreground shadow">
             {/* Global error banner for critical errors */}
@@ -105,9 +165,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         height={26}
                         className="size-[26px] translate-y-px shrink-0 object-contain"
                     />
-                    <h2 className="whitespace-nowrap text-xl font-bold text-foreground">
+                    <h1 className="whitespace-nowrap text-xl font-bold text-foreground">
                         PR Tracker
-                    </h2>
+                    </h1>
                 </div>
                 <div className="flex min-w-0 flex-nowrap items-center gap-1.5">
                     <Button
@@ -203,12 +263,29 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 />
             </div>
 
+            <GroupingControls
+                mode={groupingPreferences.mode}
+                onModeChange={handleGroupingModeChange}
+                prCount={filteredPRs.length}
+                repositoryCount={groups.length}
+                searchActive={searchTerm.length > 0}
+                onExpandAll={() => setAllCollapsed(false)}
+                onCollapseAll={() => setAllCollapsed(true)}
+            />
             {filteredPRs.length === 0 ? (
                 <div className="text-center py-8">
                     <p className="text-muted-foreground">
                         No pull requests found
                     </p>
                 </div>
+            ) : groupingPreferences.mode === 'repository' ? (
+                <RepositoryGroupedList
+                    groups={groups}
+                    collapsedRepositories={collapsedRepositories}
+                    searchActive={searchTerm.length > 0}
+                    onToggle={toggleRepository}
+                    onToggleHide={toggleHidePR}
+                />
             ) : (
                 <PullRequestList
                     pullRequests={filteredPRs}

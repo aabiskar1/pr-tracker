@@ -117,6 +117,80 @@ loads are serialized locally, with at most one trailing pass when another
 committed storage change arrives during an active decrypt, so later states are
 not lost and decrypt work never runs in parallel.
 
+## Repository grouping in the popup
+
+Dashboard places the labelled Group by select below local search. None remains
+the default and renders the original PullRequestList. Repository mode derives
+groups from the existing filtered, sorted and search-matched array through
+`src/utils/prGrouping.ts`. Group construction retains card order within each
+repository; it does not change filtering, search terms or the meaning of the sort
+options. Counts include every matching PR, even when a group is collapsed. Only
+total PR counts are shown; there is no attention classification.
+
+`GroupingControls` supplies mode and matching-set bulk actions.
+`RepositoryGroupedList` uses native buttons inside h2 headings, with
+`aria-expanded` and stable panel IDs. The dashboard title is h1 and existing card
+titles remain h3. Collapsed panels do not mount their card subtrees. There is one
+document scroll area, no pagination, and no new disclosure library or animation.
+Focus stays on disclosure buttons; if a focused card is removed, focus returns to
+the surviving header or Group by control. Long identities wrap in both themes.
+
+The canonical mapper retains validated `base.repo.full_name` as optional
+`repository.full_name`, preserving display casing. Comparison/preference keys are
+lowercase full identities. Legacy snapshots fall back to validated HTTPS GitHub
+PR URLs. Malformed identities get separate per-PR “Repository unavailable” groups;
+those groups can collapse locally but are not saved as real repository names.
+Renames/transfers are new identities and start expanded.
+
+The mapper also retains valid canonical PR `updated_at`. Groups with a valid
+timestamp on every matching PR come first, ordered by their maximum timestamp,
+then lexical full identity. Groups with any missing/invalid timestamp follow in
+alphabetical key order, even if other PRs in the group have timestamps. Neither
+creation time, cache write time nor AppData freshness substitutes for activity.
+This timestamp describes GitHub's PR last update, not every review or CI event.
+
+The reduced encrypted conditional-detail projection preserves both new fields.
+Cache version 2 discards version-1 projections. The next ordinary detail GET is
+unconditional and rebuilds the cache; mode changes add no requests or refreshes.
+Mapped 200 and revalidated 304 responses retain the same optional fields in
+encrypted AppData. Legacy/malformed optional fields remain missing and use the
+documented fallback. Review/CI fetching, ETags, required-detail failures,
+cooldowns, cancellation and last-known-good snapshots retain their existing rules.
+
+Optional `AppPreferences.grouping` contains `mode: 'none' | 'repository'` and
+`collapsedRepositories: string[]`. The shared grouping normaliser defaults missing
+or invalid mode to None and discards malformed collapse entries, normalising and
+deduplicating valid full identities. Only collapsed names are saved, so newly
+discovered repositories start expanded. Switching mode preserves those choices.
+Reset Filters leaves grouping alone. Sign-out retains it encrypted for unlock;
+Full Reset removes it with AppData. Browser restart reloads the same encrypted
+preference after authentication. The supported different-account path remains
+Full Reset; this does not introduce account switching or change token isolation.
+
+Preference actions use strict `set-grouping-mode` and
+`set-repositories-collapsed` runtime mutations. The latter sets an explicit state
+for a batch, rather than replacing a stale complete preference object. The
+background's existing app-data queue applies each operation to the latest data
+and skips no-op encrypted writes. Grouping handlers maintain an ordered optimistic
+queue in the popup, reconcile accepted operations, and restore saved state with a
+visible error on rejection. Storage reloads that predate pending actions cannot
+overwrite them; the final action requests an authoritative reload. Pending popup
+actions are retired when the authentication session changes.
+
+Stored collapse choices and bulk messages are capped at 3,000 identities, matching
+the combined current default discovery ceiling. At that bound, a bulk collapse
+prioritises its matching repositories over the oldest absent choices. Repeated
+collapse of an already collapsed name is otherwise a no-op. Temporary absence through filters, search or
+custom queries does not prune saved names. No cleanup job or plaintext storage
+key is added.
+
+A non-empty local search derives all matching groups as expanded. Disclosure and
+bulk collapse controls explain that clearing search restores saved choices; they
+cannot change preferences during search. Search still matches title and short
+repository name only, including its existing whitespace handling. Groups with no
+matching PRs disappear. Browser Find-in-page cannot find unmounted cards; local
+search operates on the full matching dataset and is the supported search route.
+
 ## Background and service-worker layer
 
 The background context is split across `entrypoints/background.ts` and
@@ -440,8 +514,9 @@ duplicates when touching that area.
 - Do not assume a persistent background process. Design state restoration and
   event handling for service-worker lifecycle interruptions.
 - Validate changes in both `npm run build` and `npm run build:firefox`.
-- Current Puppeteer E2E coverage runs only against the built Chrome extension;
-  a successful Firefox build is not equivalent to Firefox runtime coverage.
+- Required CI E2E runs the built Chrome extension. Separate focused Firefox MV2
+  runtime tests cover grouping, Advanced CI and detail-cache journeys; a build
+  alone still does not establish Firefox runtime behaviour.
 
 ## Boundaries to preserve
 

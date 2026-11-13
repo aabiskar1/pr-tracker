@@ -28,7 +28,7 @@ async function open() {
     } catch (error) {
         if (!(error instanceof TimeoutError)) throw error;
     }
-    await page.waitForSelector('h2');
+    await page.waitForSelector('h1, h2');
 }
 let lastRefresh = 0;
 async function refresh() {

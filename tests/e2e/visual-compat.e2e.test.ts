@@ -154,7 +154,7 @@ describe('original popup visual compatibility', () => {
                         ...document.querySelectorAll('li'),
                     ];
                     const title = document
-                        .querySelector('h2')!
+                        .querySelector('h1')!
                         .getBoundingClientRect();
                     return {
                         width: html.getBoundingClientRect().width,
@@ -266,7 +266,7 @@ describe('original popup visual compatibility', () => {
                     theme: document.documentElement.getAttribute('data-theme'),
                     viewport: [window.innerWidth, window.innerHeight],
                     scrollWidth: document.documentElement.scrollWidth,
-                    header: inspect('h2'),
+                    header: inspect('h1'),
                     dashboard: inspect('.screen-prlist'),
                     filter: inspect('.filter-bar-container'),
                     filterRows: Array.from(

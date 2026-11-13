@@ -7,6 +7,12 @@ import {
     encryptHiddenPrIds,
 } from '../services/secureStorage';
 import type { AppData, AppDataMutation } from '../types';
+import {
+    GroupingMutationSchemas,
+    normalizeGroupingPreferences,
+    applyGroupingMutation,
+    sameGroupingPreferences,
+} from '../utils/groupingPreferences';
 
 type AppDataMutator = (data: AppData) => void | Promise<void>;
 type AppDataUpdateOptions = {
@@ -32,6 +38,7 @@ const FilterStateSchema = z
     .strict();
 
 const AppDataMutationSchema = z.discriminatedUnion('kind', [
+    ...GroupingMutationSchemas,
     z
         .object({ kind: z.literal('set-filters'), filters: FilterStateSchema })
         .strict(),
@@ -135,6 +142,27 @@ export function applyAppDataMutation(
     password: string,
     mutation: AppDataMutation
 ): Promise<AppData> {
+    if (
+        mutation.kind === 'set-grouping-mode' ||
+        mutation.kind === 'set-repositories-collapsed'
+    ) {
+        let changed = false;
+        return updateEncryptedAppData(
+            password,
+            (data) => {
+                const previous = normalizeGroupingPreferences(
+                    data.preferences?.grouping
+                );
+                const next = applyGroupingMutation(previous, mutation);
+                changed = !sameGroupingPreferences(previous, next);
+                if (changed) {
+                    data.preferences ??= {};
+                    data.preferences.grouping = next;
+                }
+            },
+            { shouldWrite: () => changed }
+        );
+    }
     return updateEncryptedAppData(password, async (data) => {
         data.preferences ??= {};
 

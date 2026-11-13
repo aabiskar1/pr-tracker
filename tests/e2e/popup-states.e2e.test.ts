@@ -330,7 +330,7 @@ describe('popup state journeys', () => {
                 )
             ).toBe('underline');
             // Traverse with the keyboard to prove the link has a visible focus state.
-            await page.click('h2');
+            await page.click('h1');
             for (let index = 0; index < 40; index++) {
                 await page.keyboard.press('Tab');
                 if (
