@@ -193,7 +193,7 @@ describe('five CI states', () => {
                         }))
                 )
             ).toEqual([
-                { status: 'passing', background: 'rgb(40, 167, 69)' },
+                { status: 'passing', background: 'rgb(35, 134, 54)' },
                 { status: 'failing', background: 'rgb(203, 36, 49)' },
                 { status: 'pending', background: 'rgb(219, 171, 9)' },
             ]);

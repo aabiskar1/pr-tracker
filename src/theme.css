@@ -162,9 +162,14 @@ a:hover {
     background: var(--popup-status-failing);
 }
 
-.screen-prlist [data-ci-status='pending']:not([data-selected='false']),
-.screen-prlist [data-review-status='pending']:not([data-selected='false']) {
+.screen-prlist
+    [data-slot='badge'][data-ci-status='pending']:not([data-selected='false']),
+.screen-prlist
+    [data-slot='badge'][data-review-status='pending']:not(
+        [data-selected='false']
+    ) {
     background: var(--popup-status-pending);
+    color: var(--popup-status-pending-foreground);
 }
 
 /* Keep solid status labels, with card-only contrast and consistent icon spacing. */
@@ -199,12 +204,18 @@ a:hover {
     .pr-card-accent
     [data-slot='badge'][data-review-status='pending'] {
     background: var(--popup-card-status-pending);
+    color: var(--popup-status-pending-foreground);
 }
 
 .screen-prlist .filter-bar-container [data-slot='badge'][data-ci-status],
 .screen-prlist .filter-bar-container [data-slot='badge'][data-review-status] {
     border-radius: 4px;
     padding: 0.125rem 0.35rem;
+}
+
+.screen-prlist .filter-bar-container input:focus-visible + [data-slot='badge'] {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
 }
 
 .screen-prlist select {
