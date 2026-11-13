@@ -24,7 +24,7 @@ afterAll(async () => {
 });
 
 it.each(['light', 'dark'] as const)(
-    'keeps status/filter text, icons, hover and focus readable in the native Chrome popup in %s',
+    'checks status colours, the Pending contrast exception, hover and focus in the native Chrome popup in %s',
     async (theme) => {
         github.setScenario({ pullRequests: STATUS_PRS });
         const seed = await openSeededPopup(github, {

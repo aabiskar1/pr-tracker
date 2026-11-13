@@ -68,7 +68,7 @@
     --popup-draft-foreground: #374151;
     --popup-status-passing: #238636;
     --popup-status-failing: #cb2431;
-    --popup-status-pending: #927206;
+    --popup-status-pending: #c99d08;
     --popup-status-pending-foreground: #ffffff;
     --popup-status-foreground: #ffffff;
     --popup-card-status-passing: #238636;
@@ -144,7 +144,7 @@
     --popup-draft-foreground: #d1d5db;
     --popup-status-passing: #238636;
     --popup-status-failing: #cb2431;
-    --popup-status-pending: #927206;
+    --popup-status-pending: #c99d08;
     --popup-status-foreground: #ffffff;
     --popup-notification-enabled: #22c55e;
     --popup-error-background: #7f1d1d;

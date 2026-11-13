@@ -64,10 +64,8 @@ describe.each(['light', 'dark'] as const)('%s status colours', (theme) => {
         ].map((name) => [name, `${name}-foreground`]),
         ['popup-status-passing', 'popup-status-foreground'],
         ['popup-status-failing', 'popup-status-foreground'],
-        ['popup-status-pending', 'popup-status-pending-foreground'],
         ['popup-card-status-passing', 'popup-card-status-foreground'],
         ['popup-card-status-failing', 'popup-card-status-foreground'],
-        ['popup-card-status-pending', 'popup-status-pending-foreground'],
         ['popup-draft', 'popup-draft-foreground'],
         ['popup-surface', 'foreground'],
         ['popup-surface', 'popup-filter-foreground'],
@@ -80,8 +78,19 @@ describe.each(['light', 'dark'] as const)('%s status colours', (theme) => {
             ).toBeGreaterThanOrEqual(4.5);
         }
     );
+    it.each(['popup-status-pending', 'popup-card-status-pending'])(
+        'records the approved lower-contrast Pending treatment on %s',
+        (background) => {
+            const ratio = contrast(
+                resolve('--popup-status-pending-foreground'),
+                resolve(`--${background}`)
+            );
+            expect(ratio).toBeCloseTo(2.527137811924373, 8);
+            expect(ratio).toBeLessThan(4.5);
+        }
+    );
     it('uses the same white-on-yellow Pending pair for cards and active filters', () => {
-        expect(resolve('--popup-status-pending')).toBe('#927206');
+        expect(resolve('--popup-status-pending')).toBe('#c99d08');
         expect(resolve('--popup-card-status-pending')).toBe(
             resolve('--popup-status-pending')
         );

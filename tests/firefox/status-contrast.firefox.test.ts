@@ -164,7 +164,7 @@ async function captureToolbar(name: string) {
 }
 
 it.each(['light', 'dark'] as const)(
-    'keeps status/filter text and icons readable in the real Firefox MV2 toolbar popup in %s',
+    'checks status colours and the Pending contrast exception in the real Firefox MV2 toolbar popup in %s',
     async (theme) => {
         await seedEncryptedState(page, { data: appData(prs), theme });
         await openToolbar();

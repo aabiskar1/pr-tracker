@@ -112,9 +112,10 @@ export function assertStatusContrast(
     if (audit.rows.length < 20)
         throw new Error(`Incomplete status fixture: ${audit.rows.length} rows`);
     for (const row of audit.rows) {
-        if (row.state === 'pending' && row.selected !== 'false') {
+        const pending = row.state === 'pending' && row.selected !== 'false';
+        if (pending) {
             if (
-                row.background !== 'rgb(146, 114, 6)' ||
+                row.background !== 'rgb(201, 157, 8)' ||
                 [row.foreground, ...row.contentColours].some(
                     (colour) => colour !== 'rgb(255, 255, 255)'
                 )
@@ -122,12 +123,18 @@ export function assertStatusContrast(
                 throw new Error(
                     `Pending must use white text, icons and separators on the shared yellow: ${JSON.stringify(row)}`
                 );
+            // The user chose brighter yellow with white text despite the lower contrast.
+            // Record the exact exception, rather than claiming it meets WCAG thresholds.
+            if (Math.abs(row.contrast - 2.527137811924373) > 0.000001)
+                throw new Error(
+                    `Unexpected Pending contrast: ${JSON.stringify(row)}`
+                );
         }
-        if (row.contrast < 4.5)
+        if (!pending && row.contrast < 4.5)
             throw new Error(
                 `${row.context} ${row.state}: ${row.foreground} on ${row.background} = ${row.contrast}`
             );
-        if (row.icons.some((value) => value < 3))
+        if (!pending && row.icons.some((value) => value < 3))
             throw new Error(`Low icon contrast: ${JSON.stringify(row)}`);
     }
 }

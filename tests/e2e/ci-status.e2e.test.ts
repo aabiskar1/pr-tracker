@@ -195,7 +195,7 @@ describe('five CI states', () => {
             ).toEqual([
                 { status: 'passing', background: 'rgb(35, 134, 54)' },
                 { status: 'failing', background: 'rgb(203, 36, 49)' },
-                { status: 'pending', background: 'rgb(146, 114, 6)' },
+                { status: 'pending', background: 'rgb(201, 157, 8)' },
             ]);
             const before = await page.$eval(
                 '.filter-bar-container',
