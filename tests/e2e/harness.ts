@@ -537,8 +537,12 @@ export async function readAppData(page: Page): Promise<AppData> {
 export async function writeAppData(page: Page, data: AppData): Promise<void> {
     await page.evaluate(
         async ({ dataToStore, password }) => {
-            const stored = await chrome.storage.local.get('prtracker_salt');
-            const extension = await chrome.management.getSelf();
+            const extensionApi =
+                (globalThis as typeof globalThis & { browser?: typeof chrome })
+                    .browser ?? chrome;
+            const stored =
+                await extensionApi.storage.local.get('prtracker_salt');
+            const extension = await extensionApi.management.getSelf();
             const material = await crypto.subtle.importKey(
                 'raw',
                 new TextEncoder().encode(`${extension.id}:${password}`),
@@ -568,7 +572,7 @@ export async function writeAppData(page: Page, data: AppData): Promise<void> {
                 plaintext
             );
 
-            await chrome.storage.local.set({
+            await extensionApi.storage.local.set({
                 encryptedAppData: Array.from(new Uint8Array(encrypted)),
                 appDataIv: Array.from(iv),
             });
