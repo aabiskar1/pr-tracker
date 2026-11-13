@@ -285,13 +285,9 @@ describe('popup state journeys', () => {
                     for (const badge of card.badgePresentation) {
                         expect(badge.size).toBe('12px');
                         expect(badge.lineHeight).toBe('16px');
-                        expect(badge.foreground).toBe(
-                            badge.pending
-                                ? 'rgb(59, 46, 14)'
-                                : 'rgb(255, 255, 255)'
-                        );
+                        expect(badge.foreground).toBe('rgb(255, 255, 255)');
                         if (badge.pending) {
-                            expect(badge.background).toBe('rgb(219, 171, 9)');
+                            expect(badge.background).toBe('rgb(148, 98, 0)');
                         }
                         expect(badge.textColours).toEqual([
                             badge.foreground,
@@ -369,7 +365,7 @@ describe('popup state journeys', () => {
                 primary: ['rgb(80, 70, 228)', 'rgb(255, 255, 255)'],
                 secondary: ['rgb(243, 244, 246)', 'rgb(55, 65, 81)'],
                 ci: ['rgb(35, 134, 54)', 'rgb(255, 255, 255)'],
-                review: ['rgb(219, 171, 9)', 'rgb(59, 46, 14)'],
+                review: ['rgb(148, 98, 0)', 'rgb(255, 255, 255)'],
             },
         ],
         [
@@ -383,7 +379,7 @@ describe('popup state journeys', () => {
                 primary: ['rgb(35, 134, 54)', 'rgb(255, 255, 255)'],
                 secondary: ['rgb(33, 38, 45)', 'rgb(230, 237, 243)'],
                 ci: ['rgb(35, 134, 54)', 'rgb(255, 255, 255)'],
-                review: ['rgb(219, 171, 9)', 'rgb(59, 46, 14)'],
+                review: ['rgb(148, 98, 0)', 'rgb(255, 255, 255)'],
             },
         ],
     ] as const)(

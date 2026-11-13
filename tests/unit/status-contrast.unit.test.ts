@@ -80,6 +80,13 @@ describe.each(['light', 'dark'] as const)('%s status colours', (theme) => {
             ).toBeGreaterThanOrEqual(4.5);
         }
     );
+    it('uses the same white-on-amber Pending pair for cards and active filters', () => {
+        expect(resolve('--popup-status-pending')).toBe('#946200');
+        expect(resolve('--popup-card-status-pending')).toBe(
+            resolve('--popup-status-pending')
+        );
+        expect(resolve('--popup-status-pending-foreground')).toBe('#ffffff');
+    });
     it('keeps the focus outline visible against the filter surface', () => {
         expect(
             contrast(resolve('--ring'), resolve('--popup-surface'))

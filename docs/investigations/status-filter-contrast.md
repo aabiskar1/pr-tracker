@@ -3,11 +3,12 @@
 Follow-up to the [PR #112 investigation](grouping-performance-usability.md#accessibility).
 Checked on 13 November 2026 against `main` at `4643cd6` and this fix.
 
-Pending keeps its existing yellow `#dbab09` background, with dark `#3b2e0e`
-text instead of white. Active Passing and Approved filters use the existing
-card green `#238636`. Their text is white in both themes, as is active red
-filter text. Card green/red, draft and neutral palettes are unchanged. Status
-names, icons, sizes, layout and filter behaviour are unchanged.
+Pending uses a darker amber `#946200` background with white `#ffffff` text,
+icons and separators in cards and active filters. The suggested amber measures
+5.2418:1 against white, so no alternative shade was needed. Active Passing and Approved
+filters use the existing card green `#238636`. Their text is white in both themes,
+as is active red filter text. Card green/red, draft and neutral palettes are
+unchanged. Status names, icons, sizes, layout and filter behaviour are unchanged.
 
 The hidden review/CI filter checkboxes now give their adjacent visible badges
 a two-pixel focus outline using the existing ring token. This makes the focused
@@ -24,8 +25,8 @@ Both browsers returned the same values in each theme.
 
 | Text                         | Before light/dark | After light/dark |
 | ---------------------------- | ----------------: | ---------------: |
-| Pending card badge           |       2.13 / 2.13 |      6.22 / 6.22 |
-| Active Pending filter        |       2.13 / 1.81 |      6.22 / 6.22 |
+| Pending card badge           |       2.13 / 2.13 |      5.24 / 5.24 |
+| Active Pending filter        |       2.13 / 1.81 |      5.24 / 5.24 |
 | Active Passing/Approved      |       3.13 / 2.65 |      4.63 / 4.63 |
 | Active Failing/Changes       |       5.47 / 4.63 |      5.47 / 5.47 |
 | Passing/Approved card        |       4.63 / 4.63 |      4.63 / 4.63 |
@@ -81,8 +82,10 @@ age indicators and search placeholders, is outside this colour change.
 
 ## Verification
 
-Node 24 compilation, Oxlint, 810 unit tests, 29 relevant headed Chrome E2E tests,
-all 75 headless Chrome E2E tests and six Firefox runtime tests passed. The Firefox
-run includes grouping persistence, Advanced CI and detail-cache regressions.
+Node 24 compilation, Oxlint, 812 unit tests, 29 relevant headed Chrome E2E tests
+and six Firefox runtime tests passed. Eleven focused headless Chrome checks also
+passed. The Firefox run includes grouping persistence, Advanced CI and
+detail-cache regressions.
 Both production builds, changed-file Prettier and `git diff --check` passed.
-GitHub CI results are recorded on the pull request.
+Required GitHub CI also runs the complete headless Chrome suite; its results are
+recorded on the pull request.

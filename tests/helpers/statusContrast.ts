@@ -72,6 +72,14 @@ export function measureStatusContrast(doc: Document = document) {
                 (element.textContent?.trim() || 'checkmark'),
             selected: element.getAttribute('data-selected'),
             foreground: style.color,
+            contentColours: Array.from(
+                element.querySelectorAll('span, svg')
+            ).flatMap((child) => {
+                const computed = view.getComputedStyle(child);
+                return child.matches('svg')
+                    ? [computed.color, computed.fill]
+                    : [computed.color];
+            }),
             background: style.backgroundColor,
             contrast: contrast(blend(rgb(style.color), bg), bg),
             icons,
@@ -104,6 +112,17 @@ export function assertStatusContrast(
     if (audit.rows.length < 20)
         throw new Error(`Incomplete status fixture: ${audit.rows.length} rows`);
     for (const row of audit.rows) {
+        if (row.state === 'pending' && row.selected !== 'false') {
+            if (
+                row.background !== 'rgb(148, 98, 0)' ||
+                [row.foreground, ...row.contentColours].some(
+                    (colour) => colour !== 'rgb(255, 255, 255)'
+                )
+            )
+                throw new Error(
+                    `Pending must use white text, icons and separators on the shared amber: ${JSON.stringify(row)}`
+                );
+        }
         if (row.contrast < 4.5)
             throw new Error(
                 `${row.context} ${row.state}: ${row.foreground} on ${row.background} = ${row.contrast}`
