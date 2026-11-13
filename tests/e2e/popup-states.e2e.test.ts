@@ -113,7 +113,7 @@ describe('popup state journeys', () => {
     });
 
     it.each(['light', 'dark'] as const)(
-        'keeps card titles, metadata, and all status badges readable in %s',
+        'checks card wrapping, metadata and the chosen status colours in %s',
         async (theme) => {
             const titles = [
                 'Explain a long pull request title without hiding its useful context '.repeat(
@@ -287,7 +287,7 @@ describe('popup state journeys', () => {
                         expect(badge.lineHeight).toBe('16px');
                         expect(badge.foreground).toBe('rgb(255, 255, 255)');
                         if (badge.pending) {
-                            expect(badge.background).toBe('rgb(219, 171, 9)');
+                            expect(badge.background).toBe('rgb(201, 157, 8)');
                         }
                         expect(badge.textColours).toEqual([
                             badge.foreground,
@@ -309,8 +309,10 @@ describe('popup state journeys', () => {
                     expect(card.childrenFit).toBe(true);
                     expect(card.contrasts).toHaveLength(2);
                     for (const [index, contrast] of card.contrasts.entries()) {
-                        // Pending intentionally preserves the original yellow/white palette.
-                        if (!card.badgePresentation[index].pending) {
+                        if (card.badgePresentation[index].pending) {
+                            // Approved visual preference: Pending is below the text target.
+                            expect(contrast).toBeCloseTo(2.527137811924373, 8);
+                        } else {
                             expect(contrast).toBeGreaterThanOrEqual(4.5);
                         }
                     }
@@ -367,8 +369,8 @@ describe('popup state journeys', () => {
                 card: 'rgb(255, 255, 255)',
                 primary: ['rgb(80, 70, 228)', 'rgb(255, 255, 255)'],
                 secondary: ['rgb(243, 244, 246)', 'rgb(55, 65, 81)'],
-                ci: ['rgb(40, 167, 69)', 'rgb(255, 255, 255)'],
-                review: ['rgb(219, 171, 9)', 'rgb(255, 255, 255)'],
+                ci: ['rgb(35, 134, 54)', 'rgb(255, 255, 255)'],
+                review: ['rgb(201, 157, 8)', 'rgb(255, 255, 255)'],
             },
         ],
         [
@@ -381,8 +383,8 @@ describe('popup state journeys', () => {
                 card: 'rgb(34, 39, 46)',
                 primary: ['rgb(35, 134, 54)', 'rgb(255, 255, 255)'],
                 secondary: ['rgb(33, 38, 45)', 'rgb(230, 237, 243)'],
-                ci: ['rgb(40, 167, 69)', 'rgb(230, 237, 243)'],
-                review: ['rgb(219, 171, 9)', 'rgb(230, 237, 243)'],
+                ci: ['rgb(35, 134, 54)', 'rgb(255, 255, 255)'],
+                review: ['rgb(201, 157, 8)', 'rgb(255, 255, 255)'],
             },
         ],
     ] as const)(

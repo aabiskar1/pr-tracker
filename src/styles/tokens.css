@@ -66,9 +66,10 @@
     --popup-repo-foreground: #374151;
     --popup-draft: #d1d5db;
     --popup-draft-foreground: #374151;
-    --popup-status-passing: #28a745;
+    --popup-status-passing: #238636;
     --popup-status-failing: #cb2431;
-    --popup-status-pending: #dbab09;
+    --popup-status-pending: #c99d08;
+    --popup-status-pending-foreground: #ffffff;
     --popup-status-foreground: #ffffff;
     --popup-card-status-passing: #238636;
     --popup-card-status-failing: #c13c47;
@@ -141,10 +142,10 @@
     --popup-repo-foreground: #d1d5db;
     --popup-draft: #374151;
     --popup-draft-foreground: #d1d5db;
-    --popup-status-passing: #28a745;
+    --popup-status-passing: #238636;
     --popup-status-failing: #cb2431;
-    --popup-status-pending: #dbab09;
-    --popup-status-foreground: #e6edf3;
+    --popup-status-pending: #c99d08;
+    --popup-status-foreground: #ffffff;
     --popup-notification-enabled: #22c55e;
     --popup-error-background: #7f1d1d;
     --popup-error-foreground: #e6edf3;
