@@ -30,10 +30,12 @@ export type PullRequest = {
     html_url: string;
     repository: {
         name: string;
+        full_name?: string;
     };
     state: string;
     draft: boolean;
     created_at: string;
+    updated_at?: string;
     requested_reviewers: { login: string; avatar_url: string }[];
     review_status?: 'approved' | 'changes-requested' | 'pending';
     ci_status?: CIStatus;
@@ -52,6 +54,7 @@ export type PullRequest = {
 };
 
 export type AppPreferences = {
+    grouping?: GroupingPreferences;
     notificationsEnabled?: boolean;
     customQuery?: string;
     filters?: FilterState;
@@ -80,7 +83,21 @@ export type FilterState = {
 
 export type SortOption = 'newest' | 'oldest' | 'urgent' | 'most-stale';
 
+export type GroupingPreferences = {
+    mode: 'none' | 'repository';
+    collapsedRepositories: string[];
+};
+
+export type GroupingMutation =
+    | { kind: 'set-grouping-mode'; mode: GroupingPreferences['mode'] }
+    | {
+          kind: 'set-repositories-collapsed';
+          repositories: string[];
+          collapsed: boolean;
+      };
+
 export type AppDataMutation =
+    | GroupingMutation
     | { kind: 'set-filters'; filters: FilterState }
     | { kind: 'set-sort'; sort: SortOption }
     | { kind: 'set-notifications-enabled'; enabled: boolean }

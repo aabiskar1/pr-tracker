@@ -83,6 +83,133 @@ describe('background-owned encrypted app-data mutations', () => {
         });
     });
 
+    it('queues independent grouping actions against the latest state and skips no-op encrypted writes', async () => {
+        await Promise.all([
+            applyAppDataMutation(PASSWORD, {
+                kind: 'set-grouping-mode',
+                mode: 'repository',
+            }),
+            applyAppDataMutation(PASSWORD, {
+                kind: 'set-repositories-collapsed',
+                repositories: ['Acme/API'],
+                collapsed: true,
+            }),
+            applyAppDataMutation(PASSWORD, {
+                kind: 'set-repositories-collapsed',
+                repositories: ['other/api'],
+                collapsed: true,
+            }),
+            applyAppDataMutation(PASSWORD, {
+                kind: 'set-filters',
+                filters: FILTERS,
+            }),
+        ]);
+        expect(storedData.preferences?.grouping).toEqual({
+            mode: 'repository',
+            collapsedRepositories: ['acme/api', 'other/api'],
+        });
+        expect(storedData.preferences?.sort).toBe('newest');
+        expect(storedData.pullRequests).toEqual(initialData().pullRequests);
+        const writes = vi.mocked(encryptAppData).mock.calls.length;
+        await applyAppDataMutation(PASSWORD, {
+            kind: 'set-grouping-mode',
+            mode: 'repository',
+        });
+        await applyAppDataMutation(PASSWORD, {
+            kind: 'set-repositories-collapsed',
+            repositories: ['acme/api'],
+            collapsed: true,
+        });
+        expect(encryptAppData).toHaveBeenCalledTimes(writes);
+        await applyAppDataMutation(PASSWORD, {
+            kind: 'set-repositories-collapsed',
+            repositories: ['other/api'],
+            collapsed: false,
+        });
+        await applyAppDataMutation(PASSWORD, {
+            kind: 'set-grouping-mode',
+            mode: 'none',
+        });
+        expect(storedData.preferences?.grouping).toEqual({
+            mode: 'none',
+            collapsedRepositories: ['acme/api'],
+        });
+    });
+
+    it('validates grouping mutations and preserves absent repository choices during bulk updates', async () => {
+        expect(
+            parseAppDataMutation({ kind: 'set-grouping-mode', mode: 'bad' })
+        ).toBeNull();
+        expect(
+            parseAppDataMutation({
+                kind: 'set-repositories-collapsed',
+                repositories: ['bad'],
+                collapsed: true,
+            })
+        ).toBeNull();
+        expect(
+            parseAppDataMutation({
+                kind: 'set-repositories-collapsed',
+                repositories: ['acme/api'],
+                collapsed: 'yes',
+            })
+        ).toBeNull();
+        expect(
+            parseAppDataMutation({
+                kind: 'set-repositories-collapsed',
+                repositories: Array(3001).fill('acme/api'),
+                collapsed: true,
+            })
+        ).toBeNull();
+        expect(
+            parseAppDataMutation({
+                kind: 'set-repositories-collapsed',
+                repositories: ['Acme/API'],
+                collapsed: true,
+            })
+        ).toEqual({
+            kind: 'set-repositories-collapsed',
+            repositories: ['acme/api'],
+            collapsed: true,
+        });
+        storedData.preferences!.grouping = {
+            mode: 'repository',
+            collapsedRepositories: ['absent/repo', 'acme/api'],
+        };
+        await applyAppDataMutation(PASSWORD, {
+            kind: 'set-repositories-collapsed',
+            repositories: ['acme/api', 'other/api'],
+            collapsed: false,
+        });
+        expect(storedData.preferences?.grouping?.collapsedRepositories).toEqual(
+            ['absent/repo']
+        );
+    });
+
+    it('does not eagerly persist default grouping and recovers after storage rejects an action', async () => {
+        await applyAppDataMutation(PASSWORD, {
+            kind: 'set-grouping-mode',
+            mode: 'none',
+        });
+        expect(encryptAppData).not.toHaveBeenCalled();
+        vi.mocked(encryptAppData).mockRejectedValueOnce(new Error('quota'));
+        await expect(
+            applyAppDataMutation(PASSWORD, {
+                kind: 'set-repositories-collapsed',
+                repositories: ['acme/api'],
+                collapsed: true,
+            })
+        ).rejects.toThrow('quota');
+        await applyAppDataMutation(PASSWORD, {
+            kind: 'set-grouping-mode',
+            mode: 'repository',
+        });
+        expect(storedData.preferences?.grouping).toEqual({
+            mode: 'repository',
+            collapsedRepositories: [],
+        });
+    });
+
     it('migrates legacy filters in mutations and stored preferences without losing other state', async () => {
         const legacy = { ...FILTERS };
         Reflect.deleteProperty(legacy, 'showReviewed');

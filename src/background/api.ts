@@ -17,6 +17,10 @@ import {
 import { mapWithConcurrency } from '../utils/mapWithConcurrency';
 import type { DetailCache } from './detailCache';
 import {
+    activityTimestamp,
+    validatedRepositoryName,
+} from '../utils/prGrouping';
+import {
     assertRefreshSessionValid,
     type RefreshSessionContext,
 } from './refreshSession';
@@ -525,7 +529,15 @@ function mapPullRequestDetail(
         id,
         title: typeof value.title === 'string' ? value.title : 'Untitled PR',
         html_url: htmlUrl,
-        repository: { name: repositoryName },
+        repository: {
+            name: repositoryName,
+            ...(validatedRepositoryName(baseRepo?.full_name)
+                ? { full_name: validatedRepositoryName(baseRepo?.full_name) }
+                : {}),
+        },
+        ...(activityTimestamp(value.updated_at) !== undefined
+            ? { updated_at: value.updated_at as string }
+            : {}),
         state: typeof value.state === 'string' ? value.state : 'open',
         draft: typeof value.draft === 'boolean' ? value.draft : false,
         created_at:
@@ -930,11 +942,13 @@ export async function fetchPullRequests(
                     state: pullRequest.state,
                     draft: pullRequest.draft,
                     created_at: pullRequest.created_at,
+                    updated_at: pullRequest.updated_at,
                     requested_reviewers: pullRequest.requested_reviewers,
                     user: pullRequest.author,
                     base: {
                         repo: {
                             name: pullRequest.repository.name,
+                            full_name: pullRequest.repository.full_name,
                             url: ciContext?.repoUrl,
                         },
                     },

@@ -16,8 +16,8 @@ Order repositories by their newest matching PR's canonical `updated_at`, provide
 PR #111 preserves that field through mapping and the conditional-detail cache.
 The existing requests already return it, but today's persisted data does not.
 Use alphabetical full repository identity when activity information is incomplete.
-Do not label creation time as activity. Defer attention badges unless the narrow
-“Review requested” definition below is agreed.
+Do not label creation time as activity. The final decision for PR #111 is total
+PR counts only, with no attention badges or attention-classification logic.
 
 ## Current UI and behaviour
 
@@ -256,6 +256,11 @@ neither timestamps nor SHA establish freshness for those endpoints. Keep require
 detail failure handling, cooldowns, cancellation and last-known-good snapshots.
 
 ## Attention indicators
+
+**Final decision for PR #111:** show total PR counts only. Do not implement Needs
+attention, Review requested, any other attention badges, classification helpers,
+placeholders or supporting API requests. The following analysis records the
+investigation and is not part of the implementation scope.
 
 Do not ship a generic “Needs attention” total. Authorship, failing CI, old age,
 pending aggregate reviews and changes requested are different signals; the current
@@ -578,9 +583,8 @@ that a popup reload proves browser-restart behaviour.
       retains it encrypted and no stale submitted write resurrects it after reset.
 - [ ] Preference validation, size limits, concurrent writes and failed-save UI are
       tested without disturbing other preferences or current/comparison snapshots.
-- [ ] Total counts ship independently of attention semantics. No generic attention
-      count; any Review requested badge follows the agreed table, handles unknown
-      sources and has deterministic tests.
+- [ ] Only total PR counts ship. No attention badges, classification logic,
+      placeholders or supporting API requests are implemented.
 - [ ] Keyboard, focus, labels/counts and collapsed-panel accessibility are checked;
       native toolbar popup layout fits in light/dark themes in Chrome and Firefox.
 - [ ] The complete large-list matrix is exercised, with measurements for the two
@@ -596,7 +600,7 @@ agreement; each has a recommended default so #111 can proceed with a clear scope
 | Decision                                                                                 | Recommended default                                                                                            |
 | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
 | Does “recent activity” mean canonical PR updated time rather than every review/CI event? | Yes. Preserve `updated_at`, order matching PRs only, and use whole-set alphabetical fallback when incomplete   |
-| Ship Review requested badges in #111 or total PR counts only?                            | Total counts first unless the exact eligibility/unknown/draft rules above are accepted                         |
+| Ship Review requested badges in #111 or total PR counts only?                            | Resolved for #111: total PR counts only; attention badges are excluded                                         |
 | Can users collapse search results or persist bulk changes while searching?               | No; force matches open temporarily and explain unavailable collapse controls                                   |
 | Does Expand/Collapse all affect repositories absent from current results?                | No; operate on matching repositories only                                                                      |
 | Should local search include owner/full identity?                                         | Keep existing title/name matching in #111; owner matching is a small separately approved behaviour change      |

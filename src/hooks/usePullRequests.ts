@@ -7,10 +7,17 @@ import type {
     PullRequest,
     AppData,
     AppDataMutation,
+    GroupingPreferences,
+    GroupingMutation,
 } from '../types';
 import { decryptAppData, decryptHiddenPrIds } from '../services/secureStorage';
 import type { AuthState } from './useAuth';
 import { isReviewedOnly } from '../utils/discoverySources';
+import {
+    applyGroupingMutation,
+    normalizeGroupingPreferences,
+    sameGroupingPreferences,
+} from '../utils/groupingPreferences';
 
 const DEFAULT_FILTERS: FilterState = {
     showDrafts: true,
@@ -44,6 +51,16 @@ export function usePullRequests(password: string, authState: AuthState) {
     const [lastSuccessfulRefreshAt, setLastSuccessfulRefreshAt] = useState<
         string | undefined
     >(undefined);
+    const [groupingPreferences, setGroupingPreferences] =
+        useState<GroupingPreferences>(normalizeGroupingPreferences(undefined));
+    const groupingRef = useRef(groupingPreferences);
+    // Saved state plus ordered explicit operations drives the optimistic view.
+    // Search expansion never enters this queue or changes encrypted preferences.
+    const savedGroupingRef = useRef(groupingPreferences);
+    const pendingGroupingRef = useRef<GroupingMutation[]>([]);
+    const groupingQueueRef = useRef<Promise<void>>(Promise.resolve());
+    const groupingRevisionRef = useRef(0);
+    const groupingSessionRef = useRef({ password, authState });
 
     const requestPullRequestReloadRef = useRef<(() => Promise<void>) | null>(
         null
@@ -67,7 +84,21 @@ export function usePullRequests(password: string, authState: AuthState) {
         console.log('Loading pull requests from storage...');
         try {
             if (password && authState === 'authenticated') {
+                const groupingRevision = groupingRevisionRef.current;
                 const appData = await decryptAppData<AppData>(password);
+                if (
+                    groupingRevision === groupingRevisionRef.current &&
+                    pendingGroupingRef.current.length === 0 &&
+                    groupingSessionRef.current.password === password &&
+                    groupingSessionRef.current.authState === authState
+                ) {
+                    const grouping = normalizeGroupingPreferences(
+                        appData?.preferences?.grouping
+                    );
+                    savedGroupingRef.current = grouping;
+                    groupingRef.current = grouping;
+                    setGroupingPreferences(grouping);
+                }
                 setLastSuccessfulRefreshAt(appData?.lastSuccessfulRefreshAt);
                 if (appData && appData.pullRequests) {
                     console.log('Loaded pull requests from encrypted storage');
@@ -275,6 +306,89 @@ export function usePullRequests(password: string, authState: AuthState) {
                 });
         }
     }, [authState, password]);
+
+    useEffect(() => {
+        if (
+            groupingSessionRef.current.password === password &&
+            groupingSessionRef.current.authState === authState
+        )
+            return;
+        groupingSessionRef.current = { password, authState };
+        groupingRevisionRef.current++;
+        pendingGroupingRef.current = [];
+        const defaults = normalizeGroupingPreferences(undefined);
+        savedGroupingRef.current = defaults;
+        groupingRef.current = defaults;
+        setGroupingPreferences(defaults);
+        if (authState === 'authenticated')
+            void requestPullRequestReloadRef.current?.();
+    }, [password, authState]);
+
+    const persistGroupingMutation = (mutation: GroupingMutation) => {
+        if (!password || authState !== 'authenticated') return;
+        const next = applyGroupingMutation(groupingRef.current, mutation);
+        if (sameGroupingPreferences(groupingRef.current, next)) return;
+        const session = groupingSessionRef.current;
+        groupingRevisionRef.current++;
+        pendingGroupingRef.current.push(mutation);
+        groupingRef.current = next;
+        setGroupingPreferences(next);
+        // The background is the durable writer; this queue also preserves click
+        // order and prevents earlier storage reloads from undoing pending actions.
+        const operation = groupingQueueRef.current.then(async () => {
+            if (session !== groupingSessionRef.current) return;
+            try {
+                await persistAppDataMutation(mutation);
+                if (session !== groupingSessionRef.current) return;
+                savedGroupingRef.current = applyGroupingMutation(
+                    savedGroupingRef.current,
+                    mutation
+                );
+            } catch (error) {
+                if (session !== groupingSessionRef.current) return;
+                console.error('Failed to save grouping preferences:', error);
+                setGlobalError(
+                    'Unable to save grouping preferences. Please try again.'
+                );
+            } finally {
+                if (session === groupingSessionRef.current) {
+                    pendingGroupingRef.current.shift();
+                    const reconciled = pendingGroupingRef.current.reduce(
+                        applyGroupingMutation,
+                        savedGroupingRef.current
+                    );
+                    groupingRef.current = reconciled;
+                    setGroupingPreferences(reconciled);
+                    if (pendingGroupingRef.current.length === 0)
+                        void requestPullRequestReloadRef.current?.();
+                }
+            }
+        });
+        groupingQueueRef.current = operation;
+    };
+
+    const handleGroupingModeChange = (mode: GroupingPreferences['mode']) =>
+        persistGroupingMutation({ kind: 'set-grouping-mode', mode });
+    const handleRepositoryToggle = (repository: string) => {
+        if (searchTerm.length > 0) return;
+        persistGroupingMutation({
+            kind: 'set-repositories-collapsed',
+            repositories: [repository],
+            collapsed:
+                !groupingRef.current.collapsedRepositories.includes(repository),
+        });
+    };
+    const handleRepositoriesCollapsed = (
+        repositories: string[],
+        collapsed: boolean
+    ) => {
+        if (searchTerm.length > 0) return;
+        persistGroupingMutation({
+            kind: 'set-repositories-collapsed',
+            repositories,
+            collapsed,
+        });
+    };
 
     const applyFiltersAndSort = useCallback(
         (filters: FilterState, prs: PullRequest[], sort: SortOption) => {
@@ -505,6 +619,10 @@ export function usePullRequests(password: string, authState: AuthState) {
     };
 
     return {
+        groupingPreferences,
+        handleGroupingModeChange,
+        handleRepositoryToggle,
+        handleRepositoriesCollapsed,
         pullRequests,
         lastSuccessfulRefreshAt,
         filteredPRs,

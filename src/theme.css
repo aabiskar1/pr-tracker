@@ -55,10 +55,23 @@ a:hover {
     color: var(--popup-foreground);
 }
 
-.screen-prlist h2,
+.screen-prlist :is(h1, h2),
 .screen-prlist li h3,
 .screen-auth h2 {
     color: var(--popup-heading);
+}
+
+.screen-prlist .repository-group-toggle {
+    text-align: left !important;
+    /* Override the primitive's fixed control height when an identity wraps. */
+    height: auto;
+    background: var(--popup-secondary);
+    border: 1px solid var(--popup-border);
+}
+
+.screen-prlist .repository-group-toggle:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
 }
 
 .screen-auth p {

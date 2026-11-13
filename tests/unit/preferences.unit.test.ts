@@ -145,6 +145,113 @@ const encryptedAppDataChange = (version: number) => ({
 });
 
 describe('usePullRequests preference persistence', () => {
+    it('loads validated grouping without an eager preference write', async () => {
+        vi.mocked(decryptAppData).mockResolvedValue(
+            appData({
+                grouping: {
+                    mode: 'repository',
+                    collapsedRepositories: ['Acme/API'],
+                },
+            })
+        );
+        renderPreferences();
+        hookHarness.effects[3]();
+        await vi.waitFor(() =>
+            expect(hookHarness.setters[11]).toHaveBeenCalledWith({
+                mode: 'repository',
+                collapsedRepositories: ['acme/api'],
+            })
+        );
+        expect(browser.runtime.sendMessage).not.toHaveBeenCalled();
+    });
+
+    it('does not persist temporary search expansion or search-time collapse actions', async () => {
+        const preferences = renderPreferences({ 1: 'PR' });
+        preferences.handleRepositoryToggle('acme/api');
+        preferences.handleRepositoriesCollapsed(['acme/api'], true);
+        expect(browser.runtime.sendMessage).not.toHaveBeenCalled();
+        expect(preferences.groupingPreferences).toEqual({
+            mode: 'none',
+            collapsedRepositories: [],
+        });
+    });
+
+    it('keeps rapid mode, independent collapse and bulk actions in order', async () => {
+        const first = deferred<boolean>();
+        vi.mocked(browser.runtime.sendMessage).mockReturnValueOnce(
+            first.promise
+        );
+        const preferences = renderPreferences();
+        preferences.handleGroupingModeChange('repository');
+        preferences.handleRepositoryToggle('acme/api');
+        preferences.handleRepositoryToggle('other/api');
+        preferences.handleRepositoryToggle('acme/api');
+        preferences.handleRepositoriesCollapsed(['third/api'], true);
+        await vi.waitFor(() =>
+            expect(browser.runtime.sendMessage).toHaveBeenCalledTimes(1)
+        );
+        expect(hookHarness.setters[11]).toHaveBeenLastCalledWith({
+            mode: 'repository',
+            collapsedRepositories: ['other/api', 'third/api'],
+        });
+        first.resolve(true);
+        await vi.waitFor(() =>
+            expect(browser.runtime.sendMessage).toHaveBeenCalledTimes(5)
+        );
+        expect(
+            vi
+                .mocked(browser.runtime.sendMessage)
+                .mock.calls.map(([message]) => message.mutation)
+        ).toEqual([
+            { kind: 'set-grouping-mode', mode: 'repository' },
+            {
+                kind: 'set-repositories-collapsed',
+                repositories: ['acme/api'],
+                collapsed: true,
+            },
+            {
+                kind: 'set-repositories-collapsed',
+                repositories: ['other/api'],
+                collapsed: true,
+            },
+            {
+                kind: 'set-repositories-collapsed',
+                repositories: ['acme/api'],
+                collapsed: false,
+            },
+            {
+                kind: 'set-repositories-collapsed',
+                repositories: ['third/api'],
+                collapsed: true,
+            },
+        ]);
+    });
+
+    it.each([false, new Error('storage rejected')])(
+        'restores saved grouping and reports a failed save (%s)',
+        async (response) => {
+            if (response instanceof Error)
+                vi.mocked(browser.runtime.sendMessage).mockRejectedValueOnce(
+                    response
+                );
+            else
+                vi.mocked(browser.runtime.sendMessage).mockResolvedValueOnce(
+                    response
+                );
+            const preferences = renderPreferences();
+            preferences.handleGroupingModeChange('repository');
+            await vi.waitFor(() => {
+                expect(hookHarness.setters[9]).toHaveBeenCalledWith(
+                    'Unable to save grouping preferences. Please try again.'
+                );
+                expect(hookHarness.setters[11]).toHaveBeenLastCalledWith({
+                    mode: 'none',
+                    collapsedRepositories: [],
+                });
+            });
+        }
+    );
+
     it('loads the successful timestamp from a background encrypted storage change and clears it when absent', async () => {
         // State is appended to preserve the existing hook harness indices.
         const timestamp = '2030-06-07T08:09:10.000Z';

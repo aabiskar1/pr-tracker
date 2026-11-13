@@ -68,7 +68,8 @@ It also checks a two-page REST review history in the packaged Chrome extension,
 including the final card badge, encrypted snapshot, and exact request URLs.
 API semantics are mocked deterministically; GitHub's search-index freshness is
 not under extension control. Browser tests run the existing filter layout
-checks in both Chrome and Firefox CSS paths; Firefox runtime remains build-only.
+checks in both Chrome and Firefox CSS paths; separate focused Firefox runtime
+tests cover grouping, Advanced CI and detail caching.
 
 Behavioural fixtures contain no `Math.random()`, uncontrolled fixture time,
 live GitHub data, or arbitrary test delays. Screenshot demo fixtures remain
@@ -226,8 +227,8 @@ intent is covered by direct state and user-visible assertions above.
 ## Browser scope and remaining gaps
 
 - Required runtime E2E runs packaged Chrome MV3 locally and in GitHub Actions.
-- Firefox MV2 is still build-verified, but the current Puppeteer harness does
-  not provide Firefox extension runtime E2E.
+- Firefox MV2 is build-verified and has separate focused runtime tests for
+  grouping, Advanced CI and encrypted detail caching, outside required Chrome CI.
 - Popup close/reopen/reload and remembered-session restoration are covered.
 - Deliberately terminating/restarting the MV3 service worker is not covered;
   doing so reliably with the current harness would require fragile Chrome
@@ -349,3 +350,100 @@ viewport. It also checks checkbox interaction, Escape focus restoration and
 outside-click dismissal. Run it with the Firefox command in
 `docs/development.md`; it requires a visible Firefox session and is separate
 from the Chrome E2E suite.
+
+## Repository grouping coverage
+
+`pr-grouping.unit.test.tsx` covers canonical and legacy identity, malformed URLs,
+owner collisions, casing, timestamp validity, complete/incomplete ordering,
+deterministic ties, matching counts, input-order preservation and collapsed/search
+markup, View labels, exact native title tooltips and canonical/legacy repository
+descriptions without changing visible badge text. Unavailable identities do not
+gain invented tooltip identities. Grouping preference cases cover legacy defaults,
+invalid values, deduplication and bounded retention. Existing hook sort tests remain the source
+of truth for the four sort meanings; grouping retains their resulting order.
+
+`app-data-store.unit.test.ts` exercises validated mode/batch operations,
+independent queued changes, absent repository retention, no-op writes and storage
+failure/recovery. Hook tests cover saved preference hydration, ordered rapid
+actions, rejection rollback and search-time no-write behaviour. The existing
+session/reset tests continue to guard account cleanup and queued write draining.
+`detail-cache.unit.test.ts` verifies target rather than fork identity, valid
+activity fields on mapped 200 responses, encrypted reduced projections and 304
+revalidation, version-1 invalidation, no extra GET and continued review/CI calls.
+
+`tests/e2e/grouping.e2e.test.ts` exercises the production popup with deterministic
+GitHub fixtures and real encrypted storage:
+
+- All PRs defaults, independent collapse, counts, bulk actions, filter interaction,
+  hiding and focus recovery when the last PR in a group disappears;
+- mode switching, search revealing a saved collapsed repository without any
+  encrypted preference write, search-disabled controls and clear restoration;
+- popup close/reopen, sign-out/unlock, Full Reset and a complete Chrome browser
+  close/relaunch with the same isolated profile followed by password unlock;
+- mapped identity/activity in encrypted snapshots after 200 and 304 responses;
+- maximum-length repository/owner names in the real Chrome action panel in both
+  themes, wrapping, keyboard activation and visible focus, count/selector placement,
+  compact secondary bulk actions, header background/borders, exact native tooltips
+  and the focused card link's accessible repository description; and
+- 5/2, 40/8, 100/20, 200/30 and 100/1 PR/repository fixtures, retaining every card,
+  followed by bulk collapse, expansion and a search for one PR.
+
+The restart journey uses a task-owned temporary profile and mocked worker fetches,
+not real GitHub traffic. Its cleanup checks the resolved path before removing the
+profile. Existing journeys still cover None-mode filters, sorting, notification
+delivery, auth, hidden-state persistence and visual styles. Dashboard selectors
+now target h1; authentication/dialog headings remain h2. Existing CI filter tests
+wait for storage-driven UI reload before checking the reset indicator.
+
+Focused Firefox runtime coverage is separate from Chrome CI and more than a
+build check. `tests/firefox/grouping.firefox.test.ts` loads MV2, opens the actual
+toolbar panel, separates same-named repositories under different owners, checks
+both themes, long titles, maximum-length identity wrapping, toolbar geometry,
+native tooltips and accessible descriptions, saves collapse, reopens and verifies
+temporary search expansion and restoration. It uses the existing privileged frame-script pattern from the
+Advanced CI test and a local fixture bridge for background requests. The bridge
+page stays alive while panels close. Run all three focused Firefox regressions:
+
+```sh
+npm run build:firefox
+npx vitest run --config vitest.config.ts tests/firefox/grouping.firefox.test.ts tests/firefox/advanced-ci.firefox.test.ts tests/firefox/detail-cache.firefox.test.ts
+```
+
+They need installed Firefox and a visible desktop, with `FIREFOX_PATH` for a
+non-default executable. They do not require a token. Firefox grouping/reopen is
+runtime-tested; full browser restart is covered in Chrome, not Firefox.
+
+### Large-list measurements
+
+The grouping E2E matrix logs `GROUPING_MEASUREMENT` with browser version, headed
+versus headless mode, rendered element counts and automation wall times for mode
+selection, collapse, expansion and search. `browserFrameMs` measures the interval
+from a button click to the second animation frame, including React work and
+layout; it is not an isolated React CPU profile or a frame-rate guarantee.
+Wall times also include Puppeteer transport, selector polling, encryption/reloads
+and multiple typed search characters. Do not compare them directly with INP.
+
+Initial local headed Chrome 156.0.8078.47 measurements under Node 24.20.0:
+
+| PRs / repositories | Expanded elements | Collapsed elements | Collapse to second frame | Expand to second frame |
+| ------------------ | ----------------: | -----------------: | -----------------------: | ---------------------: |
+| 5 / 2              |               220 |                 16 |                   7.7 ms |                31.6 ms |
+| 40 / 8             |             1,690 |                 64 |                   8.7 ms |                90.4 ms |
+| 100 / 20           |             4,225 |                160 |                  18.4 ms |               252.5 ms |
+| 200 / 30           |             8,350 |                240 |                  26.4 ms |               352.1 ms |
+| 100 / 1            |             4,035 |                  8 |                  11.3 ms |               219.1 ms |
+
+These are single local samples with mixed detailed cards, long titles and
+reviewer avatars, not a before/after speedup or representative hardware survey.
+Concurrent full-suite runs vary. The largest case shows a noticeable bulk-expand
+cost; 100 PRs in one expanded group still requires long scrolling. All cards
+remain accessible. Collapse avoids mounting most DOM, but offers no rendering
+saving when everything is expanded. Virtualisation, compact cards, pagination and
+content-visibility were not introduced. Further optimisation should start with
+repeatable profiling of rerenders/layout on representative hardware, preserving
+variable-height cards and keyboard focus.
+
+Screen-reader usability and high-zoom behaviour still warrant manual review;
+native semantics, DOM assertions and focus tests do not establish a complete
+assistive-technology audit. Grouping screenshots are captured to the system temp
+directory, leaving the existing screenshot baselines unchanged.

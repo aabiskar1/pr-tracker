@@ -54,6 +54,10 @@ function App() {
         handleToggleNotifications,
         refreshPullRequests,
         toggleHidePR,
+        groupingPreferences,
+        handleGroupingModeChange,
+        handleRepositoryToggle,
+        handleRepositoriesCollapsed,
     } = usePullRequests(password, authState);
 
     const isLoading =
@@ -130,6 +134,10 @@ function App() {
 
     return (
         <Dashboard
+            groupingPreferences={groupingPreferences}
+            handleGroupingModeChange={handleGroupingModeChange}
+            handleRepositoryToggle={handleRepositoryToggle}
+            handleRepositoriesCollapsed={handleRepositoriesCollapsed}
             globalError={globalError}
             setGlobalError={setGlobalError}
             theme={theme}

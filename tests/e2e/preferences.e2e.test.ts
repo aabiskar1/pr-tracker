@@ -69,7 +69,7 @@ describe('preference persistence journeys', () => {
                     const layout = await page.evaluate(() => {
                         const header = document.querySelector('header')!;
                         const title = header
-                            .querySelector('h2')!
+                            .querySelector('h1')!
                             .getBoundingClientRect();
 
                         const checked = header.querySelector(
@@ -84,7 +84,7 @@ describe('preference persistence journeys', () => {
                             coffeeIcon.getBoundingClientRect();
                         const coffeeRect = coffee.getBoundingClientRect();
                         const coffeeStyle = getComputedStyle(coffee);
-                        const titleElement = header.querySelector('h2')!;
+                        const titleElement = header.querySelector('h1')!;
                         const logo = header.querySelector('img')!;
                         const logoRect = logo.getBoundingClientRect();
                         const actions = checked.parentElement!;
@@ -283,7 +283,7 @@ describe('preference persistence journeys', () => {
             await page.click('[aria-label="Settings"]');
             expect(await page.$('[role="dialog"]')).toBeNull();
             await page.click('[aria-label="Settings"]');
-            await page.click('header h2');
+            await page.click('header h1');
             expect(await page.$('[role="dialog"]')).toBeNull();
             expect(
                 await page.$('header [data-testid="last-checked"]')

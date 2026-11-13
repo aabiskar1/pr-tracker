@@ -324,6 +324,10 @@ describe('five CI states', () => {
                     (await readAppData(page)).preferences?.filters?.ciStatus
                 ).toEqual(states)
             );
+            // Encrypted storage commits before the popup's asynchronous reload.
+            await page.waitForSelector(
+                `${advancedButton}[data-filtered="false"]`
+            );
             expect(
                 await page.$eval(advancedButton, (el) =>
                     el.getAttribute('data-filtered')
