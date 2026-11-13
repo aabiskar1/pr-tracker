@@ -1,0 +1,74 @@
+// Resize genuine browser captures; no UI is recreated here.
+// Run from the repository root after the opt-in captures in docs/screenshots.md.
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import puppeteer from 'puppeteer';
+
+const scenes = [
+    ['01-all-prs-light.png', 'all-prs-light.png', 320],
+    ['02-repositories-dark.png', 'repositories-dark.png', 320],
+    ['03-search-light.png', 'search-light.png', 0],
+    ['04-advanced-dark.png', 'advanced-dark.png', 0],
+];
+const browser = await puppeteer.launch({ headless: true });
+try {
+    const page = await browser.newPage();
+    async function render(source, destination, width, height, crop) {
+        const image = `data:image/png;base64,${(await fs.readFile(source)).toString('base64')}`;
+        const data = await page.evaluate(
+            async ({ image, width, height, crop }) => {
+                const bitmap = new Image();
+                bitmap.src = image;
+                await bitmap.decode();
+                if (crop && (bitmap.width !== 1500 || bitmap.height !== 1280)) {
+                    throw new Error(
+                        `Expected a 1500 × 1280 source, got ${bitmap.width} × ${bitmap.height}`
+                    );
+                }
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const context = canvas.getContext('2d', { alpha: false });
+                context.imageSmoothingQuality = 'high';
+                context.drawImage(
+                    bitmap,
+                    ...(crop ?? [0, 0, bitmap.width, bitmap.height]),
+                    0,
+                    0,
+                    width,
+                    height
+                );
+                return canvas.toDataURL('image/png').split(',')[1];
+            },
+            { image, width, height, crop }
+        );
+        await fs.writeFile(destination, Buffer.from(data, 'base64'));
+    }
+    for (const target of ['chrome', 'firefox']) {
+        const directory = path.resolve(`docs/assets/stores/${target}`);
+        for (const [output, input, top] of scenes) {
+            await render(
+                path.join(directory, 'source', input),
+                path.join(directory, output),
+                1280,
+                800,
+                [0, top, 1500, 937.5]
+            );
+        }
+    }
+    // Reuse the existing watchtower branding without changing its source files.
+    await render(
+        'docs/assets/branding/watchtower-hero.png',
+        'docs/assets/stores/chrome/marquee-1400x560.png',
+        1400,
+        560
+    );
+    await render(
+        'public/icons/icon-128.png',
+        'docs/assets/stores/firefox/icon-64.png',
+        64,
+        64
+    );
+} finally {
+    await browser.close();
+}

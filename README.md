@@ -26,11 +26,17 @@ This README describes the current source; store releases may lag behind it.
 
 - **Track your work:** open PRs you authored, PRs requesting your review,
   and PRs you previously reviewed; or use a saved custom GitHub search query.
+- **Choose your view:** keep the default **All PRs** list, or choose **By repository**
+  for collapsible `owner/repo` groups. Expand or collapse individual repositories,
+  or use Expand all and Collapse all. Your view and collapse choices are remembered.
 - **Find what matters:** search titles and repository names; filter by age,
-  draft/ready state, review status, and CI status. Sort by newest, oldest,
+  draft/ready state, review status, and all five CI states, including **No CI**
+  and **Unknown** under **Advanced**. Sort by newest, oldest,
   reviewer count, or staleness. Hide PRs and show them again when needed.
 - **Stay informed:** reviewer avatars, draft/review/CI indicators, a toolbar
   count, and desktop notifications for newly discovered tracked PRs.
+- **See the detail:** matching PR and repository counts, plus full-text tooltips
+  on PR titles, repository badges and repository headings.
 - **Keep data fresh:** manual Refresh, five-minute background checks while an
   unlocked session is available, and a persisted **Checked …** indicator.
 - **Make it yours:** Auto / Light / Dark themes and notification preferences
@@ -40,19 +46,26 @@ This README describes the current source; store releases may lag behind it.
 
 ## Screenshots
 
-These captures use generic demonstration data from the current popup.
+These captures show the current extension with fictional demonstration data.
 
-**Light theme**
+**All PRs** keeps detailed cards together, with review status, CI, author,
+reviewers and age at a glance.
 
-![PR Tracker light dashboard with freshness, filters, search, and PR status cards](docs/assets/readme/dashboard-light.png)
+<img src="docs/assets/readme/dashboard-light.png" alt="All PRs in light theme, showing six matching PRs and detailed status cards" width="700" />
 
-**Dark theme**
+**By repository** makes longer lists easier to scan. Counts include matching
+PRs inside collapsed groups. New repositories start expanded; your choices
+survive closing the popup and restarting the browser, ready for the next unlock.
 
-![The same PR Tracker dashboard in dark theme](docs/assets/readme/dashboard-dark.png)
+<img src="docs/assets/readme/repositories-dark.png" alt="By repository in dark theme, showing six PRs across three repositories with two groups collapsed" width="700" />
 
-**Settings**
+Search temporarily opens repositories containing matches. Clearing it restores
+your collapse choices. Reset Filters leaves your view and collapse choices alone.
 
-![Dark dashboard with Settings open, showing Theme and Notifications controls](docs/assets/readme/settings-dark.png)
+See [search and filtering](docs/assets/readme/search-light.png),
+[Advanced CI filters](docs/assets/readme/advanced-light.png),
+[All PRs in dark theme](docs/assets/readme/dashboard-dark.png), and
+[Settings](docs/assets/readme/settings-dark.png).
 
 ## How it works
 
@@ -118,6 +131,7 @@ npm run dev
 - [Development guide](docs/development.md): setup, local loading, and Chrome/Firefox builds.
 - [Testing guide](docs/testing.md): deterministic unit/E2E workflows and browser coverage.
 - [Architecture guide](docs/architecture.md): popup, background checks, storage, and notifications.
+- [Screenshot guide](docs/screenshots.md): repeatable demonstration captures and draft store assets.
 
 ## Contributing
 
@@ -134,10 +148,14 @@ PR Tracker distinguishes `passing` (green), `failing` (red), `pending` (yellow),
 No CI means GitHub confirmed no checks or commit-status contexts. Unknown means
 CI could not be determined reliably; its tooltip explains this distinction.
 
-All five states can be filtered independently. Defaults and Reset Filters include
-all five. Saved encrypted preferences migrate automatically: existing unrestricted
-filters include the new states, restricted selections remain selected, and other
-preferences are preserved. Cached Pending results stay Pending until refreshed.
+Use the Passing, Failing and Pending filters directly, and open **Advanced** for
+No CI and Unknown. All five states can be filtered independently. Defaults and
+Reset Filters include all five; clearing every CI selection also includes all
+states. Cached Pending results stay Pending until refreshed.
+
+The Approved, Changes and Pending review filters describe a PR's aggregate
+review status. **Reviewed** separately controls whether PRs you previously
+reviewed are included, as explained above.
 
 ## License
 

@@ -159,7 +159,10 @@ launch Chrome. The CI-oriented headless command runs the same suite:
 npm run test:headless
 ```
 
-Optional promotional screenshot capture remains separate. It requires a
+README and store screenshots use credential-free deterministic fixtures. Follow
+the [screenshot guide](screenshots.md) for Chrome and Firefox captures and exports.
+
+The older optional promotional screenshot capture remains separate. It requires a
 `GITHUB_TOKEN` with `repo` scope in the ignored `.env.test` file and may make
 live GitHub requests:
 

@@ -234,7 +234,10 @@ intent is covered by direct state and user-visible assertions above.
   doing so reliably with the current harness would require fragile Chrome
   internals. Background restart/session restoration and persisted GitHub
   cooldown restoration remain protected at unit level.
-- Screenshot capture remains opt-in and live-token based. It is not run in CI.
+- Screenshot capture is opt-in and is not run in CI. The
+  [README/store workflow](screenshots.md) uses deterministic fixtures without
+  credentials in Chrome and Firefox. The older promotional script still uses a
+  live token.
 
 ## Regression workflow
 
