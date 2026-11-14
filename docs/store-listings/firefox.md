@@ -1,6 +1,6 @@
 # Firefox Add-ons listing draft
 
-Prepared 13 November 2026 for the next release. Keep the name **PR Tracker**,
+Updated 14 November 2026 for the next release. Keep the name **PR Tracker**,
 existing publisher details, support links and listing URL. No live fields have
 been changed.
 
@@ -39,7 +39,32 @@ and ends on browser restart.
 
 ## Assets and manual review
 
-Use these Firefox captures in order, with captions entered separately:
+### Shared promotional gallery
+
+The five approved promotional graphics illustrate features available in both
+browsers and can be reused for the English Firefox listing in this order. Use
+the canonical files under `docs/assets/stores/chrome/promotional/` directly;
+there is no duplicate Firefox copy. Each is a 1280 × 800 PNG, supplied unchanged.
+These are designed graphics, not raw Firefox runtime screenshots.
+
+| Order | Canonical file                                                                             | Suggested caption                                                   |
+| ----- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------- |
+| 1     | [01-all-prs.png](../assets/stores/chrome/promotional/01-all-prs.png)                       | Detailed pull request cards in one list                             |
+| 2     | [02-by-repository.png](../assets/stores/chrome/promotional/02-by-repository.png)           | Collapsible repositories with saved preferences and matching counts |
+| 3     | [03-review-and-ci.png](../assets/stores/chrome/promotional/03-review-and-ci.png)           | Review decisions and CI states at a glance                          |
+| 4     | [04-search-and-filters.png](../assets/stores/chrome/promotional/04-search-and-filters.png) | Search, filter and choose your view                                 |
+| 5     | [05-secure-and-themes.png](../assets/stores/chrome/promotional/05-secure-and-themes.png)   | Encrypted local preferences and light/dark themes                   |
+
+Keep captions separate from the images. The graphics contain English text;
+[Mozilla recommends avoiding embedded text](https://extensionworkshop.com/documentation/develop/create-an-appealing-listing/)
+because the image set is shared across locales. Use the original Firefox
+captures below if localising the gallery. The Chrome marquee is a separate
+Chrome asset and is not part of this gallery.
+
+### Firefox browser captures
+
+The existing actual Firefox captures remain unchanged as a rendering reference
+and an alternative gallery. If selecting them, use this order with separate captions:
 
 | Screenshot                                                               | Caption                                          |
 | ------------------------------------------------------------------------ | ------------------------------------------------ |

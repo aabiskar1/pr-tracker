@@ -4,6 +4,19 @@ These are draft assets for the next release. Nothing has been uploaded to either
 store. The extension version remains unchanged at 1.0.23; the images show `main`
 after PR #113 (`c593660d78e2b8e3446244142ede9d71ac79d6a9`).
 
+## Asset inventory
+
+| Type                    | Repository location                                                                                     | Purpose                                                                    |
+| ----------------------- | ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Raw browser screenshots | [Chrome originals](assets/stores/chrome/source/) and [Firefox originals](assets/stores/firefox/source/) | Actual extension captures, with browser and viewport metadata              |
+| Promotional screenshots | [Five canonical PNGs](assets/stores/chrome/promotional/)                                                | Approved designed graphics illustrating real features; shared with Firefox |
+| Chrome marquee          | [Approved banner](assets/stores/chrome/marquee-1400x560.png)                                            | Separate 1400 × 560 Chrome promotional placement                           |
+
+The existing [README screenshots](assets/readme/), four Chrome store exports,
+four Firefox store exports, watchtower hero and logo remain available and
+unchanged. The promotional graphics are additions, not replacements for those
+browser captures.
+
 ## Capture the extension
 
 Use Node.js 24 and the normal [development prerequisites](development.md).
@@ -52,9 +65,11 @@ Uncropped captures for each browser live under `assets/stores/<browser>/source/`
 These are genuine rendered UI screenshots, not generated mockups. The export
 script only crops/resamples screenshots and reuses existing branding.
 
-## Store exports
+## Browser screenshot exports
 
-Each browser has its own four 1280 × 800 PNG exports. Upload in this order:
+Each browser has its own four 1280 × 800 PNG exports derived from its actual
+captures. They remain an alternative to the promotional gallery. If using the
+browser captures for a listing, use this order:
 
 | File                       | Scene               | Crop from 1500 × 1280 source         | Suggested caption                                |
 | -------------------------- | ------------------- | ------------------------------------ | ------------------------------------------------ |
@@ -67,8 +82,9 @@ The first two focus on results; the others retain the header and filters. Crops
 are scaled uniformly, edge to edge, without frames, added captions or padding.
 They are feature close-ups, not a claim that a toolbar popup is 1280 × 800.
 
-- [Chrome assets](assets/stores/chrome/) include an optional 1400 × 560 marquee,
-  resized from the unchanged watchtower hero. Use the existing
+- [Chrome assets](assets/stores/chrome/) include the approved 1400 × 560
+  [marquee](assets/stores/chrome/marquee-1400x560.png), copied unchanged from the
+  supplied promotional banner. Use the existing
   [128 px package icon](../public/icons/icon-128.png). No new small promotional tile is
   proposed; it is optional.
 - [Firefox assets](assets/stores/firefox/) include a 64 × 64 icon resized from
@@ -76,11 +92,79 @@ They are feature close-ups, not a claim that a toolbar popup is 1280 × 800.
 - The original hero, watchtower logo, popup branding and package icons remain
   unchanged. The marquee is promotional artwork, separate from UI screenshots.
 
-Captures were made on Windows 11 (10.0.26300) with Node.js 24.20.0,
+Popup captures were made on Windows 11 (10.0.26300) with Node.js 24.20.0,
 Chrome 156.0.8078.47 and Firefox 160.0. Each browser's source directory contains
 `capture.json` recording these details and the viewport. Versions are recorded when regenerating;
 font rasterisation can differ across platforms. Fixed data and clock make the
 scenes repeatable; PNG byte equality across browser versions is not promised.
+
+## Approved promotional screenshots
+
+All five supplied files are valid 1280 × 800 PNGs. They were copied unchanged
+on 14 November 2026, with source and destination SHA-256 hashes verified. These
+are designed graphics with explanatory copy, decorative framing and illustrated
+extension views, rather than raw browser captures or pixel references for tests.
+Their visible names are fictional demo identities and their subjects reflect
+existing features. Keep the supplied artwork unchanged.
+
+Use this recommended order for the Chrome gallery and, when using the same
+promotional set on the English Firefox listing, reuse these canonical files:
+
+| Order | Canonical repository file                                                               | Subject                                           |
+| ----- | --------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| 1     | [01-all-prs.png](assets/stores/chrome/promotional/01-all-prs.png)                       | All PRs and detailed cards                        |
+| 2     | [02-by-repository.png](assets/stores/chrome/promotional/02-by-repository.png)           | Collapsible groups, saved preferences and counts  |
+| 3     | [03-review-and-ci.png](assets/stores/chrome/promotional/03-review-and-ci.png)           | Review decisions and CI states                    |
+| 4     | [04-search-and-filters.png](assets/stores/chrome/promotional/04-search-and-filters.png) | Search, filters and view selection                |
+| 5     | [05-secure-and-themes.png](assets/stores/chrome/promotional/05-secure-and-themes.png)   | Encrypted local preferences and light/dark themes |
+
+The directory name is the canonical storage location, not a Chrome-only feature
+restriction. The designs contain no browser-specific chrome or capabilities;
+Firefox can reuse them without duplicate binaries. Do not describe them as
+Firefox runtime captures. Keep the original Firefox captures as an alternative
+and a reference for the actual rendering.
+
+The five promotional images fill Chrome's five screenshot slots; do not append
+the four browser exports to that set. The marquee has its own placement.
+For Firefox, keep captions separate. Mozilla recommends avoiding embedded text
+because one image set serves all locales; these approved graphics contain English
+copy, so use the original Firefox captures if localising the gallery. See
+[Mozilla's listing guide](https://extensionworkshop.com/documentation/develop/create-an-appealing-listing/).
+
+The screenshot workflow continues to generate browser captures, exports and
+the Firefox icon. It does not write into
+`docs/assets/stores/chrome/promotional/` or generate the approved marquee.
+No capture fixture, test or generation tool changes are needed to keep this
+promotional set in the repository.
+
+## Approved Chrome marquee
+
+The supplied `PR Tracker_ Streamline Your Workflow.png` replaces the earlier
+marquee resized from the hero. It was copied byte for byte on 14 November 2026,
+without resizing, regeneration or other edits. Its PNG signature, chunk
+checksums and compressed image data are valid; its dimensions are exactly
+1400 × 560 pixels. The supplied file and repository copy have this SHA-256:
+
+```text
+5b33cddbab4d9d23e0f07d8002e920c3d4fe5bc8451f28f16237984dca463d5b
+```
+
+The artwork combines watchtower branding with dark All PRs and light
+By repository examples. Visible repository names and users match the fictional
+`demo-workspace` fixtures. No private repository names, personal data, tokens or
+invented feature controls were found in the visible artwork. Its decorative
+framing is promotional artwork, rather than additional extension UI.
+
+The line “Your data stays on your device” is broader than the implementation's
+local-storage guarantee: authenticated requests go directly to GitHub, and
+avatars may load remotely. The detailed listing copy and
+[privacy policy](https://aabiskar1.github.io/pr-tracker/privacy.html) retain those
+qualifications. The approved banner itself is unchanged.
+
+The capture tests and `scripts/render-store-assets.mjs` do not generate or write
+the marquee. Keep it as a static approved asset; regenerating screenshots must
+leave its SHA-256 unchanged. It is Chrome-only and is not included in Firefox's
+screenshot gallery.
 
 ## Listing review and submission requirements
 
@@ -109,8 +193,10 @@ features before the corresponding release is available.
 
 ## Review before uploading
 
-1. Regenerate both browsers and inspect all four exports at full size and at
-   640 × 400. Confirm text, counts, collapse indicators and open Advanced menu.
+1. Inspect the five promotional images in order at full size and at 640 × 400.
+   When using browser captures instead, regenerate both browsers and inspect
+   their four exports, including counts, collapse indicators and Advanced.
+   Regeneration must leave the approved promotional files and marquee unchanged.
 2. Check image dimensions, relative README links and unchanged branding. Run
    changed-file Prettier and `git diff --check`.
 3. Review the proposed copy against the release, existing permissions and privacy
