@@ -67,8 +67,9 @@ The first two focus on results; the others retain the header and filters. Crops
 are scaled uniformly, edge to edge, without frames, added captions or padding.
 They are feature close-ups, not a claim that a toolbar popup is 1280 × 800.
 
-- [Chrome assets](assets/stores/chrome/) include an optional 1400 × 560 marquee,
-  resized from the unchanged watchtower hero. Use the existing
+- [Chrome assets](assets/stores/chrome/) include the approved 1400 × 560
+  [marquee](assets/stores/chrome/marquee-1400x560.png), copied unchanged from the
+  supplied promotional banner. Use the existing
   [128 px package icon](../public/icons/icon-128.png). No new small promotional tile is
   proposed; it is optional.
 - [Firefox assets](assets/stores/firefox/) include a 64 × 64 icon resized from
@@ -76,11 +77,40 @@ They are feature close-ups, not a claim that a toolbar popup is 1280 × 800.
 - The original hero, watchtower logo, popup branding and package icons remain
   unchanged. The marquee is promotional artwork, separate from UI screenshots.
 
-Captures were made on Windows 11 (10.0.26300) with Node.js 24.20.0,
+Popup captures were made on Windows 11 (10.0.26300) with Node.js 24.20.0,
 Chrome 156.0.8078.47 and Firefox 160.0. Each browser's source directory contains
 `capture.json` recording these details and the viewport. Versions are recorded when regenerating;
 font rasterisation can differ across platforms. Fixed data and clock make the
 scenes repeatable; PNG byte equality across browser versions is not promised.
+
+### Approved Chrome marquee
+
+The supplied `PR Tracker_ Streamline Your Workflow.png` replaces the earlier
+marquee resized from the hero. It was copied byte for byte on 14 November 2026,
+without resizing, regeneration or other edits. Its PNG signature, chunk
+checksums and compressed image data are valid; its dimensions are exactly
+1400 × 560 pixels. The supplied file and repository copy have this SHA-256:
+
+```text
+5b33cddbab4d9d23e0f07d8002e920c3d4fe5bc8451f28f16237984dca463d5b
+```
+
+The artwork combines watchtower branding with dark All PRs and light
+By repository examples. Visible repository names and users match the fictional
+`demo-workspace` fixtures. No private repository names, personal data, tokens or
+invented feature controls were found in the visible artwork. Its decorative
+framing is promotional artwork, rather than additional extension UI.
+
+The line “Your data stays on your device” is broader than the implementation's
+local-storage guarantee: authenticated requests go directly to GitHub, and
+avatars may load remotely. The detailed listing copy and
+[privacy policy](https://aabiskar1.github.io/pr-tracker/privacy.html) retain those
+qualifications. The approved banner itself is unchanged.
+
+The capture tests and `scripts/render-store-assets.mjs` do not generate or write
+the marquee. Keep it as a static approved asset; regenerating screenshots must
+leave its SHA-256 unchanged. It is Chrome-only and is not included in Firefox's
+screenshot gallery.
 
 ## Listing review and submission requirements
 

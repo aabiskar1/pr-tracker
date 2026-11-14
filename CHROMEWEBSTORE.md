@@ -1,6 +1,6 @@
 # Chrome Web Store listing draft
 
-Prepared 13 November 2026 for the next release. This is proposed copy and asset
+Updated 14 November 2026 for the next release. This is proposed copy and asset
 selection, not a live listing change or release checklist.
 
 Name: **PR Tracker**. Keep the current publisher, support links, language and
@@ -52,8 +52,10 @@ session lasts up to 12 hours and ends on browser restart.
   1280 × 800 PNG; use all four.
 - Store icon: existing [128 px package icon](public/icons/icon-128.png).
 - Optional marquee: [1400 × 560 PNG](docs/assets/stores/chrome/marquee-1400x560.png),
-  derived from the existing hero. A small promotional tile is optional and is
-  not included in this refresh.
+  the approved supplied “PR Tracker\_ Streamline Your Workflow.png”, copied
+  unchanged. The screenshot workflow leaves this static artwork untouched.
+  It is for Chrome promotion, separate from either browser's screenshot gallery.
+  A small promotional tile is optional and is not included in this refresh.
 - Homepage/support: [repository](https://github.com/aabiskar1/pr-tracker) and
   [issues](https://github.com/aabiskar1/pr-tracker/issues).
 - Privacy policy: [existing published policy](https://aabiskar1.github.io/pr-tracker/privacy.html).
@@ -73,4 +75,5 @@ and [listing fields](https://developer.chrome.com/docs/webstore/cws-dashboard-li
 before uploading. Keep the existing installation URL. This PR changes no live
 listing, package version, release configuration or privacy policy.
 
-Capture instructions and crop details: [docs/screenshots.md](docs/screenshots.md).
+Capture instructions, crop details and the marquee's provenance, SHA-256 and
+storage wording caveat: [docs/screenshots.md](docs/screenshots.md).
