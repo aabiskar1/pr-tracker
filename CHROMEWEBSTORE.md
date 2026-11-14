@@ -47,9 +47,12 @@ session lasts up to 12 hours and ends on browser restart.
 
 ## Assets and listing fields
 
-- Screenshots: [Chrome exports](docs/assets/stores/chrome/), files
-  `01-all-prs-light.png` through `04-advanced-dark.png`, in that order. Each is
-  1280 × 800 PNG; use all four.
+- Recommended screenshot gallery: the five approved 1280 × 800 promotional
+  PNGs below, in order. These are designed graphics illustrating real features.
+- Existing browser screenshots: [Chrome exports](docs/assets/stores/chrome/),
+  `01-all-prs-light.png` through `04-advanced-dark.png`, and their
+  [raw captures](docs/assets/stores/chrome/source/) remain unchanged as an
+  alternative gallery and rendering reference. They are actual extension captures.
 - Store icon: existing [128 px package icon](public/icons/icon-128.png).
 - Optional marquee: [1400 × 560 PNG](docs/assets/stores/chrome/marquee-1400x560.png),
   the approved supplied “PR Tracker\_ Streamline Your Workflow.png”, copied
@@ -61,6 +64,20 @@ session lasts up to 12 hours and ends on browser restart.
 - Privacy policy: [existing published policy](https://aabiskar1.github.io/pr-tracker/privacy.html).
 - Distribution, publisher contact and existing privacy disclosures: retain the
   current dashboard settings; review their accuracy before submission.
+
+Recommended promotional order, using these exact repository files:
+
+1. [All PRs](docs/assets/stores/chrome/promotional/01-all-prs.png)
+2. [By repository](docs/assets/stores/chrome/promotional/02-by-repository.png)
+3. [Review and CI](docs/assets/stores/chrome/promotional/03-review-and-ci.png)
+4. [Search and filters](docs/assets/stores/chrome/promotional/04-search-and-filters.png)
+5. [Security and themes](docs/assets/stores/chrome/promotional/05-secure-and-themes.png)
+
+Use this five-image set within Chrome's five screenshot slots; do not append
+all four browser captures. The marquee is a separate promotional placement.
+The same five graphics can be reused on the English Firefox listing from these
+canonical paths, without copying the binaries. Screenshot generation leaves the
+approved promotional directory and marquee untouched.
 
 The single purpose remains tracking GitHub pull requests from the browser toolbar.
 Permissions are unchanged: storage holds encrypted account data and preferences;
